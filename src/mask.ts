@@ -19,6 +19,19 @@ export function emptyMask(width: number, height: number): Uint8Array {
   return new Uint8Array(width * height);
 }
 
+/** A mask that selects every pixel of a width×height document. */
+export function wholeCanvas(width: number, height: number): Mask {
+  return { width, height, data: new Uint8Array(width * height).fill(1) };
+}
+
+/**
+ * The mask to store for a finished selection. Selecting every pixel is stored as null (the whole canvas),
+ * so scripts skip the masked merge. An empty selection is kept: scripts then change nothing.
+ */
+export function storedMask(draft: Mask): Mask | null {
+  return draft.data.every((v) => v === 1) ? null : draft;
+}
+
 /** Set `value` (1 to add, 0 to remove) for pixels inside a disc of `radius` around `c`. */
 export function paintDisc(mask: Uint8Array, width: number, height: number, c: Pt, radius: number, value = 1): void {
   const r2 = radius * radius;

@@ -47,13 +47,18 @@ export class ScriptsPanel {
       r.checked = r.value === this.editor.maskOp;
     });
     const toggle = $<HTMLButtonElement>('mask-toggle');
-    // The icon shows the action: eye to show the mask, ban to hide it.
-    toggle.textContent = visible ? '🚫' : '👁';
+    // The icon shows the state: eye while the mask is shown, ban while it is hidden.
+    toggle.textContent = visible ? '👁' : '🚫';
     toggle.title = visible ? 'Hide the mask' : 'Show the mask in yellow';
     toggle.setAttribute('aria-pressed', String(visible));
     // The workspace is set after the panels are built, so it may not exist yet.
     const mask = this.active?.()?.activeMask();
-    $('mask-hint').textContent = mask ? 'Scripts change only the masked area.' : 'Scripts change the whole canvas.';
+    const hint = !mask
+      ? 'Scripts change the whole canvas.'
+      : mask.data.includes(1)
+        ? 'Scripts change only the masked area.'
+        : 'Scripts change nothing: the mask is empty.';
+    $('mask-hint').textContent = hint;
   }
 
   render(): void {

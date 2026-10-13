@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compositeMasked, emptyMask, paintDisc, paintStroke, type Pixels } from './mask';
+import { compositeMasked, emptyMask, paintDisc, paintStroke, storedMask, wholeCanvas, type Pixels } from './mask';
 
 const solid = (w: number, h: number, rgba: number[]): Pixels => ({
   width: w,
@@ -50,5 +50,28 @@ describe('compositeMasked', () => {
     const original = solid(2, 2, [5, 5, 5, 255]);
     const out = compositeMasked(original, solid(2, 2, [0, 0, 0, 0]), new Uint8Array(4));
     expect(Array.from(out.data)).toEqual(Array.from(original.data));
+  });
+});
+
+describe('whole canvas and stored masks', () => {
+  it('wholeCanvas selects every pixel', () => {
+    const m = wholeCanvas(3, 2);
+    expect(m.width).toBe(3);
+    expect(m.height).toBe(2);
+    expect(Array.from(m.data)).toEqual([1, 1, 1, 1, 1, 1]);
+  });
+
+  it('stores a fully selected mask as null, the whole canvas', () => {
+    expect(storedMask(wholeCanvas(2, 2))).toBeNull();
+  });
+
+  it('keeps a partial selection', () => {
+    const draft = { width: 2, height: 1, data: Uint8Array.from([1, 0]) };
+    expect(storedMask(draft)).toBe(draft);
+  });
+
+  it('keeps an empty selection, so scripts change nothing', () => {
+    const draft = { width: 2, height: 1, data: new Uint8Array(2) };
+    expect(storedMask(draft)).toBe(draft);
   });
 });
