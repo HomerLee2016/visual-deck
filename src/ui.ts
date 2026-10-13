@@ -1,6 +1,7 @@
 import './style.css';
 import { Editor, type TextRequest } from './editor';
 import { fileToCanvas, fileToProject, download, projectToBlob } from './io';
+import { resizeDocument } from './arrange';
 import { Workspace, imageItem, mapItems, newLayer, removeItems, uid } from './model';
 import { $ } from './panels/dom';
 import { PROJECT_EXT } from './project';
@@ -39,6 +40,7 @@ export class App {
     (f) => void this.openProject(f),
     () => this.saveProject(),
     (m) => this.editor.onStatus(m),
+    (w, h, ax, ay) => this.resizeDocument(w, h, ax, ay),
   );
   private tabs = new TabBar({
     workspaces: () => this.workspaces,
@@ -131,6 +133,14 @@ export class App {
     } catch (e) {
       this.editor.onStatus(`Could not open ${file.name}: ${e instanceof Error ? e.message : 'unknown error'}`);
     }
+  }
+
+  /** Change the document size as one history step, anchored as chosen, and fit the view to the new size. */
+  private resizeDocument(width: number, height: number, anchorX: 0 | 1 | 2, anchorY: 0 | 1 | 2): void {
+    const ws = this.active;
+    ws.edit('Document size', (s) => resizeDocument(s, width, height, anchorX, anchorY));
+    ws.view = { ...ws.view, fitted: false };
+    this.editor.fit();
   }
 
   /** A typed text block is added to the workspace it was started in; an empty edit removes the text. */

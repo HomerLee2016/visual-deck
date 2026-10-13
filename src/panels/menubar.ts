@@ -10,6 +10,7 @@ export class MenuBar {
     private openProject: (file: File) => void,
     private saveProject: () => void,
     private status: (msg: string) => void,
+    private resize: (width: number, height: number, anchorX: 0 | 1 | 2, anchorY: 0 | 1 | 2) => void = () => undefined,
   ) {
     const menu = document.querySelector<HTMLElement>('#menubar .menu')!;
     const items = menu.querySelector<HTMLElement>('.menu-items')!;
@@ -51,6 +52,21 @@ export class MenuBar {
       dlg.showModal();
     };
     $('export-cancel').onclick = () => dlg.close();
+    const sizeDlg = $<HTMLDialogElement>('size-dialog');
+    $('menu-size').onclick = () => {
+      closeMenu();
+      const ws = this.active();
+      $<HTMLInputElement>('size-w').value = String(ws.state.width);
+      $<HTMLInputElement>('size-h').value = String(ws.state.height);
+      sizeDlg.showModal();
+    };
+    $('size-cancel').onclick = () => sizeDlg.close();
+    $<HTMLFormElement>('size-form').onsubmit = () => {
+      const w = Math.min(8192, Math.max(1, Math.round(Number($<HTMLInputElement>('size-w').value)) || 1));
+      const h = Math.min(8192, Math.max(1, Math.round(Number($<HTMLInputElement>('size-h').value)) || 1));
+      const [ax, ay] = String(new FormData($<HTMLFormElement>('size-form')).get('anchor') ?? '1,1').split(',').map(Number);
+      this.resize(w, h, ax as 0 | 1 | 2, ay as 0 | 1 | 2);
+    };
     $<HTMLFormElement>('export-form').onsubmit = () => {
       const data = new FormData($<HTMLFormElement>('export-form'));
       const scale = Number(data.get('scale') ?? 1) || 1;

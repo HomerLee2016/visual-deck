@@ -33,6 +33,21 @@ export function cropToItems(s: DocState, ids: ReadonlySet<string>): DocState {
   };
 }
 
+/**
+ * Change the document's size. Items move with the content they anchor to: an
+ * anchor on the right keeps the right edge fixed, and so on.
+ */
+export function resizeDocument(s: DocState, width: number, height: number, anchorX: 0 | 1 | 2, anchorY: 0 | 1 | 2): DocState {
+  const dx = [0, (width - s.width) / 2, width - s.width][anchorX];
+  const dy = [0, (height - s.height) / 2, height - s.height][anchorY];
+  return {
+    ...s,
+    width,
+    height,
+    layers: s.layers.map((l) => ({ ...l, items: l.items.map((it) => translateItem(it, dx, dy)) })),
+  };
+}
+
 /** The smallest box that holds every rectangle. */
 export function unionBox(boxes: Rect[]): Rect {
   const x0 = Math.min(...boxes.map((b) => b.x));

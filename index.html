@@ -17,6 +17,8 @@
             <hr />
             <button id="menu-import">Import…</button>
             <button id="menu-export">Export…</button>
+            <hr />
+            <button id="menu-size">Document size…</button>
           </div>
         </div>
         <input id="file-input" type="file" accept="image/*,.svg" multiple hidden />
@@ -296,6 +298,27 @@
         <div class="row end">
           <button type="button" id="export-cancel">Cancel</button>
           <button type="submit">Export</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="size-dialog">
+      <form method="dialog" id="size-form">
+        <h3>Document size</h3>
+        <label class="field">Width <input id="size-w" type="number" min="1" max="8192" value="512" /></label>
+        <label class="field">Height <input id="size-h" type="number" min="1" max="8192" value="512" /></label>
+        <fieldset class="anchor">
+          <legend>Anchor</legend>
+          <div class="anchor-grid">
+            <label><input type="radio" name="anchor" value="0,0" /></label><label><input type="radio" name="anchor" value="1,0" /></label><label><input type="radio" name="anchor" value="2,0" /></label>
+            <label><input type="radio" name="anchor" value="0,1" /></label><label><input type="radio" name="anchor" value="1,1" checked /></label><label><input type="radio" name="anchor" value="2,1" /></label>
+            <label><input type="radio" name="anchor" value="0,2" /></label><label><input type="radio" name="anchor" value="1,2" /></label><label><input type="radio" name="anchor" value="2,2" /></label>
+          </div>
+          <span class="hint">Content stays at this point of the canvas when it grows or shrinks.</span>
+        </fieldset>
+        <div class="row end">
+          <button type="button" id="size-cancel">Cancel</button>
+          <button type="submit">Apply</button>
         </div>
       </form>
     </dialog>
