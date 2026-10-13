@@ -22,6 +22,18 @@ export interface ItemType<T extends Item = Item> {
   withStyle?(it: T, style: Style): T | null;
 }
 
+/** Settings a click-placed shape takes at creation time (from the toolbox). */
+export interface ShapeParams {
+  /** Rectangle corner radius. */
+  radius: number;
+  /** Polygon side count. */
+  sides: number;
+  /** Star inner radius as a fraction of the outer radius. */
+  inner: number;
+}
+
+export const DEFAULT_SHAPE_PARAMS: ShapeParams = { radius: 0, sides: 6, inner: 0.5 };
+
 /** Click-to-place parameters for a shape tool. */
 export interface ClickSpec {
   /** Name used in history steps, e.g. "Arc". */
@@ -31,7 +43,9 @@ export interface ClickSpec {
   /** Status-bar prompt for the next point, given how many are placed (at least 2). */
   hint(placed: number): string;
   /** Build from the points so far; may degrade to a simpler shape while points are missing. */
-  build(pts: Pt[], style: Style, id: string): ShapeItem | null;
+  build(pts: Pt[], style: Style, id: string, params: ShapeParams): ShapeItem | null;
+  /** While Shift is held, the second point is moved to `constrained(anchor, p)` (e.g. a square corner). */
+  constrain?(anchor: Pt, p: Pt): Pt;
 }
 
 /** A vector shape: a polyline outline plus a path that can be stroked. */

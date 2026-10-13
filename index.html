@@ -64,8 +64,16 @@
             <button data-tool="arc" title="Arc: start, end, then a point on the arc (A)">Arc<kbd>A</kbd></button>
             <button data-tool="curve" title="Curve: start, end, then two control points (C)">Curve<kbd>C</kbd></button>
             <button data-tool="brush" title="Brush: press and drag to draw freehand (B)">Brush<kbd>B</kbd></button>
+            <button data-tool="rect" title="Rectangle: drag or click two opposite corners (R)">Rect<kbd>R</kbd></button>
+            <button data-tool="ellipse" title="Ellipse: drag or click two opposite corners of its box (E)">Ellipse<kbd>E</kbd></button>
+            <button data-tool="polygon" title="Polygon: click the centre, then a vertex (G)">Polygon<kbd>G</kbd></button>
+            <button data-tool="star" title="Star: click the centre, then a point (S)">Star<kbd>S</kbd></button>
+            <button data-tool="text" title="Text: click, then type (T)">Text<kbd>T</kbd></button>
           </div>
           <div id="tool-help" class="hint"></div>
+          <label class="field">Corner radius <input id="shape-radius" type="number" min="0" max="512" value="0" /></label>
+          <label class="field">Sides / points <input id="shape-sides" type="number" min="3" max="64" value="6" /></label>
+          <label class="field">Star inner radius <input id="shape-inner" type="number" min="5" max="100" value="50" />%</label>
         </section>
         <section>
           <h2>Stroke</h2>
@@ -116,6 +124,69 @@
               <option value="dotted">Dotted</option>
             </select>
           </label>
+        </section>
+        <section>
+          <h2>Text</h2>
+          <label class="field">Font
+            <select id="text-font" aria-label="Font family">
+              <option value="sans-serif">Sans-serif</option>
+              <option value="serif">Serif</option>
+              <option value="monospace">Monospace</option>
+            </select>
+          </label>
+          <label class="field">Size <input id="text-size" type="number" min="1" max="512" value="24" /></label>
+          <label class="field">Weight
+            <select id="text-weight" aria-label="Font weight">
+              <option value="400">Normal</option>
+              <option value="700">Bold</option>
+            </select>
+          </label>
+          <label class="field">Align
+            <select id="text-align" aria-label="Text alignment">
+              <option value="left">Left</option>
+              <option value="center">Centre</option>
+              <option value="right">Right</option>
+            </select>
+          </label>
+        </section>
+        <section>
+          <h2>Geometry</h2>
+          <div class="geo-grid">
+            <label class="field">X <input id="geo-x" type="number" step="any" disabled /></label>
+            <label class="field">Y <input id="geo-y" type="number" step="any" disabled /></label>
+            <label class="field">W <input id="geo-w" type="number" step="any" min="0.1" disabled /></label>
+            <label class="field">H <input id="geo-h" type="number" step="any" min="0.1" disabled /></label>
+            <label class="field">Rotate° <input id="geo-rot" type="number" step="any" disabled /></label>
+          </div>
+        </section>
+        <section>
+          <h2>Arrange</h2>
+          <div id="arrange" class="arrange-grid">
+            <button data-align="left" title="Align left edges">Left</button>
+            <button data-align="hcenter" title="Align horizontal centres">Centre</button>
+            <button data-align="right" title="Align right edges">Right</button>
+            <button data-align="top" title="Align top edges">Top</button>
+            <button data-align="vcenter" title="Align vertical centres">Middle</button>
+            <button data-align="bottom" title="Align bottom edges">Bottom</button>
+            <button data-distribute="x" title="Space evenly horizontally (3+ items)">Space H</button>
+            <button data-distribute="y" title="Space evenly vertically (3+ items)">Space V</button>
+            <button data-flip="x" title="Flip horizontally">Flip H</button>
+            <button data-flip="y" title="Flip vertically">Flip V</button>
+            <button data-order="back" title="Send to back">To back</button>
+            <button data-order="backward" title="Send backward one step">Back 1</button>
+            <button data-order="forward" title="Bring forward one step">Front 1</button>
+            <button data-order="front" title="Bring to front">To front</button>
+            <button data-group="1" title="Group the selection (Ctrl+G)">Group</button>
+            <button data-ungroup="1" title="Ungroup the selected groups (Ctrl+Shift+G)">Ungroup</button>
+          </div>
+        </section>
+        <section>
+          <h2>Grid &amp; guides</h2>
+          <label class="check"><input id="grid-show" type="checkbox" /> Show grid</label>
+          <label class="check"><input id="grid-snap" type="checkbox" /> Snap moves to grid and guides</label>
+          <label class="field">Grid size <input id="grid-size" type="number" min="1" max="512" value="16" /></label>
+          <div class="row"><button id="guides-clear">Clear guides</button></div>
+          <p class="hint">Drag from the top or left ruler to make a guide.</p>
         </section>
         <section>
           <h2>Selection</h2>

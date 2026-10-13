@@ -1,4 +1,4 @@
-import { buildShape, POINTS_NEEDED, type ClickShapeKind } from './geometry';
+import { buildShape, clickSpec, type ClickShapeKind } from './geometry';
 import type { Workspace } from './model';
 import { DEFAULT_STYLE, imageItem, uid } from './model';
 import { renderToCanvas } from './render';
@@ -89,6 +89,8 @@ deck.getImageData(layerId?)        ImageData of a layer (default: active layer, 
 deck.getComposite()                ImageData of all visible layers
 deck.setImageData(layerId, img)    replace a layer's content with a bitmap
 deck.addLine(x1,y1,x2,y2, style?, layerId?)
+deck.addRect(x1,y1,x2,y2, style?, layerId?)           opposite corners
+deck.addEllipse(x1,y1,x2,y2, style?, layerId?)        ellipse inside the box
 deck.addArc(x1,y1,x2,y2, mx,my, style?, layerId?)        arc through (mx,my)
 deck.addCurve(x1,y1,x2,y2, c1x,c1y,c2x,c2y, style?, layerId?)
 deck.selection                     [{ id, kind }] of the current selection
@@ -111,6 +113,8 @@ export interface Deck {
   getComposite(): ImageData;
   setImageData(layerId: string, img: ImageData): void;
   addLine(x1: number, y1: number, x2: number, y2: number, style?: Partial<Style>, layerId?: string): void;
+  addRect(x1: number, y1: number, x2: number, y2: number, style?: Partial<Style>, layerId?: string): void;
+  addEllipse(x1: number, y1: number, x2: number, y2: number, style?: Partial<Style>, layerId?: string): void;
   addArc(x1: number, y1: number, x2: number, y2: number, mx: number, my: number, style?: Partial<Style>, layerId?: string): void;
   addCurve(
     x1: number, y1: number, x2: number, y2: number,
@@ -124,7 +128,8 @@ export interface Deck {
 export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
   const style = (s?: Partial<Style>): Style => ({ ...DEFAULT_STYLE, ...s });
   const shape = (kind: ClickShapeKind, pts: { x: number; y: number }[], s: Partial<Style> | undefined, layerId?: string) => {
-    if (pts.length !== POINTS_NEEDED[kind]) throw new Error(`${kind} needs ${POINTS_NEEDED[kind]} points`);
+    const needed = clickSpec(kind).needed;
+    if (pts.length !== needed) throw new Error(`${kind} needs ${needed} points`);
     const item = buildShape(kind, pts, style(s), uid('item'));
     if (item) ws.addItem(null, item, layerId ?? ws.activeLayerId);
   };
@@ -148,6 +153,8 @@ export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
       c.getContext('2d')!.putImageData(img, 0, 0);
       ws.replaceLayerItems(null, layerId, [imageItem(c)]);
     },
+    addRect: (x1, y1, x2, y2, s, layerId) => shape('rect', [{ x: x1, y: y1 }, { x: x2, y: y2 }], s, layerId),
+    addEllipse: (x1, y1, x2, y2, s, layerId) => shape('ellipse', [{ x: x1, y: y1 }, { x: x2, y: y2 }], s, layerId),
     addLine: (x1, y1, x2, y2, s, layerId) => shape('line', [{ x: x1, y: y1 }, { x: x2, y: y2 }], s, layerId),
     addArc: (x1, y1, x2, y2, mx, my, s, layerId) =>
       shape('arc', [{ x: x1, y: y1 }, { x: x2, y: y2 }, { x: mx, y: my }], s, layerId),

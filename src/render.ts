@@ -1,24 +1,17 @@
 import { buildShape, itemBounds } from './geometry';
-import { typeOf } from './items/registry';
+import { drawItem, typeOf } from './items/registry';
 import { apply } from './matrix';
 import type { ClickShapeKind, Rect } from './geometry';
+import type { ShapeParams } from './items/types';
+import type { Handle } from './handles';
+import type { ViewAids } from './model';
 import type { DocState, Item, Pt, Style } from './types';
 import type { Size, View } from './view';
+import type { Guides } from './snap';
 
 const BACKDROP = '#26262b';
 const DOC_BORDER = '#8a8a96';
 const ACCENT = '#4da3ff';
-
-export function drawItem(ctx: CanvasRenderingContext2D, it: Item): void {
-  if (!it.transform) {
-    typeOf(it).draw(ctx, it);
-    return;
-  }
-  ctx.save();
-  ctx.transform(...it.transform);
-  typeOf(it).draw(ctx, it);
-  ctx.restore();
-}
 
 /** Draw visible layers bottom to top. `only` renders a single layer regardless of its visibility. */
 export function drawState(ctx: CanvasRenderingContext2D, s: DocState, only?: string): void {
@@ -114,11 +107,22 @@ export interface Scene {
   stroke: Pt[] | null;
   /** Style of the shape being drawn. */
   style: Style;
+  /** Creation-time settings for the shape being drawn. */
+  params: ShapeParams;
   /** Selection box in document space, while dragging one. */
   marquee: Rect | null;
   /** Brush size preview: the stroke width as a circle around the pointer, in document space. */
   brushCursor: { at: Pt; width: number } | null;
+  /** Scale and rotate handles around the selection, or null when nothing is selected. */
+  handles: Handle[] | null;
+  aids: ViewAids;
+  /** A guide being dragged out of a ruler. */
+  guideDraft: { axis: 'x' | 'y'; pos: number } | null;
 }
+
+/** Ruler strip width in screen pixels. */
+export const RULER_PX = 16;
+const GUIDE = '#ff5fa2';
 
 const checkerPatterns = new WeakMap<CanvasRenderingContext2D, CanvasPattern>();
 
@@ -168,8 +172,10 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.strokeStyle = DOC_BORDER;
   ctx.strokeRect(0, 0, width, height);
 
+  if (scene.aids.showGrid) drawGrid(ctx, scene.aids.gridSize, width, height, zoom);
+  drawGuides(ctx, scene.aids.guides, scene.guideDraft, width, height, zoom);
   drawSelection(ctx, scene.selected, zoom, scene.selectedPoints);
-  if (scene.draft) drawDraft(ctx, scene.draft, scene.style, zoom);
+  if (scene.draft) drawDraft(ctx, scene.draft, scene.style, scene.params, zoom);
   if (scene.stroke) {
     ctx.globalAlpha = 0.8;
     drawItem(ctx, { kind: 'brush', id: 'preview', pts: scene.stroke, style: scene.style });
@@ -177,7 +183,125 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   }
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);
   if (scene.brushCursor) drawBrushCursor(ctx, scene.brushCursor, zoom);
+  if (scene.handles) drawHandles(ctx, scene.handles, zoom);
   ctx.restore();
+  drawRulers(ctx, scene.view, scene.size);
+}
+
+/** The smallest 1-2-5 step (in document units) whose ticks are at least 50 screen pixels apart. */
+export function rulerStep(zoom: number): number {
+  for (let mag = 1; mag <= 1e6; mag *= 10) {
+    for (const s of [1, 2, 5]) if (s * mag * zoom >= 50) return s * mag;
+  }
+  return 1e6;
+}
+
+/** Grid lines across the document, in document units. */
+function drawGrid(ctx: CanvasRenderingContext2D, size: number, width: number, height: number, zoom: number): void {
+  if (size * zoom < 4) return; // too dense to be useful
+  ctx.save();
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.beginPath();
+  for (let x = size; x < width; x += size) {
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+  }
+  for (let y = size; y < height; y += size) {
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Guides run across the whole canvas; `draft` is the guide being dragged out of a ruler. */
+function drawGuides(
+  ctx: CanvasRenderingContext2D,
+  guides: Guides,
+  draft: { axis: 'x' | 'y'; pos: number } | null,
+  width: number,
+  height: number,
+  zoom: number,
+): void {
+  const far = Math.max(width, height) * 4;
+  ctx.save();
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = GUIDE;
+  ctx.beginPath();
+  const lines = [...guides.x.map((pos) => ({ axis: 'x' as const, pos })), ...guides.y.map((pos) => ({ axis: 'y' as const, pos }))];
+  if (draft) lines.push(draft);
+  for (const { axis, pos } of lines) {
+    if (axis === 'x') {
+      ctx.moveTo(pos, -far);
+      ctx.lineTo(pos, far);
+    } else {
+      ctx.moveTo(-far, pos);
+      ctx.lineTo(far, pos);
+    }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Rulers along the top and left of the canvas, in screen space, with ticks every readable step. */
+function drawRulers(ctx: CanvasRenderingContext2D, view: View, size: Size): void {
+  const { zoom, panX, panY } = view;
+  const step = rulerStep(zoom);
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = 'rgba(30,30,36,0.92)';
+  ctx.fillRect(0, 0, size.w, RULER_PX);
+  ctx.fillRect(0, 0, RULER_PX, size.h);
+  ctx.strokeStyle = '#8a8a96';
+  ctx.fillStyle = '#c9c9d1';
+  ctx.font = '9px sans-serif';
+  ctx.textBaseline = 'top';
+  ctx.beginPath();
+  const x0 = Math.ceil((RULER_PX - panX) / zoom / step) * step;
+  for (let v = x0; panX + v * zoom < size.w; v += step) {
+    const sx = Math.round(panX + v * zoom) + 0.5;
+    ctx.moveTo(sx, RULER_PX - 6);
+    ctx.lineTo(sx, RULER_PX);
+    ctx.fillText(String(Math.round(v)), sx + 2, 2);
+  }
+  const y0 = Math.ceil((RULER_PX - panY) / zoom / step) * step;
+  for (let v = y0; panY + v * zoom < size.h; v += step) {
+    const sy = Math.round(panY + v * zoom) + 0.5;
+    ctx.moveTo(RULER_PX - 6, sy);
+    ctx.lineTo(RULER_PX, sy);
+    ctx.save();
+    ctx.translate(2, sy + 2);
+    ctx.fillText(String(Math.round(v)), 0, 0);
+    ctx.restore();
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Scale handles as small squares, the rotate handle as a knob on a stalk. */
+function drawHandles(ctx: CanvasRenderingContext2D, handles: Handle[], zoom: number): void {
+  const h = 3.5 / zoom;
+  const top = handles.find((x) => x.id === 'n')!;
+  const rot = handles.find((x) => x.id === 'rot')!;
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = ACCENT;
+  ctx.beginPath();
+  ctx.moveTo(top.x, top.y);
+  ctx.lineTo(rot.x, rot.y);
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  for (const p of handles) {
+    if (p.id === 'rot') {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, h * 1.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillRect(p.x - h, p.y - h, h * 2, h * 2);
+      ctx.strokeRect(p.x - h, p.y - h, h * 2, h * 2);
+    }
+  }
 }
 
 /** Brush outline: a dark ring under a white one, so it shows on both light and dark content. */
@@ -192,9 +316,9 @@ function drawBrushCursor(ctx: CanvasRenderingContext2D, c: { at: Pt; width: numb
   ctx.stroke();
 }
 
-function drawDraft(ctx: CanvasRenderingContext2D, draft: DraftPreview, style: Style, zoom: number): void {
+function drawDraft(ctx: CanvasRenderingContext2D, draft: DraftPreview, style: Style, params: ShapeParams, zoom: number): void {
   // The hovered position stands in for the next point to be placed.
-  const shape = buildShape(draft.kind, [...draft.pts, draft.hover], style, 'preview');
+  const shape = buildShape(draft.kind, [...draft.pts, draft.hover], style, 'preview', params);
   if (shape) {
     ctx.globalAlpha = 0.8;
     drawItem(ctx, shape);

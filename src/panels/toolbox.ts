@@ -2,6 +2,7 @@ import type { Editor, ToolId } from '../editor';
 import { parseColor, withAlpha } from '../color';
 import type { Style } from '../types';
 import { opacityOf } from '../items/shape';
+import type { TextStyle } from '../items/text';
 import { $, type ActiveWorkspace } from './dom';
 
 const TOOL_HELP: Record<ToolId, string> = {
@@ -10,6 +11,11 @@ const TOOL_HELP: Record<ToolId, string> = {
   arc: 'Drag start→end (or click twice), then click a point the arc passes through.',
   curve: 'Drag start→end (or click twice), then click two control points.',
   brush: 'Press and drag to paint a freehand stroke. Release to finish. A click leaves a dot.',
+  rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
+  ellipse: 'Drag or click two opposite corners of the bounding box. Shift for a circle.',
+  polygon: 'Click the centre, then a vertex. Sides set below. Shift snaps the angle.',
+  text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
+  star: 'Click the centre, then a point. Points and inner radius set below. Shift snaps the angle.',
 };
 
 /** Tool buttons, stroke style and the copy / paste / delete actions. */
@@ -98,6 +104,43 @@ export class ToolboxPanel {
       const w = editor.style.width;
       const dash = { solid: undefined, dashed: [4 * w, 2 * w], dotted: [w, 2 * w] }[dashSel.value as 'solid' | 'dashed' | 'dotted'];
       editor.setStyle({ dash }, true);
+    };
+    const radius = $<HTMLInputElement>('shape-radius');
+    radius.value = String(editor.params.radius);
+    radius.onchange = () => {
+      const r = Math.min(512, Math.max(0, Number(radius.value) || 0));
+      radius.value = String(r);
+      editor.setParams({ radius: r });
+    };
+    const sides = $<HTMLInputElement>('shape-sides');
+    const inner = $<HTMLInputElement>('shape-inner');
+    sides.value = String(editor.params.sides);
+    inner.value = String(Math.round(editor.params.inner * 100));
+    sides.onchange = () => {
+      const n = Math.min(64, Math.max(3, Math.round(Number(sides.value)) || 6));
+      sides.value = String(n);
+      editor.setParams({ sides: n });
+    };
+    inner.onchange = () => {
+      const pct = Math.min(100, Math.max(5, Math.round(Number(inner.value)) || 50));
+      inner.value = String(pct);
+      editor.setParams({ inner: pct / 100 });
+    };
+    const font = $<HTMLSelectElement>('text-font');
+    const size = $<HTMLInputElement>('text-size');
+    const weight = $<HTMLSelectElement>('text-weight');
+    const align = $<HTMLSelectElement>('text-align');
+    font.value = editor.textStyle.font;
+    size.value = String(editor.textStyle.size);
+    weight.value = String(editor.textStyle.weight);
+    align.value = editor.textStyle.align;
+    font.onchange = () => editor.setTextStyle({ font: font.value }, true);
+    weight.onchange = () => editor.setTextStyle({ weight: Number(weight.value) }, true);
+    align.onchange = () => editor.setTextStyle({ align: align.value as TextStyle['align'] }, true);
+    size.onchange = () => {
+      const n = Math.min(512, Math.max(1, Number(size.value) || 24));
+      size.value = String(n);
+      editor.setTextStyle({ size: n }, true);
     };
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();

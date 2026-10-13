@@ -78,8 +78,87 @@ export interface BrushItem {
   transform?: Matrix;
 }
 
-export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem;
-export type Item = ShapeItem | ImageItem;
+/** Axis-aligned rectangle; (x, y) is the top-left corner, `r` the corner radius. */
+export interface RectItem {
+  kind: 'rect';
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  r: number;
+  style: Style;
+  transform?: Matrix;
+}
+
+/** Ellipse centred on (cx, cy) with radii rx and ry. */
+export interface EllipseItem {
+  kind: 'ellipse';
+  id: string;
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  style: Style;
+  transform?: Matrix;
+}
+
+/** Regular polygon: `sides` vertices on a circle of radius `r`, the first at angle `rot` (radians). */
+export interface PolygonItem {
+  kind: 'polygon';
+  id: string;
+  cx: number;
+  cy: number;
+  r: number;
+  sides: number;
+  rot: number;
+  style: Style;
+  transform?: Matrix;
+}
+
+/** Star with `sides` points: outer vertices at `r`, inner vertices at `r * inner`. */
+export interface StarItem {
+  kind: 'star';
+  id: string;
+  cx: number;
+  cy: number;
+  r: number;
+  sides: number;
+  inner: number;
+  rot: number;
+  style: Style;
+  transform?: Matrix;
+}
+
+export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem | EllipseItem | PolygonItem | StarItem;
+/** Text block. (x, y) is the top-left of the first line; lines are separated by `\n`. */
+export interface TextItem {
+  kind: 'text';
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  /** CSS font family, e.g. `sans-serif`. */
+  font: string;
+  /** Font size in document units. */
+  size: number;
+  /** CSS font weight, 100 to 900. */
+  weight: number;
+  align: 'left' | 'center' | 'right';
+  /** Colour comes from `style.color`; stroke and fill settings do not apply to text. */
+  style: Style;
+  transform?: Matrix;
+}
+
+/** Items moved, transformed and selected together. Children keep their own transforms, inside the group's. */
+export interface GroupItem {
+  kind: 'group';
+  id: string;
+  items: Item[];
+  transform?: Matrix;
+}
+
+export type Item = ShapeItem | ImageItem | TextItem | GroupItem;
 export type ShapeKind = ShapeItem['kind'];
 
 export interface Layer {
