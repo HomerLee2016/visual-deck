@@ -23,7 +23,7 @@ import { drawScene } from './render';
 import type { DocState, Item, Pt, ShapeKind, Style, TextItem } from './types';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
-export type ToolId = 'select' | ShapeKind | 'text';
+export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text';
 
 export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text' };
 

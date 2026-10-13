@@ -55,6 +55,7 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       let x1 = -Infinity;
       let y1 = -Infinity;
       for (const p of pts) {
+        if (Number.isNaN(p.x)) continue; // subpath break
         x0 = Math.min(x0, p.x);
         y0 = Math.min(y0, p.y);
         x1 = Math.max(x1, p.x);
@@ -68,6 +69,7 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       const pts = def.outline(it);
       const reach = tol + it.style.width / 2;
       for (let i = 0; i + 1 < pts.length; i++) {
+        if (Number.isNaN(pts[i].x) || Number.isNaN(pts[i + 1].x)) continue; // subpath break
         if (distToSegment(p, pts[i], pts[i + 1]) <= reach) return true;
       }
       return false;

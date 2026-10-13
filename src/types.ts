@@ -130,7 +130,31 @@ export interface StarItem {
   transform?: Matrix;
 }
 
-export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem | EllipseItem | PolygonItem | StarItem;
+/** A path node: its anchor, plus optional handles. A node without handles is a corner. */
+export interface PathNode {
+  p: Pt;
+  /** Incoming control point (on the segment arriving at this node). */
+  in?: Pt;
+  /** Outgoing control point (on the segment leaving this node). */
+  out?: Pt;
+}
+
+/** A run of nodes. A closed subpath also draws the segment from its last node back to its first. */
+export interface SubPath {
+  nodes: PathNode[];
+  closed: boolean;
+}
+
+/** One item for any outline: lines, curves, freehand strokes and shapes converted to paths. */
+export interface PathItem {
+  kind: 'path';
+  id: string;
+  subs: SubPath[];
+  style: Style;
+  transform?: Matrix;
+}
+
+export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem | EllipseItem | PolygonItem | StarItem | PathItem;
 /** Text block. (x, y) is the top-left of the first line; lines are separated by `\n`. */
 export interface TextItem {
   kind: 'text';
