@@ -1,4 +1,5 @@
 import { distToSegment, type Rect } from '../math';
+import type { Matrix } from '../matrix';
 import type { Pt, ShapeItem, Style } from '../types';
 import type { ClickSpec, ShapeType } from './types';
 
@@ -10,6 +11,9 @@ export const opacityOf = (style: Style) => Math.min(1, Math.max(0, style.opacity
 
 /** Dash lengths that can be drawn: positive numbers only. Empty means solid. */
 export const dashOf = (style: Style): number[] => (style.dash ?? []).filter((d) => Number.isFinite(d) && d > 0);
+
+/** `transform` attribute for an item's SVG element, or nothing for the identity. */
+export const transformAttr = (m?: Matrix) => (m ? ` transform="matrix(${m.map(num).join(' ')})"` : '');
 
 /** The stroke attributes shared by every stroked shape's SVG element. */
 function strokeAttrs(style: Style): string {
@@ -89,7 +93,7 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
     toSvg(it) {
       const opacity = opacityOf(it.style);
       const fade = opacity < 1 ? ` opacity="${num(opacity)}"` : '';
-      return `<path d="${def.pathData(it)}" fill="${esc(it.style.fill ?? 'none')}" ${strokeAttrs(it.style)}${fade}/>`;
+      return `<path d="${def.pathData(it)}" fill="${esc(it.style.fill ?? 'none')}" ${strokeAttrs(it.style)}${fade}${transformAttr(it.transform)}/>`;
     },
   };
 }

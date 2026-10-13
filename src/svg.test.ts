@@ -38,6 +38,13 @@ describe('toSvg', () => {
     expect(svg).not.toContain('stroke-dasharray');
   });
 
+  it('writes the item transform as a matrix attribute', () => {
+    const svg = toSvg(
+      doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style, transform: [1, 0, 0, 1, 5, 6] }]),
+    );
+    expect(svg).toContain('stroke-linejoin="round" transform="matrix(1 0 0 1 5 6)"/>');
+  });
+
   it('writes fill and opacity from the style', () => {
     const svg = toSvg(
       doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style: { ...style, fill: '#00ff00', opacity: 0.5 } }]),

@@ -1,3 +1,5 @@
+import type { Matrix } from './matrix';
+
 export interface Pt {
   x: number;
   y: number;
@@ -26,6 +28,8 @@ export interface LineItem {
   a: Pt;
   b: Pt;
   style: Style;
+  /** Applied to the item's points (which stay in local space). Missing means identity. */
+  transform?: Matrix;
 }
 
 /** Circular arc from `a` to `b` passing through `m`. */
@@ -36,6 +40,8 @@ export interface ArcItem {
   b: Pt;
   m: Pt;
   style: Style;
+  /** Applied to the item's points (which stay in local space). Missing means identity. */
+  transform?: Matrix;
 }
 
 /** Cubic Bézier from `a` to `b` with control points `c1`, `c2`. */
@@ -47,6 +53,8 @@ export interface CurveItem {
   c1: Pt;
   c2: Pt;
   style: Style;
+  /** Applied to the item's points (which stay in local space). Missing means identity. */
+  transform?: Matrix;
 }
 
 export interface ImageItem {
@@ -56,6 +64,8 @@ export interface ImageItem {
   y: number;
   /** Treated as immutable: replace the item instead of drawing into it. */
   canvas: HTMLCanvasElement;
+  /** Applied to the item's position (which stays in local space). Missing means identity. */
+  transform?: Matrix;
 }
 
 /** Freehand stroke through `pts`, recorded while the pointer is held down. */
@@ -64,6 +74,8 @@ export interface BrushItem {
   id: string;
   pts: Pt[];
   style: Style;
+  /** Applied to the item's points (which stay in local space). Missing means identity. */
+  transform?: Matrix;
 }
 
 export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem;
