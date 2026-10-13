@@ -20,7 +20,7 @@ function segmentsOf(sub: SubPath): [PathNode, PathNode][] {
 }
 
 /** Polyline approximation of a subpath, sampling curved segments. */
-function flattenSub(sub: SubPath, steps = 16): Pt[] {
+export function flattenSub(sub: SubPath, steps = 16): Pt[] {
   const pts: Pt[] = sub.nodes.length ? [sub.nodes[0].p] : [];
   for (const [a, b] of segmentsOf(sub)) {
     const k = cubicOf(a, b);
