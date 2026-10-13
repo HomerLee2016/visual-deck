@@ -46,6 +46,7 @@ npm run build      # static site in dist/
 | Line | `L` | Drag start→end, or click twice. |
 | Arc | `A` | Start, end, then a point the arc passes through. |
 | Curve | `C` | Start, end, then two Bézier control points. |
+| Brush | `B` | Press and drag to paint a freehand stroke. |
 
 ## Script buttons
 

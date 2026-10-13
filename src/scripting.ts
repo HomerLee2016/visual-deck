@@ -1,8 +1,8 @@
-import { buildShape, POINTS_NEEDED } from './geometry';
+import { buildShape, POINTS_NEEDED, type ClickShapeKind } from './geometry';
 import type { Workspace } from './model';
 import { DEFAULT_STYLE, imageItem, uid } from './model';
 import { renderToCanvas } from './render';
-import type { Item, ShapeKind, Style } from './types';
+import type { Item, Style } from './types';
 
 export interface ScriptDef {
   id: string;
@@ -116,7 +116,7 @@ export interface Deck {
 
 export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
   const style = (s?: Partial<Style>): Style => ({ ...DEFAULT_STYLE, ...s });
-  const shape = (kind: ShapeKind, pts: { x: number; y: number }[], s: Partial<Style> | undefined, layerId?: string) => {
+  const shape = (kind: ClickShapeKind, pts: { x: number; y: number }[], s: Partial<Style> | undefined, layerId?: string) => {
     if (pts.length !== POINTS_NEEDED[kind]) throw new Error(`${kind} needs ${POINTS_NEEDED[kind]} points`);
     const item = buildShape(kind, pts, style(s), uid('item'));
     if (item) ws.addItem(null, item, layerId ?? ws.activeLayerId);

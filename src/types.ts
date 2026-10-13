@@ -46,7 +46,15 @@ export interface ImageItem {
   canvas: HTMLCanvasElement;
 }
 
-export type ShapeItem = LineItem | ArcItem | CurveItem;
+/** Freehand stroke through `pts`, recorded while the pointer is held down. */
+export interface BrushItem {
+  kind: 'brush';
+  id: string;
+  pts: Pt[];
+  style: Style;
+}
+
+export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem;
 export type Item = ShapeItem | ImageItem;
 export type ShapeKind = ShapeItem['kind'];
 

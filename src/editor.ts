@@ -1,4 +1,14 @@
-import { POINTS_NEEDED, buildShape, dist, hitTest, itemBounds, rectFromPoints, rectsIntersect, translateItem } from './geometry';
+import {
+  POINTS_NEEDED,
+  buildShape,
+  dist,
+  hitTest,
+  itemBounds,
+  rectFromPoints,
+  rectsIntersect,
+  translateItem,
+  type ClickShapeKind,
+} from './geometry';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
 import type { DocState, Item, Pt, ShapeKind, Style } from './types';
@@ -6,12 +16,12 @@ import { fitView, toDoc, zoomAround, type Size } from './view';
 
 export type ToolId = 'select' | ShapeKind;
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush' };
 
-const SHAPE_LABELS: Record<ShapeKind, string> = { line: 'Line', arc: 'Arc', curve: 'Curve' };
+const SHAPE_LABELS: Record<ClickShapeKind, string> = { line: 'Line', arc: 'Arc', curve: 'Curve' };
 
 interface Draft {
-  kind: ShapeKind;
+  kind: ClickShapeKind;
   pts: Pt[];
   hover: Pt;
   /** True between pointerdown and pointerup of the first point (allows press-drag-release for start->end). */
@@ -21,9 +31,13 @@ interface Draft {
 
 type Drag =
   | { mode: 'move'; origin: Pt; base: DocState; moved: boolean }
-  | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> };
+  | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
+  | { mode: 'brush'; pts: Pt[] };
 
 const PICK_TOLERANCE_PX = 6;
+/** Minimum screen distance between recorded brush points; denser samples add nothing visible. */
+const BRUSH_SPACING_PX = 2;
+const HIDDEN_LAYER_MSG = 'The active layer is hidden – show it or pick another layer first.';
 
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
@@ -168,6 +182,7 @@ export class Editor {
     this.canvas.setPointerCapture(e.pointerId);
     const p = toDoc(this.ws.view, s);
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
+    else if (this.tool === 'brush') this.brushDown(p);
     else this.drawDown(this.tool, p, s);
   }
 
@@ -192,9 +207,25 @@ export class Editor {
     this.afterSelectionChange();
   }
 
-  private drawDown(kind: ShapeKind, p: Pt, s: Pt): void {
+  private brushDown(p: Pt): void {
     if (!this.ws.activeLayer.visible) {
-      this.onStatus('The active layer is hidden – show it or pick another layer first.');
+      this.onStatus(HIDDEN_LAYER_MSG);
+      return;
+    }
+    this.drag = { mode: 'brush', pts: [p] };
+    this.requestRender();
+  }
+
+  /** The stroke is recorded as one item when the pointer is released. */
+  private commitBrush(pts: Pt[]): void {
+    // A click with no movement becomes a dot: a zero-length segment with round caps.
+    const stroke = pts.length === 1 ? [pts[0], pts[0]] : pts;
+    this.ws.addItem('Brush', { kind: 'brush', id: uid('item'), pts: stroke, style: { ...this.style } });
+  }
+
+  private drawDown(kind: ClickShapeKind, p: Pt, s: Pt): void {
+    if (!this.ws.activeLayer.visible) {
+      this.onStatus(HIDDEN_LAYER_MSG);
       return;
     }
     if (!this.draft) {
@@ -229,6 +260,9 @@ export class Editor {
       this.ws.view = { ...this.ws.view, panX: this.pan.px + (s.x - this.pan.sx), panY: this.pan.py + (s.y - this.pan.sy) };
     } else if (this.draft) {
       this.draft.hover = p;
+    } else if (this.drag?.mode === 'brush') {
+      const last = this.drag.pts[this.drag.pts.length - 1];
+      if (dist(p, last) * this.ws.view.zoom >= BRUSH_SPACING_PX) this.drag.pts.push(p);
     } else if (this.drag?.mode === 'move') {
       const d = this.drag;
       d.moved ||= dist(p, d.origin) * this.ws.view.zoom > 3;
@@ -262,6 +296,7 @@ export class Editor {
     }
     const drag = this.drag;
     this.drag = null;
+    if (drag?.mode === 'brush') this.commitBrush(drag.pts);
     if (drag?.mode === 'move' && drag.moved) this.ws.commit('Move');
     if (drag) this.afterSelectionChange();
     this.showDraftHint();
@@ -372,6 +407,7 @@ export class Editor {
       dpr: this.dpr,
       selected: ws.selectedItems(true),
       draft: this.draft,
+      stroke: this.drag?.mode === 'brush' ? this.drag.pts : null,
       style: this.style,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
     });

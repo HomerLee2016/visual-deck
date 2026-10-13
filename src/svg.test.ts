@@ -23,6 +23,24 @@ describe('toSvg', () => {
     );
   });
 
+  it('exports a brush stroke as one polyline path', () => {
+    const svg = toSvg(
+      doc([
+        {
+          kind: 'brush',
+          id: 'a',
+          pts: [
+            { x: 1, y: 2 },
+            { x: 3, y: 4 },
+            { x: 5, y: 4 },
+          ],
+          style,
+        },
+      ]),
+    );
+    expect(svg).toContain('<path d="M1 2 L3 4 L5 4" fill="none"');
+  });
+
   it('exports a curve as a cubic bezier', () => {
     const svg = toSvg(
       doc([
