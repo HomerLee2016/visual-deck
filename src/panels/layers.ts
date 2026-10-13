@@ -7,13 +7,21 @@ export class LayersPanel {
     $('layer-down').onclick = () => this.active().moveLayer(this.active().activeLayer.id, -1);
     $('layer-merge').onclick = () => this.active().mergeLayerDown(this.active().activeLayer.id);
     $('layer-del').onclick = () => this.active().removeLayer(this.active().activeLayer.id);
-    $('layer-show-all').onclick = () => this.active().setAllLayersVisible(true);
-    $('layer-hide-all').onclick = () => this.active().setAllLayersVisible(false);
+    $('layer-toggle-all').onclick = () => {
+      const ws = this.active();
+      ws.setAllLayersVisible(!ws.state.layers.every((l) => l.visible));
+    };
   }
 
   render(): void {
     const ws = this.active();
     const list = $('layers');
+    // One switch for every layer: shows "hide all" while all are visible, otherwise "show all".
+    const allVisible = ws.state.layers.every((l) => l.visible);
+    const toggle = $('layer-toggle-all');
+    toggle.textContent = allVisible ? '👁' : '🚫';
+    toggle.title = allVisible ? 'Hide all layers' : 'Show all layers';
+    toggle.setAttribute('aria-pressed', String(allVisible));
     list.replaceChildren();
     // Top of the stack first.
     for (const layer of [...ws.state.layers].reverse()) {
