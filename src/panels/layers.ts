@@ -7,6 +7,8 @@ export class LayersPanel {
     $('layer-down').onclick = () => this.active().moveLayer(this.active().activeLayer.id, -1);
     $('layer-merge').onclick = () => this.active().mergeLayerDown(this.active().activeLayer.id);
     $('layer-del').onclick = () => this.active().removeLayer(this.active().activeLayer.id);
+    $('layer-show-all').onclick = () => this.active().setAllLayersVisible(true);
+    $('layer-hide-all').onclick = () => this.active().setAllLayersVisible(false);
   }
 
   render(): void {
@@ -17,19 +19,22 @@ export class LayersPanel {
     for (const layer of [...ws.state.layers].reverse()) {
       const li = document.createElement('li');
       li.className = layer.id === ws.activeLayer.id ? 'active' : '';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = layer.visible;
-      cb.title = 'Visible';
-      cb.onclick = (e) => e.stopPropagation();
-      cb.onchange = () => ws.setLayerVisible(layer.id, cb.checked);
+      const eye = document.createElement('button');
+      eye.className = 'eye';
+      eye.textContent = layer.visible ? '👁' : '🚫';
+      eye.title = layer.visible ? 'Hide layer' : 'Show layer';
+      eye.setAttribute('aria-pressed', String(layer.visible));
+      eye.onclick = (e) => {
+        e.stopPropagation();
+        ws.setLayerVisible(layer.id, !layer.visible);
+      };
       const name = document.createElement('span');
       name.className = 'name';
       name.textContent = layer.name;
       const count = document.createElement('span');
       count.className = 'count';
       count.textContent = String(layer.items.length);
-      li.append(cb, name, count);
+      li.append(eye, name, count);
       li.onclick = () => {
         ws.activeLayerId = layer.id;
         this.render();

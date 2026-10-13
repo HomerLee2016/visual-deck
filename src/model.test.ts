@@ -117,6 +117,20 @@ describe('layers', () => {
     expect(ws.state.layers).toHaveLength(1);
   });
 
+  it('shows and hides all layers as one history step each', () => {
+    const ws = new Workspace('t', 8, 8);
+    ws.addLayer('Add');
+    ws.addLayer('Add');
+    const before = ws.history.length;
+    ws.setAllLayersVisible(false);
+    expect(ws.state.layers.every((l) => !l.visible)).toBe(true);
+    expect(ws.history).toHaveLength(before + 1);
+    ws.undo();
+    expect(ws.state.layers.every((l) => l.visible)).toBe(true);
+    ws.setAllLayersVisible(true);
+    expect(ws.history).toHaveLength(before + 1);
+  });
+
   it('notifies once per layer edit, after the selection and active layer are reconciled', () => {
     const ws = new Workspace('t', 8, 8);
     const first = ws.activeLayer.id;

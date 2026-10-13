@@ -132,6 +132,7 @@ aside {
 #left section { display: flex; flex-direction: column; min-height: 0; }
 #history-panel { flex: 1 1 50%; border-bottom: 1px solid var(--border); }
 #layers-panel { flex: 1 1 50%; }
+#layers-panel .row { flex-wrap: wrap; }
 #history, #layers { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
 
 #history li {
@@ -162,6 +163,7 @@ aside {
 }
 #layers li:hover { background: var(--panel-2); }
 #layers li.active { background: #29405c; }
+#layers li .eye { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; }
 #layers li .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #layers li .count { color: var(--muted); font-size: 11px; }
 
