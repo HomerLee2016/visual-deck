@@ -81,3 +81,5 @@ export interface HistoryEntry {
   /** Small data-URL preview of the composite at this step. */
   thumb: string | null;
 }
+
+export type ItemKind = Item['kind'];
