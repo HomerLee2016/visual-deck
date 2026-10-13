@@ -20,9 +20,11 @@ import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
-import type { DocState, Item, PathItem, PathNode, Pt, ShapeKind, Style, TextItem } from './types';
+import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeKind, Style, TextItem } from './types';
 import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, nodeKey, setSmooth } from './nodes';
 import { removeItems } from './model';
+import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
+import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
 export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node';
@@ -42,6 +44,7 @@ type Drag =
   | { mode: 'move'; origin: Pt; base: DocState; moved: boolean; box: Rect | null }
   | { mode: 'guide'; axis: 'x' | 'y'; pos: number }
   | { mode: 'nodes'; id: string; origin: Pt; base: DocState; moved: boolean }
+  | { mode: 'gradient'; id: string; which: GradientHandle; base: DocState; moved: boolean; transform?: Item['transform'] }
   | { mode: 'handle'; id: string; s: number; n: number; which: 'in' | 'out'; base: DocState; moved: boolean }
   | { mode: 'scale'; handle: HandleId; box: Rect; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
@@ -80,6 +83,9 @@ interface PenDraft {
 const PEN_CLOSE_PX = 8;
 /** Movement (screen pixels) before a pen press counts as a drag rather than a click. */
 const PEN_DRAG_PX = 3;
+
+/** The item's paint style, or undefined for kinds without one (images, groups). */
+const styleOf = (it: Item) => ('style' in it ? it.style : undefined);
 
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
@@ -162,6 +168,44 @@ export class Editor {
 
   setParams(patch: Partial<ShapeParams>): void {
     this.params = { ...this.params, ...patch };
+  }
+
+  /**
+   * Set the fill to a solid colour, or to a linear or radial gradient. Gradients
+   * are laid out over each selected item's own box.
+   */
+  setFillPaint(kind: 'solid' | 'linear' | 'radial'): void {
+    const stops: GradientStop[] = this.style.fillGradient?.stops ?? [
+      { offset: 0, color: this.style.fill ?? '#ffffff' },
+      { offset: 1, color: '#000000' },
+    ];
+    this.style = { ...this.style, fillGradient: kind === 'solid' ? undefined : defaultGradient(kind, { x: 0, y: 0, w: 1, h: 1 }, stops) };
+    const ids = new Set(this.ws.selectedItems(true).map((it) => it.id));
+    if (ids.size === 0) return;
+    this.ws.edit('Fill paint', (s) =>
+      mapItems(s, ids, (it) => {
+        if (!typeOf(it).withStyle) return it;
+        if (kind === 'solid') return typeOf(it).withStyle!(it, { ...styleOf(it)!, fillGradient: undefined }) ?? it;
+        const box = typeOf(it).bounds(it);
+        return typeOf(it).withStyle!(it, { ...styleOf(it)!, fillGradient: defaultGradient(kind, box, stops) }) ?? it;
+      }),
+    );
+  }
+
+  /** Replace the stops of the fill gradient (the editor's default and the selected items' gradients). */
+  setFillStops(stops: GradientStop[], applyToSelection = false): void {
+    if (!this.style.fillGradient) return;
+    this.style = { ...this.style, fillGradient: { ...this.style.fillGradient, stops } };
+    if (!applyToSelection) return;
+    const ids = new Set(this.ws.selectedItems(true).filter((it) => styleOf(it)?.fillGradient).map((it) => it.id));
+    if (ids.size === 0) return;
+    this.ws.edit('Gradient stops', (s) =>
+      mapItems(s, ids, (it) => {
+        const style = styleOf(it);
+        const g = style?.fillGradient;
+        return g && typeOf(it).withStyle ? typeOf(it).withStyle!(it, { ...style!, fillGradient: { ...g, stops } }) ?? it : it;
+      }),
+    );
   }
 
   /** Change the font settings; also restyles selected text when `applyToSelection`. */
@@ -266,7 +310,7 @@ export class Editor {
     if (e.button !== 0) return;
     this.canvas.setPointerCapture(e.pointerId);
     let p = toDoc(this.ws.view, s);
-    if (this.tool === 'select' && this.handleDown(p)) return;
+    if (this.tool === 'select' && (this.gradientHandleDown(p) || this.handleDown(p))) return;
     // New points (shapes and text) snap; freehand brush points and selection do not.
     if (this.tool !== 'select' && this.tool !== 'brush') p = this.snapPt(p);
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
@@ -322,6 +366,24 @@ export class Editor {
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
+  /** Grabs a gradient handle of a selected item's fill, if the pointer is on one. */
+  private gradientHandleDown(p: Pt): boolean {
+    const tol = HANDLE_TOLERANCE_PX / this.ws.view.zoom;
+    for (const it of this.ws.selectedItems(true)) {
+      const g = styleOf(it)?.fillGradient;
+      if (!g) continue;
+      const m = it.transform ?? IDENTITY;
+      for (const h of gradientHandles(g)) {
+        const q = applyM(m, h.p);
+        if (Math.hypot(q.x - p.x, q.y - p.y) <= tol) {
+          this.drag = { mode: 'gradient', id: it.id, which: h.id, base: this.ws.state, moved: false, transform: it.transform };
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /** Starts a scale or rotate drag if the pointer is on one of the selection's handles. */
   private handleDown(p: Pt): boolean {
     const box = this.selectionBox();
@@ -337,6 +399,19 @@ export class Editor {
       this.drag = { mode: 'scale', handle: id, box, ids, base, moved: false };
     }
     return true;
+  }
+
+  /** Document-space handle pairs of the selected gradients, for drawing: a line for linear, centre to rim for radial. */
+  private gradientLines(): { a: Pt; b: Pt }[] {
+    const out: { a: Pt; b: Pt }[] = [];
+    for (const it of this.ws.selectedItems(true)) {
+      const g = styleOf(it)?.fillGradient;
+      if (!g) continue;
+      const m = it.transform ?? IDENTITY;
+      const [h0, h1] = gradientHandles(g);
+      out.push({ a: applyM(m, h0.p), b: applyM(m, h1.p) });
+    }
+    return out;
   }
 
   /** Double-clicking a text item re-opens it for editing. */
@@ -590,6 +665,14 @@ export class Editor {
       }
     } else if (this.drag?.mode === 'guide') {
       this.drag.pos = p[this.drag.axis];
+    } else if (this.drag?.mode === 'gradient') {
+      const d = this.drag;
+      d.moved = true;
+      const inv = invertM(d.transform ?? IDENTITY) ?? IDENTITY;
+      const local = applyM(inv, p);
+      this.ws.state = mapItems(d.base, new Set([d.id]), (it) =>
+        styleOf(it)?.fillGradient ? { ...it, style: { ...styleOf(it)!, fillGradient: moveGradientHandle(styleOf(it)!.fillGradient!, d.which, local) } } : it,
+      );
     } else if (this.drag?.mode === 'nodes') {
       const d = this.drag;
       d.moved = true;
@@ -639,6 +722,7 @@ export class Editor {
     this.drag = null;
     if (drag?.mode === 'guide') this.addGuide(drag.axis, drag.pos);
     if (drag?.mode === 'nodes' && drag.moved) this.ws.commit('Move nodes');
+    if (drag?.mode === 'gradient' && drag.moved) this.ws.commit('Move gradient');
     if (drag?.mode === 'handle' && drag.moved) this.ws.commit('Move handle');
     if (drag?.mode === 'brush') this.commitBrush(drag.pts);
     if (drag?.mode === 'move' && drag.moved) this.ws.commit('Move');
@@ -805,6 +889,7 @@ export class Editor {
       brushCursor: this.tool === 'brush' && this.hover ? { at: this.hover, width: this.style.width } : null,
       aids: ws.aids,
       penDraft: this.pen ? { nodes: this.pen.nodes, hover: this.pen.hover } : null,
+      gradientLines: this.gradientLines(),
       nodeEdit: this.tool === 'node' && this.nodeTarget() ? { item: this.nodeTarget()!, sel: this.nodeSel } : null,
       guideDraft: this.drag?.mode === 'guide' ? { axis: this.drag.axis, pos: this.drag.pos } : null,
     });

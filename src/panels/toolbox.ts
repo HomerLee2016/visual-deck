@@ -144,6 +144,52 @@ export class ToolboxPanel {
       size.value = String(n);
       editor.setTextStyle({ size: n }, true);
     };
+    const paint = $<HTMLSelectElement>('fill-paint');
+    const gradEditor = $('grad-editor');
+    const stopsBox = $('grad-stops');
+    const renderStops = () => {
+      const g = editor.style.fillGradient;
+      gradEditor.hidden = !g;
+      stopsBox.replaceChildren();
+      if (!g) return;
+      g.stops.forEach((stop, i) => {
+        const row = document.createElement('div');
+        row.className = 'grad-stop';
+        const color = Object.assign(document.createElement('input'), { type: 'color', value: stop.color, title: 'Stop colour' });
+        const offset = Object.assign(document.createElement('input'), { type: 'number', min: 0, max: 100, step: 1, value: String(Math.round(stop.offset * 100)), title: 'Stop position (%)' });
+        const remove = Object.assign(document.createElement('button'), { type: 'button', textContent: '×', title: 'Remove stop', disabled: g.stops.length <= 2 });
+        const update = (apply: boolean) => {
+          const stops = editor.style.fillGradient!.stops.map((s, j) =>
+            j === i ? { color: color.value, offset: Math.min(1, Math.max(0, Number(offset.value) / 100 || 0)) } : s,
+          );
+          editor.setFillStops(stops, apply);
+        };
+        color.oninput = () => update(false);
+        color.onchange = () => update(true);
+        offset.onchange = () => update(true);
+        remove.onclick = () => {
+          editor.setFillStops(editor.style.fillGradient!.stops.filter((_, j) => j !== i), true);
+          renderStops();
+        };
+        row.append(color, offset, remove);
+        stopsBox.append(row);
+      });
+    };
+    paint.onchange = () => {
+      editor.setFillPaint(paint.value as 'solid' | 'linear' | 'radial');
+      renderStops();
+    };
+    $('grad-add').onclick = () => {
+      const g = editor.style.fillGradient;
+      if (!g) return;
+      // The new stop sits midway between the last two, in the last one's colour.
+      const [prev, last] = g.stops.slice(-2);
+      const mid = prev && last ? { offset: (prev.offset + last.offset) / 2, color: last.color } : { offset: 0.5, color: '#888888' };
+      const stops = [...g.stops, mid].sort((a, b) => a.offset - b.offset);
+      editor.setFillStops(stops, true);
+      renderStops();
+    };
+    renderStops();
     $('node-smooth').onclick = () => editor.setNodesSmooth(true);
     $('node-corner').onclick = () => editor.setNodesSmooth(false);
     $('act-copy').onclick = () => editor.copy();
@@ -156,6 +202,7 @@ export class ToolboxPanel {
       b.classList.toggle('active', b.dataset.tool === this.editor.tool);
     });
     $('tool-help').textContent = TOOL_HELP[this.editor.tool];
+    $<HTMLSelectElement>('fill-paint').value = this.editor.style.fillGradient?.type ?? 'solid';
     $('node-actions').hidden = this.editor.tool !== 'node';
     const has = this.active().selection.size > 0;
     $<HTMLButtonElement>('act-copy').disabled = !has;
