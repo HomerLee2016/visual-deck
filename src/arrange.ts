@@ -102,3 +102,40 @@ export function reorderItems(s: DocState, ids: ReadonlySet<string>, order: Order
     }),
   };
 }
+
+/**
+ * Put the selected items into one group. The group takes the place of the
+ * topmost selected item (in that item's layer); the others leave their layers.
+ * Returns `s` unchanged unless at least two items are selected.
+ */
+export function groupItems(s: DocState, ids: ReadonlySet<string>, groupId: string): DocState {
+  const picked = itemsIn(s, ids);
+  if (picked.length < 2) return s;
+  const top = picked[picked.length - 1];
+  const group: Item = { kind: 'group', id: groupId, items: picked };
+  return {
+    ...s,
+    layers: s.layers.map((layer) => {
+      const rest = layer.items.filter((it) => !ids.has(it.id));
+      const holdsTop = layer.items.some((it) => it.id === top.id);
+      return { ...layer, items: holdsTop ? [...rest, group] : rest };
+    }),
+  };
+}
+
+/**
+ * Replace the selected groups with their children. Each child takes over the
+ * group's transform, so nothing moves on screen.
+ */
+export function ungroupItems(s: DocState, ids: ReadonlySet<string>): DocState {
+  return {
+    ...s,
+    layers: s.layers.map((layer) => ({
+      ...layer,
+      items: layer.items.flatMap((it) => {
+        if (it.kind !== 'group' || !ids.has(it.id)) return [it];
+        return it.transform ? it.items.map((c) => transformItem(c, it.transform!)) : it.items;
+      }),
+    })),
+  };
+}

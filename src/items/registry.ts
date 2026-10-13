@@ -6,6 +6,7 @@ import { polygonType } from './polygon';
 import { starType } from './star';
 import { textType } from './text';
 import { imageType } from './image';
+import { groupType } from './group';
 import { lineType } from './line';
 import { rectType } from './rect';
 import type { ItemType, ShapeType } from './types';
@@ -26,7 +27,19 @@ const types: { [K in ItemKind]: ItemType<Extract<Item, { kind: K }>> } = {
   polygon: polygonType,
   star: starType,
   text: textType,
+  group: groupType,
 };
+
+export function drawItem(ctx: CanvasRenderingContext2D, it: Item): void {
+  if (!it.transform) {
+    typeOf(it).draw(ctx, it);
+    return;
+  }
+  ctx.save();
+  ctx.transform(...it.transform);
+  typeOf(it).draw(ctx, it);
+  ctx.restore();
+}
 
 /** Behaviour for an item's kind. */
 export function typeOf(it: Item): ItemType {

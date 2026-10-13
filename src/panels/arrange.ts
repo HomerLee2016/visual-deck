@@ -1,4 +1,5 @@
 import { alignItems, distributeItems, flipItems, reorderItems, type AlignTo, type Axis, type Order } from '../arrange';
+import type { Editor } from '../editor';
 import type { Workspace } from '../model';
 import type { ActiveWorkspace } from './dom';
 
@@ -6,7 +7,10 @@ import type { ActiveWorkspace } from './dom';
 export class ArrangePanel {
   private buttons = [...document.querySelectorAll<HTMLButtonElement>('#arrange button')];
 
-  constructor(private active: ActiveWorkspace) {
+  constructor(
+    private editor: Editor,
+    private active: ActiveWorkspace,
+  ) {
     for (const b of this.buttons) {
       b.onclick = () => this.run(b);
     }
@@ -15,7 +19,7 @@ export class ArrangePanel {
   render(): void {
     const n = this.active().selection.size;
     for (const b of this.buttons) {
-      const min = b.dataset.align || b.dataset.distribute ? (b.dataset.distribute ? 3 : 2) : 1;
+      const min = b.dataset.align || b.dataset.group ? 2 : b.dataset.distribute ? 3 : 1;
       b.disabled = n < min;
     }
   }
@@ -24,7 +28,9 @@ export class ArrangePanel {
     const ws: Workspace = this.active();
     const ids = new Set(ws.selectedItems(true).map((it) => it.id));
     if (ids.size === 0) return;
-    if (b.dataset.align) {
+    if (b.dataset.group) this.editor.groupSelection();
+    else if (b.dataset.ungroup) this.editor.ungroupSelection();
+    else if (b.dataset.align) {
       const to = b.dataset.align as AlignTo;
       ws.edit(`Align ${b.textContent?.toLowerCase()}`, (s) => alignItems(s, ids, to));
     } else if (b.dataset.distribute) {

@@ -26,7 +26,7 @@ export class App {
   private layers = new LayersPanel(() => this.active);
   private toolbox = new ToolboxPanel(this.editor, () => this.active);
   private geometry = new GeometryPanel(this.editor, () => this.active);
-  private arrange = new ArrangePanel(() => this.active);
+  private arrange = new ArrangePanel(this.editor, () => this.active);
   private menu = new MenuBar(
     () => this.active,
     (f) => void this.openImage(f),

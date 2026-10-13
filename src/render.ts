@@ -1,5 +1,5 @@
 import { buildShape, itemBounds } from './geometry';
-import { typeOf } from './items/registry';
+import { drawItem, typeOf } from './items/registry';
 import { apply } from './matrix';
 import type { ClickShapeKind, Rect } from './geometry';
 import type { ShapeParams } from './items/types';
@@ -10,17 +10,6 @@ import type { Size, View } from './view';
 const BACKDROP = '#26262b';
 const DOC_BORDER = '#8a8a96';
 const ACCENT = '#4da3ff';
-
-export function drawItem(ctx: CanvasRenderingContext2D, it: Item): void {
-  if (!it.transform) {
-    typeOf(it).draw(ctx, it);
-    return;
-  }
-  ctx.save();
-  ctx.transform(...it.transform);
-  typeOf(it).draw(ctx, it);
-  ctx.restore();
-}
 
 /** Draw visible layers bottom to top. `only` renders a single layer regardless of its visibility. */
 export function drawState(ctx: CanvasRenderingContext2D, s: DocState, only?: string): void {

@@ -14,6 +14,7 @@ import { DEFAULT_TEXT_STYLE, type TextStyle } from './items/text';
 import { angleAt, centerOf, handlesFor, hitHandle, rotateMatrix, scaleMatrix, type HandleId } from './handles';
 import type { Rect } from './math';
 import { transformItem } from './geometry';
+import { groupItems, ungroupItems } from './arrange';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
@@ -475,6 +476,10 @@ export class Editor {
       this.ws.selection = new Set(visibleItemsTopFirst(this.ws.state).map((it) => it.id));
       this.ws.pointSelection.clear();
       this.afterSelectionChange();
+    } else if (mod && key === 'g') {
+      e.preventDefault();
+      if (e.shiftKey) this.ungroupSelection();
+      else this.groupSelection();
     } else if (mod && (key === 'c' || key === 'x')) {
       e.preventDefault();
       this.copy();
@@ -496,6 +501,27 @@ export class Editor {
     } else if (!mod && TOOL_KEYS[key]) {
       this.setTool(TOOL_KEYS[key]);
     }
+  }
+
+  /** Group the selected items (Ctrl+G). The group becomes the new selection. */
+  groupSelection(): void {
+    const ids = new Set(this.ws.selectedItems(true).map((it) => it.id));
+    if (ids.size < 2) return;
+    const groupId = uid('item');
+    this.ws.edit('Group', (s) => groupItems(s, ids, groupId));
+    this.ws.selection = new Set([groupId]);
+    this.afterSelectionChange();
+  }
+
+  /** Ungroup the selected groups (Ctrl+Shift+G). Their children become the selection. */
+  ungroupSelection(): void {
+    const groups = this.ws.selectedItems(true).filter((it) => it.kind === 'group');
+    if (groups.length === 0) return;
+    const groupIds = new Set(groups.map((g) => g.id));
+    const childIds = groups.flatMap((g) => (g.kind === 'group' ? g.items.map((c) => c.id) : []));
+    this.ws.edit('Ungroup', (s) => ungroupItems(s, groupIds));
+    this.ws.selection = new Set(childIds);
+    this.afterSelectionChange();
   }
 
   copy(): void {
