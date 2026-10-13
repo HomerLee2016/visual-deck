@@ -1,4 +1,5 @@
 import type { Editor, ToolId } from '../editor';
+import { parseColor, withAlpha } from '../color';
 import { $, type ActiveWorkspace } from './dom';
 
 const TOOL_HELP: Record<ToolId, string> = {
@@ -21,11 +22,24 @@ export class ToolboxPanel {
     const color = $<HTMLInputElement>('stroke-color');
     const width = $<HTMLInputElement>('stroke-width');
     const range = $<HTMLInputElement>('stroke-width-range');
-    color.value = editor.style.color;
+    const alpha = $<HTMLInputElement>('stroke-alpha-range');
+    const alphaOut = $('stroke-alpha-value');
+    const parts = parseColor(editor.style.color);
+    color.value = parts.hex;
+    alpha.value = String(Math.round(parts.alpha * 100));
+    alphaOut.textContent = `${alpha.value}%`;
     width.value = String(editor.style.width);
     range.value = String(editor.style.width);
-    color.oninput = () => editor.setStyle({ color: color.value });
-    color.onchange = () => editor.setStyle({ color: color.value }, true);
+    // The colour input has no alpha, so colour and opacity are combined here.
+    const apply = (applyToSelection: boolean) =>
+      editor.setStyle({ color: withAlpha(color.value, Number(alpha.value) / 100) }, applyToSelection);
+    color.oninput = () => apply(false);
+    color.onchange = () => apply(true);
+    alpha.oninput = () => {
+      alphaOut.textContent = `${alpha.value}%`;
+      apply(false);
+    };
+    alpha.onchange = () => apply(true);
     // Slider updates live while dragging; the history step is recorded once on release.
     range.oninput = () => {
       width.value = range.value;

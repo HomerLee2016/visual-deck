@@ -1,3 +1,4 @@
+import { parseColor } from './color';
 import { circle3, norm } from './geometry';
 import type { DocState, Item, ShapeItem } from './types';
 
@@ -32,8 +33,9 @@ function itemToSvg(it: Item, hrefs: Map<HTMLCanvasElement, string>): string {
     }
     return `<image x="${num(it.x)}" y="${num(it.y)}" width="${it.canvas.width}" height="${it.canvas.height}" href="${href}"/>`;
   }
-  const { color, width } = it.style;
-  return `<path d="${pathData(it)}" fill="none" stroke="${esc(color)}" stroke-width="${num(width)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const { hex, alpha } = parseColor(it.style.color);
+  const opacity = alpha < 1 ? ` stroke-opacity="${num(alpha)}"` : '';
+  return `<path d="${pathData(it)}" fill="none" stroke="${esc(hex)}"${opacity} stroke-width="${num(it.style.width)}" stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
 function pathData(it: ShapeItem): string {
