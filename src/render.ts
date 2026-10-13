@@ -1,8 +1,7 @@
-import { buildShape, itemBounds } from './geometry';
+import { buildShape, itemBounds, type ClickShapeKind, type Rect } from './geometry';
 import { drawItem, typeOf } from './items/registry';
 import { resolveDefs, resolveSymbols } from './shared';
 import { apply } from './matrix';
-import type { ClickShapeKind, Rect } from './geometry';
 import type { ShapeParams } from './items/types';
 import type { Handle } from './handles';
 import type { ViewAids } from './model';

@@ -6,6 +6,7 @@ import {
   itemBounds,
   rectFromPoints,
   rectsIntersect,
+  transformItem,
   translateItem,
   type ClickShapeKind,
 } from './geometry';
@@ -13,16 +14,13 @@ import { typeOf } from './items/registry';
 import { DEFAULT_TEXT_STYLE, type TextStyle } from './items/text';
 import { angleAt, centerOf, handlesFor, hitHandle, rotateMatrix, scaleMatrix, type HandleId } from './handles';
 import type { Rect } from './math';
-import { transformItem } from './geometry';
-import { groupItems, ungroupItems } from './arrange';
-import { RULER_PX } from './render';
+import { groupItems, ungroupItems, unionBox } from './arrange';
+import { RULER_PX, drawScene } from './render';
 import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
-import { DEFAULT_STYLE, Workspace, layerOfItem, mapItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
-import { drawScene } from './render';
+import { DEFAULT_STYLE, Workspace, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
 import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeKind, Style, TextItem } from './types';
 import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, nodeKey, setSmooth } from './nodes';
-import { removeItems } from './model';
 import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
@@ -53,6 +51,9 @@ type Drag =
   | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
   | { mode: 'brush'; pts: Pt[] };
+
+/** History label for each drag that edits the document in place and commits when released. */
+const COMMIT_LABELS = { move: 'Move', nodes: 'Move nodes', gradient: 'Move gradient', handle: 'Move handle', scale: 'Scale', rotate: 'Rotate' } as const;
 
 const PICK_TOLERANCE_PX = 6;
 /** How close (screen pixels) the pointer must be to a selection handle to grab it. */
@@ -89,6 +90,12 @@ const PEN_DRAG_PX = 3;
 
 /** The item's paint style, or undefined for kinds without one (images, groups). */
 const styleOf = (it: Item) => ('style' in it ? it.style : undefined);
+
+/** The item with its style replaced by `fn(style)`, or unchanged if its kind has no style. */
+function restyle(it: Item, fn: (style: Style) => Style): Item {
+  const style = styleOf(it);
+  return style ? (typeOf(it).withStyle?.(it, fn(style)) ?? it) : it;
+}
 
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
@@ -193,12 +200,9 @@ export class Editor {
     const ids = new Set(this.ws.selectedItems(true).map((it) => it.id));
     if (ids.size === 0) return;
     this.ws.edit('Fill paint', (s) =>
-      mapItems(s, ids, (it) => {
-        if (!typeOf(it).withStyle) return it;
-        if (kind === 'solid') return typeOf(it).withStyle!(it, { ...styleOf(it)!, fillGradient: undefined }) ?? it;
-        const box = typeOf(it).bounds(it);
-        return typeOf(it).withStyle!(it, { ...styleOf(it)!, fillGradient: defaultGradient(kind, box, stops) }) ?? it;
-      }),
+      mapItems(s, ids, (it) =>
+        restyle(it, (style) => ({ ...style, fillGradient: kind === 'solid' ? undefined : defaultGradient(kind, typeOf(it).bounds(it), stops) })),
+      ),
     );
   }
 
@@ -210,11 +214,7 @@ export class Editor {
     const ids = new Set(this.ws.selectedItems(true).filter((it) => styleOf(it)?.fillGradient).map((it) => it.id));
     if (ids.size === 0) return;
     this.ws.edit('Gradient stops', (s) =>
-      mapItems(s, ids, (it) => {
-        const style = styleOf(it);
-        const g = style?.fillGradient;
-        return g && typeOf(it).withStyle ? typeOf(it).withStyle!(it, { ...style!, fillGradient: { ...g, stops } }) ?? it : it;
-      }),
+      mapItems(s, ids, (it) => restyle(it, (style) => (style.fillGradient ? { ...style, fillGradient: { ...style.fillGradient, stops } } : style))),
     );
   }
 
@@ -239,6 +239,13 @@ export class Editor {
         this.ws.edit('Change style', (s) => mapItems(s, ids, (it) => typeOf(it).withStyle?.(it, this.style) ?? it));
       }
     }
+  }
+
+  /** True if new content can go on the active layer; otherwise tells the user why not. */
+  private activeLayerVisible(): boolean {
+    if (this.ws.activeLayer.visible) return true;
+    this.onStatus(HIDDEN_LAYER_MSG);
+    return false;
   }
 
   private cancelInteraction(): void {
@@ -362,18 +369,7 @@ export class Editor {
   selectionBox(): Rect | null {
     const items = this.ws.selectedItems(true);
     if (items.length === 0) return null;
-    let x0 = Infinity;
-    let y0 = Infinity;
-    let x1 = -Infinity;
-    let y1 = -Infinity;
-    for (const it of items) {
-      const b = itemBounds(it);
-      x0 = Math.min(x0, b.x);
-      y0 = Math.min(y0, b.y);
-      x1 = Math.max(x1, b.x + b.w);
-      y1 = Math.max(y1, b.y + b.h);
-    }
-    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    return unionBox(items.map(itemBounds));
   }
 
   /** Grabs a gradient handle of a selected item's fill, if the pointer is on one. */
@@ -385,7 +381,7 @@ export class Editor {
       const m = it.transform ?? IDENTITY;
       for (const h of gradientHandles(g)) {
         const q = applyM(m, h.p);
-        if (Math.hypot(q.x - p.x, q.y - p.y) <= tol) {
+        if (dist(q, p) <= tol) {
           this.drag = { mode: 'gradient', id: it.id, which: h.id, base: this.ws.state, moved: false, transform: it.transform };
           return true;
         }
@@ -533,7 +529,7 @@ export class Editor {
     if (this.nodeItemId !== item.id) this.nodeSel.clear();
     this.nodeItemId = item.id;
     const tol = PICK_TOLERANCE_PX / this.ws.view.zoom;
-    const near = (q: Pt) => Math.hypot(q.x - p.x, q.y - p.y) <= tol;
+    const near = (q: Pt) => dist(q, p) <= tol;
     for (let s = 0; s < item.subs.length; s++) {
       const nodes = item.subs[s].nodes;
       for (let n = 0; n < nodes.length; n++) {
@@ -590,10 +586,7 @@ export class Editor {
 
   /** Pen: a press places a node; dragging bends it into a smooth node with a mirrored handle. */
   private penDown(p: Pt, s: Pt): void {
-    if (!this.ws.activeLayer.visible) {
-      this.onStatus(HIDDEN_LAYER_MSG);
-      return;
-    }
+    if (!this.activeLayerVisible()) return;
     if (!this.pen) this.pen = { nodes: [], hover: p, dragging: false, downScreen: s };
     const pen = this.pen;
     const first = pen.nodes[0];
@@ -619,18 +612,12 @@ export class Editor {
   }
 
   private textDown(p: Pt, s: Pt): void {
-    if (!this.ws.activeLayer.visible) {
-      this.onStatus(HIDDEN_LAYER_MSG);
-      return;
-    }
+    if (!this.activeLayerVisible()) return;
     this.onText({ ws: this.ws, at: p, screen: s, zoom: this.ws.view.zoom });
   }
 
   private brushDown(p: Pt): void {
-    if (!this.ws.activeLayer.visible) {
-      this.onStatus(HIDDEN_LAYER_MSG);
-      return;
-    }
+    if (!this.activeLayerVisible()) return;
     this.drag = { mode: 'brush', pts: [p] };
     this.requestRender();
   }
@@ -657,10 +644,7 @@ export class Editor {
   }
 
   private drawDown(kind: ClickShapeKind, p: Pt, s: Pt, shift: boolean): void {
-    if (!this.ws.activeLayer.visible) {
-      this.onStatus(HIDDEN_LAYER_MSG);
-      return;
-    }
+    if (!this.activeLayerVisible()) return;
     if (!this.draft) {
       this.draft = { kind, pts: [p], hover: p, pressing: true, downScreen: s };
     } else {
@@ -782,13 +766,8 @@ export class Editor {
     const drag = this.drag;
     this.drag = null;
     if (drag?.mode === 'guide') this.addGuide(drag.axis, drag.pos);
-    if (drag?.mode === 'nodes' && drag.moved) this.ws.commit('Move nodes');
-    if (drag?.mode === 'gradient' && drag.moved) this.ws.commit('Move gradient');
-    if (drag?.mode === 'handle' && drag.moved) this.ws.commit('Move handle');
     if (drag?.mode === 'brush') this.commitBrush(drag.pts);
-    if (drag?.mode === 'move' && drag.moved) this.ws.commit('Move');
-    if (drag?.mode === 'scale' && drag.moved) this.ws.commit('Scale');
-    if (drag?.mode === 'rotate' && drag.moved) this.ws.commit('Rotate');
+    else if (drag && 'moved' in drag && drag.moved) this.ws.commit(COMMIT_LABELS[drag.mode]);
     if (drag) this.afterSelectionChange();
     this.showDraftHint();
     this.requestRender();
