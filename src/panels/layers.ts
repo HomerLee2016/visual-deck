@@ -5,6 +5,7 @@ export class LayersPanel {
     $('layer-add').onclick = () => this.active().addLayer('Add layer');
     $('layer-up').onclick = () => this.active().moveLayer(this.active().activeLayer.id, 1);
     $('layer-down').onclick = () => this.active().moveLayer(this.active().activeLayer.id, -1);
+    $('layer-merge').onclick = () => this.active().mergeLayerDown(this.active().activeLayer.id);
     $('layer-del').onclick = () => this.active().removeLayer(this.active().activeLayer.id);
   }
 
