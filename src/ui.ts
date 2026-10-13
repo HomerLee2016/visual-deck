@@ -1,7 +1,7 @@
 import './style.css';
 import { Editor, type ToolId } from './editor';
 import { download, exportDocument, fileToCanvas, isImageFile, type ExportFormat } from './io';
-import { Workspace, newLayer, uid } from './model';
+import { Workspace, imageItem, newLayer, uid } from './model';
 import { thumbnail } from './render';
 import { API_HELP, loadScripts, runScript, saveScripts, type ScriptDef } from './scripting';
 
@@ -89,7 +89,7 @@ export class App {
   private async openImage(file: File): Promise<void> {
     try {
       const canvas = await fileToCanvas(file);
-      const layer = newLayer('Image', [{ kind: 'image', id: uid('item'), x: 0, y: 0, canvas }]);
+      const layer = newLayer('Image', [imageItem(canvas)]);
       this.addWorkspace(this.newWorkspace(file.name.replace(/\.[^.]+$/, ''), canvas.width, canvas.height, [layer]));
     } catch {
       this.editor.onStatus(`Could not open ${file.name}`);
@@ -99,7 +99,7 @@ export class App {
   private async pasteImage(file: File): Promise<void> {
     try {
       const canvas = await fileToCanvas(file);
-      this.active.addLayer('Paste image', 'Pasted image', [{ kind: 'image', id: uid('item'), x: 0, y: 0, canvas }]);
+      this.active.addLayer('Paste image', 'Pasted image', [imageItem(canvas)]);
     } catch {
       this.editor.onStatus('Could not read the pasted image');
     }

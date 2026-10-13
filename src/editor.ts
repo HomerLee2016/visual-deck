@@ -1,12 +1,14 @@
 import { POINTS_NEEDED, buildShape, dist, hitTest, itemBounds, rectsIntersect, translateItem } from './geometry';
 import type { Rect } from './geometry';
-import { Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
+import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawItem, drawSelection, drawState } from './render';
 import type { DocState, Item, Pt, ShapeKind, Style } from './types';
 
 export type ToolId = 'select' | ShapeKind;
 
 export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve' };
+
+const SHAPE_LABELS: Record<ShapeKind, string> = { line: 'Line', arc: 'Arc', curve: 'Curve' };
 
 interface Draft {
   kind: ShapeKind;
@@ -28,7 +30,7 @@ const MAX_ZOOM = 64;
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
   tool: ToolId = 'select';
-  style: Style = { color: '#ffcc00', width: 2 };
+  style: Style = { ...DEFAULT_STYLE };
   clipboard: Item[] = [];
   ws!: Workspace;
   /** Called when tool/selection state changes so the toolbox can refresh. */
@@ -225,8 +227,7 @@ export class Editor {
     const shape = buildShape(d.kind, d.pts, { ...this.style }, uid('item'));
     this.draft = null;
     if (!shape) return;
-    const label = d.kind === 'line' ? 'Line' : d.kind === 'arc' ? 'Arc' : 'Curve';
-    this.ws.addItem(label, shape);
+    this.ws.addItem(SHAPE_LABELS[d.kind], shape);
   }
 
   private onPointerMove(e: PointerEvent): void {
@@ -416,14 +417,10 @@ export class Editor {
     ctx.strokeStyle = '#8a8a96';
     ctx.strokeRect(0, 0, width, height);
 
-    drawSelection(ctx, ws.selectedItems().filter((it) => this.isVisibleItem(it)), zoom);
+    drawSelection(ctx, ws.selectedItems(true), zoom);
     this.drawDraft(ctx, zoom);
     this.drawMarquee(ctx, zoom);
     ctx.restore();
-  }
-
-  private isVisibleItem(it: Item): boolean {
-    return this.ws.state.layers.some((l) => l.visible && l.items.includes(it));
   }
 
   private drawDraft(ctx: CanvasRenderingContext2D, zoom: number): void {

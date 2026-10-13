@@ -1,6 +1,6 @@
 import { buildShape, POINTS_NEEDED } from './geometry';
 import type { Workspace } from './model';
-import { uid } from './model';
+import { DEFAULT_STYLE, imageItem, uid } from './model';
 import { renderToCanvas } from './render';
 import type { Item, ShapeKind, Style } from './types';
 
@@ -114,8 +114,6 @@ export interface Deck {
   log(...args: unknown[]): void;
 }
 
-const DEFAULT_STYLE: Style = { color: '#ffcc00', width: 2 };
-
 export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
   const style = (s?: Partial<Style>): Style => ({ ...DEFAULT_STYLE, ...s });
   const shape = (kind: ShapeKind, pts: { x: number; y: number }[], s: Partial<Style> | undefined, layerId?: string) => {
@@ -141,7 +139,7 @@ export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
       c.width = img.width;
       c.height = img.height;
       c.getContext('2d')!.putImageData(img, 0, 0);
-      ws.replaceLayerItems(null, layerId, [{ kind: 'image', id: uid('item'), x: 0, y: 0, canvas: c }]);
+      ws.replaceLayerItems(null, layerId, [imageItem(c)]);
     },
     addLine: (x1, y1, x2, y2, s, layerId) => shape('line', [{ x: x1, y: y1 }, { x: x2, y: y2 }], s, layerId),
     addArc: (x1, y1, x2, y2, mx, my, s, layerId) =>

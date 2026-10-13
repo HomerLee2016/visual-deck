@@ -1,5 +1,5 @@
 import { translateItem } from './geometry';
-import type { DocState, HistoryEntry, Item, Layer } from './types';
+import type { DocState, HistoryEntry, ImageItem, Item, Layer, Style } from './types';
 
 let counter = 0;
 export const uid = (prefix: string) => `${prefix}${++counter}`;
@@ -10,6 +10,13 @@ export const MAX_HISTORY = 100;
 
 export function newLayer(name: string, items: Item[] = []): Layer {
   return { id: uid('layer'), name, visible: true, items };
+}
+
+export const DEFAULT_STYLE: Style = { color: '#ffcc00', width: 2 };
+
+/** A bitmap item at the document origin (or at `x`, `y`). */
+export function imageItem(canvas: HTMLCanvasElement, x = 0, y = 0): ImageItem {
+  return { kind: 'image', id: uid('item'), x, y, canvas };
 }
 
 export function cloneItem(it: Item): Item {
@@ -198,9 +205,13 @@ export class Workspace {
     this.edit(label, (s) => mapLayer(s, layerId, (l) => ({ ...l, items: [...l.items, item] })));
   }
 
-  selectedItems(): Item[] {
+  /** Selected items in stacking order; `visibleOnly` skips items on hidden layers. */
+  selectedItems(visibleOnly = false): Item[] {
     const out: Item[] = [];
-    for (const l of this.state.layers) for (const it of l.items) if (this.selection.has(it.id)) out.push(it);
+    for (const l of this.state.layers) {
+      if (visibleOnly && !l.visible) continue;
+      for (const it of l.items) if (this.selection.has(it.id)) out.push(it);
+    }
     return out;
   }
 
