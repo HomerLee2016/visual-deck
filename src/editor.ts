@@ -20,12 +20,14 @@ import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
-import type { DocState, Item, PathNode, Pt, ShapeKind, Style, TextItem } from './types';
+import type { DocState, Item, PathItem, PathNode, Pt, ShapeKind, Style, TextItem } from './types';
+import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, nodeKey, setSmooth } from './nodes';
+import { removeItems } from './model';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
-export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text' | 'pen';
+export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node';
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -39,6 +41,8 @@ interface Draft {
 type Drag =
   | { mode: 'move'; origin: Pt; base: DocState; moved: boolean; box: Rect | null }
   | { mode: 'guide'; axis: 'x' | 'y'; pos: number }
+  | { mode: 'nodes'; id: string; origin: Pt; base: DocState; moved: boolean }
+  | { mode: 'handle'; id: string; s: number; n: number; which: 'in' | 'out'; base: DocState; moved: boolean }
   | { mode: 'scale'; handle: HandleId; box: Rect; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
@@ -85,6 +89,9 @@ export class Editor {
   params: ShapeParams = { ...DEFAULT_SHAPE_PARAMS };
   /** Path being drawn with the pen tool, if any. */
   private pen: PenDraft | null = null;
+  /** Nodes selected in the node tool, as "subpath.node" keys of the path in `nodeItemId`. */
+  private nodeSel = new Set<string>();
+  private nodeItemId: string | null = null;
   /** Font settings for new text and the text tool's defaults. */
   textStyle: TextStyle = { ...DEFAULT_TEXT_STYLE };
   clipboard: Item[] = [];
@@ -140,6 +147,7 @@ export class Editor {
 
   setTool(t: ToolId): void {
     this.finishPen(false);
+    this.nodeSel.clear();
     this.cancelInteraction();
     this.tool = t;
     this.canvas.style.cursor = t === 'select' ? 'default' : 'crosshair';
@@ -259,6 +267,7 @@ export class Editor {
     else if (this.tool === 'brush') this.brushDown(p);
     else if (this.tool === 'text') this.textDown(p, s);
     else if (this.tool === 'pen') this.penDown(p, s);
+    else if (this.tool === 'node') this.nodeDown(p, e.shiftKey);
     else this.drawDown(this.tool, p, s, e.shiftKey);
   }
 
@@ -326,6 +335,16 @@ export class Editor {
 
   /** Double-clicking a text item re-opens it for editing. */
   private onDoubleClick(e: MouseEvent): void {
+    if (this.tool === 'node') {
+      // Double-clicking a segment of the edited path adds a node on it.
+      const item = this.nodeTarget();
+      const p = toDoc(this.ws.view, this.screenPos(e));
+      const near = item ? nearestSegment(item, p) : null;
+      if (item && near && near.dist * this.ws.view.zoom <= PICK_TOLERANCE_PX) {
+        this.ws.edit('Add node', (s) => mapItems(s, new Set([item.id]), (it) => insertNode(it as PathItem, near.s, near.seg, near.t)));
+      }
+      return;
+    }
     if (this.tool !== 'select') return;
     const screen = this.screenPos(e);
     const hit = this.pick(toDoc(this.ws.view, screen));
@@ -357,6 +376,77 @@ export class Editor {
       this.drag = { mode: 'marquee', origin: p, cur: p, additive: shift, baseSel: new Set(sel) };
     }
     this.afterSelectionChange();
+  }
+
+  /** The single selected path, which the node tool edits. */
+  nodeTarget(): PathItem | null {
+    const paths = this.ws.selectedItems(true).filter((it): it is PathItem => it.kind === 'path');
+    return paths.length === 1 ? paths[0] : null;
+  }
+
+  /** Node tool press: a handle drags that handle, a node is selected and dragged, empty space clears the selection. */
+  private nodeDown(p: Pt, shift: boolean): void {
+    const item = this.nodeTarget();
+    if (!item) {
+      this.onStatus('Select one path to edit its nodes');
+      return;
+    }
+    if (this.nodeItemId !== item.id) this.nodeSel.clear();
+    this.nodeItemId = item.id;
+    const tol = PICK_TOLERANCE_PX / this.ws.view.zoom;
+    const near = (q: Pt) => Math.hypot(q.x - p.x, q.y - p.y) <= tol;
+    for (let s = 0; s < item.subs.length; s++) {
+      const nodes = item.subs[s].nodes;
+      for (let n = 0; n < nodes.length; n++) {
+        for (const which of ['in', 'out'] as const) {
+          const h = nodes[n][which];
+          if (h && near(h)) {
+            this.drag = { mode: 'handle', id: item.id, s, n, which, base: this.ws.state, moved: false };
+            this.nodeSel = new Set([nodeKey(s, n)]);
+            this.afterSelectionChange();
+            return;
+          }
+        }
+      }
+    }
+    for (let s = 0; s < item.subs.length; s++) {
+      const nodes = item.subs[s].nodes;
+      for (let n = 0; n < nodes.length; n++) {
+        if (!near(nodes[n].p)) continue;
+        const key = nodeKey(s, n);
+        if (shift) {
+          if (this.nodeSel.has(key)) this.nodeSel.delete(key);
+          else this.nodeSel.add(key);
+        } else if (!this.nodeSel.has(key)) {
+          this.nodeSel = new Set([key]);
+        }
+        this.drag = { mode: 'nodes', id: item.id, origin: p, base: this.ws.state, moved: false };
+        this.requestRender();
+        return;
+      }
+    }
+    if (!shift) this.nodeSel.clear();
+    this.requestRender();
+  }
+
+  /** Smooth or corner the selected nodes (node tool). */
+  setNodesSmooth(smooth: boolean): void {
+    const item = this.nodeTarget();
+    if (!item || this.nodeSel.size === 0) return;
+    const keys = new Set(this.nodeSel);
+    this.ws.edit(smooth ? 'Smooth nodes' : 'Corner nodes', (s) => mapItems(s, new Set([item.id]), (it) => setSmooth(it as PathItem, keys, smooth)));
+  }
+
+  /** Delete the selected nodes (node tool). A path with no nodes left is removed. */
+  deleteNodeSelection(): void {
+    const item = this.nodeTarget();
+    if (!item || this.nodeSel.size === 0) return;
+    const keys = new Set(this.nodeSel);
+    this.nodeSel.clear();
+    this.ws.edit('Delete nodes', (s) => {
+      const next = deleteNodes(item, keys);
+      return next ? mapItems(s, new Set([item.id]), () => next) : removeItems(s, new Set([item.id]));
+    });
   }
 
   /** Pen: a press places a node; dragging bends it into a smooth node with a mirrored handle. */
@@ -493,6 +583,17 @@ export class Editor {
       }
     } else if (this.drag?.mode === 'guide') {
       this.drag.pos = p[this.drag.axis];
+    } else if (this.drag?.mode === 'nodes') {
+      const d = this.drag;
+      d.moved = true;
+      const keys = new Set(this.nodeSel);
+      const dx = p.x - d.origin.x;
+      const dy = p.y - d.origin.y;
+      this.ws.state = mapItems(d.base, new Set([d.id]), (it) => moveNodes(it as PathItem, keys, dx, dy));
+    } else if (this.drag?.mode === 'handle') {
+      const d = this.drag;
+      d.moved = true;
+      this.ws.state = mapItems(d.base, new Set([d.id]), (it) => moveHandle(it as PathItem, d.s, d.n, d.which, p));
     } else if (this.drag?.mode === 'scale') {
       const d = this.drag;
       d.moved = true;
@@ -530,6 +631,8 @@ export class Editor {
     const drag = this.drag;
     this.drag = null;
     if (drag?.mode === 'guide') this.addGuide(drag.axis, drag.pos);
+    if (drag?.mode === 'nodes' && drag.moved) this.ws.commit('Move nodes');
+    if (drag?.mode === 'handle' && drag.moved) this.ws.commit('Move handle');
     if (drag?.mode === 'brush') this.commitBrush(drag.pts);
     if (drag?.mode === 'move' && drag.moved) this.ws.commit('Move');
     if (drag?.mode === 'scale' && drag.moved) this.ws.commit('Scale');
@@ -588,7 +691,8 @@ export class Editor {
       if (key === 'x') this.deleteSelection();
     } else if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) {
       e.preventDefault();
-      this.deleteSelection();
+      if (this.tool === 'node' && this.nodeSel.size) this.deleteNodeSelection();
+      else this.deleteSelection();
     } else if (e.key === 'Enter' && this.pen) {
       e.preventDefault();
       this.finishPen(false);
@@ -693,6 +797,7 @@ export class Editor {
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
       aids: ws.aids,
       penDraft: this.pen ? { nodes: this.pen.nodes, hover: this.pen.hover } : null,
+      nodeEdit: this.tool === 'node' && this.nodeTarget() ? { item: this.nodeTarget()!, sel: this.nodeSel } : null,
       guideDraft: this.drag?.mode === 'guide' ? { axis: this.drag.axis, pos: this.drag.pos } : null,
     });
   }

@@ -70,8 +70,13 @@
             <button data-tool="star" title="Star: click the centre, then a point (S)">Star<kbd>S</kbd></button>
             <button data-tool="text" title="Text: click, then type (T)">Text<kbd>T</kbd></button>
             <button data-tool="pen" title="Pen: click for corners, drag for smooth nodes, Enter to finish (P)">Pen<kbd>P</kbd></button>
+            <button data-tool="node" title="Node: edit a path's nodes and handles (N)">Node<kbd>N</kbd></button>
           </div>
           <div id="tool-help" class="hint"></div>
+          <div id="node-actions" class="row" hidden>
+            <button id="node-smooth" title="Make the selected nodes smooth">Smooth</button>
+            <button id="node-corner" title="Make the selected nodes corners">Corner</button>
+          </div>
           <label class="field">Corner radius <input id="shape-radius" type="number" min="0" max="512" value="0" /></label>
           <label class="field">Sides / points <input id="shape-sides" type="number" min="3" max="64" value="6" /></label>
           <label class="field">Star inner radius <input id="shape-inner" type="number" min="5" max="100" value="50" />%</label>
