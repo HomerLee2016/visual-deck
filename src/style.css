@@ -132,6 +132,7 @@ aside {
 #left section { display: flex; flex-direction: column; min-height: 0; }
 #history-panel { flex: 1 1 50%; border-bottom: 1px solid var(--border); }
 #layers-panel { flex: 1 1 50%; }
+#layers-panel .row { flex-wrap: wrap; }
 #history, #layers { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
 
 #history li {
@@ -162,11 +163,23 @@ aside {
 }
 #layers li:hover { background: var(--panel-2); }
 #layers li.active { background: #29405c; }
+#layers li .eye { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; }
 #layers li .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #layers li .count { color: var(--muted); font-size: 11px; }
 
 #stage { grid-area: stage; position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #view { position: absolute; inset: 0; touch-action: none; }
+#loading {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: flex; align-items: center; gap: 10px; padding: 12px 18px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4); z-index: 5; pointer-events: none;
+}
+#loading .spinner {
+  width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 #stage::after {
   content: 'Drop image to import as a new tab';
   position: absolute;

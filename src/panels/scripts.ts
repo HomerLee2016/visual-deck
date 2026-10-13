@@ -39,8 +39,18 @@ export class ScriptsPanel {
     }
   }
 
-  private run(def: ScriptDef): void {
-    void runScript(def, this.active(), this.log);
+  /** Shows the loading overlay, lets it paint, then runs the script. */
+  private async run(def: ScriptDef): Promise<void> {
+    const overlay = $('loading');
+    $('loading-text').textContent = `Running ${def.name}…`;
+    overlay.hidden = false;
+    // Scripts can run synchronously for a long time, so paint the overlay first.
+    await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+    try {
+      await runScript(def, this.active(), this.log);
+    } finally {
+      overlay.hidden = true;
+    }
   }
 
   private bindDialog(): void {

@@ -202,6 +202,12 @@ export class Workspace {
     this.apply(`${visible ? 'Show' : 'Hide'} ${l.name}`, (s) => mapLayer(s, id, (x) => ({ ...x, visible })), true);
   }
 
+  /** Show or hide every layer in one history step. */
+  setAllLayersVisible(visible: boolean): void {
+    if (this.state.layers.every((l) => l.visible === visible)) return;
+    this.apply(visible ? 'Show all layers' : 'Hide all layers', (s) => ({ ...s, layers: s.layers.map((l) => ({ ...l, visible })) }), true);
+  }
+
   renameLayer(id: string, name: string): void {
     this.edit('Rename layer', (s) => mapLayer(s, id, (x) => ({ ...x, name })));
   }
