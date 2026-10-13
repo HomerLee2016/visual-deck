@@ -1,4 +1,5 @@
 import { reserveUid } from './model';
+import type { Matrix } from './matrix';
 import type { DocState, Item, Layer } from './types';
 import { INITIAL_VIEW, type View } from './view';
 
@@ -12,7 +13,7 @@ export const PROJECT_FORMAT = 'visual-deck';
 export const PROJECT_VERSION = 1;
 export const PROJECT_EXT = '.vdeck';
 
-type StoredItem = Exclude<Item, { kind: 'image' }> | { kind: 'image'; id: string; x: number; y: number; img: number };
+type StoredItem = Exclude<Item, { kind: 'image' }> | { kind: 'image'; id: string; x: number; y: number; img: number; transform?: Matrix };
 interface StoredLayer extends Omit<Layer, 'items'> {
   items: StoredItem[];
 }
@@ -64,7 +65,7 @@ export function serializeProject(ws: Saveable, codec: ImageCodec): string {
     return i;
   };
   const item = (it: Item): StoredItem =>
-    it.kind === 'image' ? { kind: 'image', id: it.id, x: it.x, y: it.y, img: imageId(it.canvas) } : it;
+    it.kind === 'image' ? { kind: 'image', id: it.id, x: it.x, y: it.y, img: imageId(it.canvas), transform: it.transform } : it;
   const file: ProjectFile = {
     format: PROJECT_FORMAT,
     version: PROJECT_VERSION,
@@ -99,7 +100,7 @@ export async function parseProject(text: string, codec: ImageCodec): Promise<Pro
     if (it.kind !== 'image') return it;
     const canvas = canvases[it.img];
     if (!canvas) throw new Error('Project file is missing an image');
-    return { kind: 'image', id: it.id, x: it.x, y: it.y, canvas };
+    return { kind: 'image', id: it.id, x: it.x, y: it.y, canvas, transform: it.transform };
   };
   const history = file.history.map((h) => ({
     label: h.label,
