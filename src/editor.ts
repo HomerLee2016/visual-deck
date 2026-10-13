@@ -22,17 +22,17 @@ import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, imageItem, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
 import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeItem, ShapeKind, Style, TextItem } from './types';
-import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, nodeKey, setSmooth } from './nodes';
+import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodeKey, setSmooth } from './nodes';
 import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
-export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge';
+export type ToolId = 'select' | 'transform' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge';
 
 /** What the Select tool picks: whole items, every item on a layer, or brush-stroke points. */
 export type SelectMode = 'object' | 'layer' | 'points';
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node', f: 'edge' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', x: 'transform', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node', f: 'edge' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -212,7 +212,7 @@ export class Editor {
     this.nodeSel.clear();
     this.cancelInteraction();
     this.tool = t;
-    this.canvas.style.cursor = t === 'select' ? 'default' : 'crosshair';
+    this.canvas.style.cursor = t === 'select' || t === 'transform' ? 'default' : 'crosshair';
     this.onUiChange();
   }
 
@@ -378,10 +378,11 @@ export class Editor {
       this.maskDown(p);
       return;
     }
-    if (this.tool === 'select' && (this.gradientHandleDown(p) || this.handleDown(p))) return;
+    // Only the Transform tool shows scale, rotate and gradient handles; Select just selects and moves.
+    if (this.tool === 'transform' && (this.gradientHandleDown(p) || this.handleDown(p))) return;
     // New points (shapes and text) snap; freehand brush points and selection do not.
-    if (this.tool !== 'select' && this.tool !== 'brush' && this.tool !== 'edge') p = this.snapPt(p);
-    if (this.tool === 'select') this.selectDown(p, e.shiftKey);
+    if (this.tool !== 'select' && this.tool !== 'transform' && this.tool !== 'brush' && this.tool !== 'edge') p = this.snapPt(p);
+    if (this.tool === 'select' || this.tool === 'transform') this.selectDown(p, e.shiftKey);
     else if (this.tool === 'brush') this.brushDown(p);
     else if (this.tool === 'edge') this.edgeDown(p);
     else if (this.tool === 'text') this.textDown(p, s);
@@ -484,7 +485,7 @@ export class Editor {
       }
       return;
     }
-    if (this.tool !== 'select') return;
+    if (this.tool !== 'select' && this.tool !== 'transform') return;
     const screen = this.screenPos(e);
     const hit = this.pick(toDoc(this.ws.view, screen));
     if (hit?.kind === 'text') this.onText({ ws: this.ws, at: { x: hit.x, y: hit.y }, screen, zoom: this.ws.view.zoom, item: hit });
@@ -581,36 +582,25 @@ export class Editor {
     if (this.nodeItemId !== item.id) this.nodeSel.clear();
     this.nodeItemId = item.id;
     const tol = PICK_TOLERANCE_PX / this.ws.view.zoom;
-    const near = (q: Pt) => dist(q, p) <= tol;
-    for (let s = 0; s < item.subs.length; s++) {
-      const nodes = item.subs[s].nodes;
-      for (let n = 0; n < nodes.length; n++) {
-        for (const which of ['in', 'out'] as const) {
-          const h = nodes[n][which];
-          if (h && near(h)) {
-            this.drag = { mode: 'handle', id: item.id, s, n, which, base: this.ws.state, moved: false };
-            this.nodeSel = new Set([nodeKey(s, n)]);
-            this.afterSelectionChange();
-            return;
-          }
-        }
-      }
-    }
-    for (let s = 0; s < item.subs.length; s++) {
-      const nodes = item.subs[s].nodes;
-      for (let n = 0; n < nodes.length; n++) {
-        if (!near(nodes[n].p)) continue;
-        const key = nodeKey(s, n);
-        if (shift) {
-          if (this.nodeSel.has(key)) this.nodeSel.delete(key);
-          else this.nodeSel.add(key);
-        } else if (!this.nodeSel.has(key)) {
-          this.nodeSel = new Set([key]);
-        }
-        this.drag = { mode: 'nodes', id: item.id, origin: p, base: this.ws.state, moved: false };
-        this.requestRender();
+    const hit = nearestNodeHit(item, p, tol);
+    if (hit) {
+      const { s, n, which } = hit;
+      const key = nodeKey(s, n);
+      if (which) {
+        this.drag = { mode: 'handle', id: item.id, s, n, which, base: this.ws.state, moved: false };
+        this.nodeSel = new Set([key]);
+        this.afterSelectionChange();
         return;
       }
+      if (shift) {
+        if (this.nodeSel.has(key)) this.nodeSel.delete(key);
+        else this.nodeSel.add(key);
+      } else if (!this.nodeSel.has(key)) {
+        this.nodeSel = new Set([key]);
+      }
+      this.drag = { mode: 'nodes', id: item.id, origin: p, base: this.ws.state, moved: false };
+      this.requestRender();
+      return;
     }
     if (!shift) this.nodeSel.clear();
     this.requestRender();
@@ -1181,7 +1171,7 @@ export class Editor {
       stroke: this.drag?.mode === 'brush' ? this.drag.pts : null,
       style: this.style,
       params: this.params,
-      handles: box && this.tool === 'select' ? handlesFor(box, ws.view.zoom) : null,
+      handles: box && this.tool === 'transform' ? handlesFor(box, ws.view.zoom) : null,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
       brushCursor: this.hover && (this.maskEditing || this.tool === 'brush' || this.tool === 'edge')
         ? { at: this.hover, width: this.maskEditing ? this.maskRadius * 2 : this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width }

@@ -33,6 +33,12 @@ describe('optionGroups', () => {
     for (const t of ['line', 'brush', 'rect', 'pen'] as ToolId[]) expect(optionGroups(t, idle)).not.toContain('effects');
   });
 
+  it('shows transform options only with the Transform tool', () => {
+    expect(optionGroups('select', sel(['rect']))).not.toContain('transform');
+    expect(optionGroups('transform', sel(['rect']))).toEqual(['transform']);
+    expect(optionGroups('transform', idle)).toEqual([]);
+  });
+
   it('shows only the select mode when nothing is selected', () => {
     expect(optionGroups('select', idle)).toEqual(['selectMode']);
   });
@@ -43,7 +49,8 @@ describe('optionGroups', () => {
 
   it('shows only what the selection can use', () => {
     const rect = optionGroups('select', sel(['rect']));
-    expect(rect).toEqual(expect.arrayContaining(['selection', 'transform', 'color', 'fill', 'effects']));
+    expect(rect).toEqual(expect.arrayContaining(['selection', 'color', 'fill', 'effects']));
+    expect(rect).not.toContain('transform');
     expect(rect).not.toContain('marker');
     expect(rect).not.toContain('text');
     const line = optionGroups('select', sel(['line']));
@@ -54,7 +61,7 @@ describe('optionGroups', () => {
 
   it('hides style groups for a selection with nothing styled', () => {
     const g = optionGroups('select', sel(['image'], { styled: false }));
-    expect(g).toEqual(['selectMode', 'selection', 'transform']);
+    expect(g).toEqual(['selectMode', 'selection']);
   });
 
   it('shares the size control with the edge brush', () => {

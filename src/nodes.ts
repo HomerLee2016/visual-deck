@@ -121,6 +121,26 @@ export function setSmooth(it: PathItem, keys: ReadonlySet<string>, smooth: boole
   };
 }
 
+/**
+ * What the node tool grabs at `p`, within `tol`. A handle only wins when it is clearly closer than
+ * its node: handles of traced paths sit a unit or two from their node, so without this a click on
+ * a node would grab a handle instead.
+ */
+export function nearestNodeHit(it: PathItem, p: Pt, tol: number): { s: number; n: number; which: 'in' | 'out' | null } | null {
+  const hits: { d: number; s: number; n: number; which: 'in' | 'out' | null }[] = [];
+  it.subs.forEach((sub, s) =>
+    sub.nodes.forEach((node, n) => {
+      hits.push({ d: Math.hypot(node.p.x - p.x, node.p.y - p.y), s, n, which: null });
+      for (const which of ['in', 'out'] as const) {
+        const h = node[which];
+        if (h) hits.push({ d: Math.hypot(h.x - p.x, h.y - p.y) + tol / 2, s, n, which });
+      }
+    }),
+  );
+  const best = hits.filter((h) => h.d <= tol).sort((a, b) => a.d - b.d)[0];
+  return best ? { s: best.s, n: best.n, which: best.which } : null;
+}
+
 /** The segment of `it` nearest to `p`: subpath, the segment's start node, and the parameter along it. */
 export function nearestSegment(it: PathItem, p: Pt): { s: number; seg: number; t: number; dist: number } | null {
   let best: { s: number; seg: number; t: number; dist: number } | null = null;
