@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Workspace } from './model';
-import { createDeck, runScript, type ScriptDef } from './scripting';
+import { createDeck, DEFAULT_SCRIPTS, runScript, type ScriptDef } from './scripting';
+
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => (...a: unknown[]) => Promise<unknown>;
 
 const script = (code: string): ScriptDef => ({ id: 'test', name: 'Test', code });
 const newWs = () => new Workspace('t', 64, 64);
@@ -73,5 +75,55 @@ describe('runScript', () => {
     expect(ws.activeLayer.items).toHaveLength(0);
     expect(ws.history).toHaveLength(1);
     expect(logs).toEqual(['Test failed: boom']);
+  });
+});
+
+describe('builtin Trace to SVG', () => {
+  const code = DEFAULT_SCRIPTS.find((s) => s.id === 'builtin-trace')!.code;
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('traces a two-colour image into a new layer, filling each region', async () => {
+    const fills: string[] = [];
+    const stubCtx = {
+      fillStyle: '',
+      setTransform: () => {},
+      fill: () => fills.push(stubCtx.fillStyle),
+      getImageData: (_x: number, _y: number, w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+    };
+    vi.stubGlobal('document', { createElement: () => ({ width: 0, height: 0, getContext: () => stubCtx }) });
+    vi.stubGlobal('Path2D', class {
+      constructor(public d: string) {}
+    });
+
+    const size = 8;
+    const data = new Uint8ClampedArray(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = (y * size + x) * 4;
+        const left = x < size / 2;
+        data.set(left ? [230, 20, 20, 255] : [20, 20, 230, 255], i);
+      }
+    }
+    const setCalls: [string, unknown][] = [];
+    const logs: string[] = [];
+    const deck = {
+      getImageData: () => ({ width: size, height: size, data }),
+      addLayer: () => 'trace-layer',
+      setImageData: (id: string, img: unknown) => setCalls.push([id, img]),
+      log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
+    };
+
+    await new AsyncFunction('deck', code)(deck);
+
+    expect(setCalls).toHaveLength(1);
+    expect(setCalls[0][0]).toBe('trace-layer');
+    expect(logs[0]).toMatch(/^Trace: \d+ colours/);
+    const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+    const colours = fills.map(rgb);
+    expect(colours.some(([r, g, b]) => r > 180 && g < 80 && b < 80)).toBe(true);
+    expect(colours.some(([r, g, b]) => b > 180 && r < 80 && g < 80)).toBe(true);
   });
 });

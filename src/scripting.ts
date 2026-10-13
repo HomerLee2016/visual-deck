@@ -3,6 +3,7 @@ import type { Workspace } from './model';
 import { DEFAULT_STYLE, imageItem, uid } from './model';
 import { renderToCanvas } from './render';
 import type { Item, Style } from './types';
+import traceToSvgCode from './builtin/trace-to-svg.js?raw';
 
 export interface ScriptDef {
   id: string;
@@ -51,6 +52,11 @@ for (let x = 0; x <= deck.width; x += size) deck.addLine(x, 0, x, deck.height, s
 for (let y = 0; y <= deck.height; y += size) deck.addLine(0, y, deck.width, y, style, layer);
 deck.log('Grid drawn');
 `,
+  },
+  {
+    id: 'builtin-trace',
+    name: 'Trace to SVG',
+    code: traceToSvgCode,
   },
 ];
 
