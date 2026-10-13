@@ -50,9 +50,10 @@ export class OptionsPanel {
     this.range.oninput = () => commit(false, this.range);
     this.range.onchange = () => commit(true, this.range);
     this.size.onchange = () => commit(true, this.size);
-    document.querySelectorAll<HTMLInputElement>('input[name="mask-op"]').forEach((r) => {
-      r.onchange = () => editor.setMaskBrush({ op: r.value as 'add' | 'remove' });
-    });
+    $('mask-op').onclick = () => {
+      editor.setMaskBrush({ op: editor.maskOp === 'add' ? 'remove' : 'add' });
+      this.render();
+    };
     $('mask-confirm').onclick = () => editor.confirmMaskEdit();
     $('mask-cancel').onclick = () => editor.cancelMaskEdit();
   }
@@ -83,9 +84,9 @@ export class OptionsPanel {
     document.querySelectorAll<HTMLElement>('#options [data-opt]').forEach((el) => {
       el.hidden = !groups.has(el.dataset.opt as OptionGroup);
     });
-    document.querySelectorAll<HTMLInputElement>('input[name="mask-op"]').forEach((r) => {
-      r.checked = r.value === e.maskOp;
-    });
+    const opSwitch = $('mask-op');
+    opSwitch.setAttribute('aria-checked', String(e.maskOp === 'remove'));
+    opSwitch.dataset.op = e.maskOp;
     // The Size control follows the current binding, so a stale slider never edits the wrong thing.
     const b = (this.binding = this.sizeBinding());
     $('opt-size-label').textContent = b.label;
