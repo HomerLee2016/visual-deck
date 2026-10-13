@@ -22,7 +22,7 @@ import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, imageItem, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
 import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeItem, ShapeKind, Style, TextItem } from './types';
-import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, nodeKey, setSmooth } from './nodes';
+import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodeKey, setSmooth } from './nodes';
 import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
@@ -581,36 +581,25 @@ export class Editor {
     if (this.nodeItemId !== item.id) this.nodeSel.clear();
     this.nodeItemId = item.id;
     const tol = PICK_TOLERANCE_PX / this.ws.view.zoom;
-    const near = (q: Pt) => dist(q, p) <= tol;
-    for (let s = 0; s < item.subs.length; s++) {
-      const nodes = item.subs[s].nodes;
-      for (let n = 0; n < nodes.length; n++) {
-        for (const which of ['in', 'out'] as const) {
-          const h = nodes[n][which];
-          if (h && near(h)) {
-            this.drag = { mode: 'handle', id: item.id, s, n, which, base: this.ws.state, moved: false };
-            this.nodeSel = new Set([nodeKey(s, n)]);
-            this.afterSelectionChange();
-            return;
-          }
-        }
-      }
-    }
-    for (let s = 0; s < item.subs.length; s++) {
-      const nodes = item.subs[s].nodes;
-      for (let n = 0; n < nodes.length; n++) {
-        if (!near(nodes[n].p)) continue;
-        const key = nodeKey(s, n);
-        if (shift) {
-          if (this.nodeSel.has(key)) this.nodeSel.delete(key);
-          else this.nodeSel.add(key);
-        } else if (!this.nodeSel.has(key)) {
-          this.nodeSel = new Set([key]);
-        }
-        this.drag = { mode: 'nodes', id: item.id, origin: p, base: this.ws.state, moved: false };
-        this.requestRender();
+    const hit = nearestNodeHit(item, p, tol);
+    if (hit) {
+      const { s, n, which } = hit;
+      const key = nodeKey(s, n);
+      if (which) {
+        this.drag = { mode: 'handle', id: item.id, s, n, which, base: this.ws.state, moved: false };
+        this.nodeSel = new Set([key]);
+        this.afterSelectionChange();
         return;
       }
+      if (shift) {
+        if (this.nodeSel.has(key)) this.nodeSel.delete(key);
+        else this.nodeSel.add(key);
+      } else if (!this.nodeSel.has(key)) {
+        this.nodeSel = new Set([key]);
+      }
+      this.drag = { mode: 'nodes', id: item.id, origin: p, base: this.ws.state, moved: false };
+      this.requestRender();
+      return;
     }
     if (!shift) this.nodeSel.clear();
     this.requestRender();

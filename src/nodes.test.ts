@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, setSmooth } from './nodes';
+import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, setSmooth } from './nodes';
 import type { PathItem } from './types';
 
 const style = { color: '#fff', width: 1 };
@@ -63,5 +63,24 @@ describe('node editing', () => {
     const near = nearestSegment(open([0, 0], [10, 0], [10, 10]), { x: 10, y: 5 });
     expect(near).toMatchObject({ s: 0, seg: 1 });
     expect(near!.t).toBeCloseTo(0.5, 1);
+  });
+
+  it('prefers the node over the handles that sit beside it', () => {
+    // Traced paths put each handle about a unit from its node, closer than the pick tolerance.
+    const it: PathItem = {
+      ...open([0, 0], [10, 0]),
+      subs: [{ closed: true, nodes: [
+        { p: { x: 0, y: 0 }, in: { x: -1, y: 0 }, out: { x: 1, y: 0 } },
+        { p: { x: 10, y: 0 }, in: { x: 9, y: 0 }, out: { x: 11, y: 0 } },
+        { p: { x: 20, y: 0 }, in: { x: 19, y: 0 }, out: { x: 21, y: 0 } },
+      ] }],
+    };
+    expect(nearestNodeHit(it, { x: 10, y: 0 }, 6)).toEqual({ s: 0, n: 1, which: null });
+    expect(nearestNodeHit(it, { x: 11.2, y: 0 }, 6)).toEqual({ s: 0, n: 1, which: null });
+    expect(nearestNodeHit(it, { x: 11, y: 0 }, 6)).toEqual({ s: 0, n: 1, which: null });
+    // A handle that is far from its node (hand-drawn paths) still wins where it is the nearest thing.
+    const far: PathItem = { ...open([0, 0]), subs: [{ closed: false, nodes: [{ p: { x: 0, y: 0 }, out: { x: 30, y: 0 } }] }] };
+    expect(nearestNodeHit(far, { x: 30, y: 0 }, 6)).toEqual({ s: 0, n: 0, which: 'out' });
+    expect(nearestNodeHit(it, { x: 50, y: 50 }, 6)).toBeNull();
   });
 });
