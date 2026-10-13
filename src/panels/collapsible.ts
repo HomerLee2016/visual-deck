@@ -5,31 +5,40 @@ import { loadPrefs, savePrefs } from '../prefs';
  * `data-fixed` (Tools, Scripts) always stay expanded. Every other section starts
  * collapsed until the user changes it; after that the choice is remembered.
  */
-export function initCollapsible(): void {
-  const saved = loadPrefs().collapsed;
-  const collapsed = new Set(saved);
-  document.querySelectorAll<HTMLElement>('aside section[data-id]').forEach((sec) => {
-    if (sec.dataset.fixed !== undefined) return;
+export class CollapsibleSections {
+  private collapsed: Set<string>;
+
+  constructor() {
+    const saved = loadPrefs().collapsed;
+    this.collapsed = new Set(saved ?? []);
+    document.querySelectorAll<HTMLElement>('aside section[data-id]:not([data-fixed])').forEach((sec) => {
+      if (saved === undefined) this.collapsed.add(sec.dataset.id!);
+      this.bind(sec);
+    });
+    this.render();
+  }
+
+  render(): void {
+    document.querySelectorAll<HTMLElement>('aside section[data-id]:not([data-fixed])').forEach((sec) => {
+      const c = this.collapsed.has(sec.dataset.id!);
+      sec.classList.toggle('collapsed', c);
+      sec.querySelector('h2')!.setAttribute('aria-expanded', String(!c));
+    });
+  }
+
+  private bind(sec: HTMLElement): void {
     const id = sec.dataset.id!;
-    if (!saved) collapsed.add(id);
     const head = sec.querySelector('h2')!;
     head.setAttribute('role', 'button');
     head.tabIndex = 0;
-    const apply = (c: boolean) => {
-      sec.classList.toggle('collapsed', c);
-      head.setAttribute('aria-expanded', String(!c));
-    };
     const toggle = () => {
-      // Clicks on buttons inside the heading (such as "+") do their own job.
-      const c = !sec.classList.contains('collapsed');
-      apply(c);
-      const ids = new Set(loadPrefs().collapsed ?? []);
-      if (c) ids.add(id);
-      else ids.delete(id);
-      savePrefs({ collapsed: [...ids] });
+      if (this.collapsed.has(id)) this.collapsed.delete(id);
+      else this.collapsed.add(id);
+      savePrefs({ collapsed: [...this.collapsed] });
+      this.render();
     };
-    apply(collapsed.has(id));
     head.onclick = (e) => {
+      // Clicks on buttons inside the heading (such as "+") do their own job.
       if ((e.target as HTMLElement).closest('button')) return;
       toggle();
     };
@@ -38,5 +47,5 @@ export function initCollapsible(): void {
       e.preventDefault();
       toggle();
     };
-  });
+  }
 }
