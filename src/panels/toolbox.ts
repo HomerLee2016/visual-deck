@@ -14,6 +14,7 @@ const TOOL_HELP: Record<ToolId, string> = {
   rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
   ellipse: 'Drag or click two opposite corners of the bounding box. Shift for a circle.',
   polygon: 'Click the centre, then a vertex. Sides set below. Shift snaps the angle.',
+  node: 'Click a node or handle to select it; drag to move it. Double-click a segment to add a node. Delete removes selected nodes.',
   pen: 'Click to place corner nodes; drag to make a smooth node. Click the first node or press Enter to finish; Esc finishes an open path.',
   text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
   star: 'Click the centre, then a point. Points and inner radius set below. Shift snaps the angle.',
@@ -143,6 +144,8 @@ export class ToolboxPanel {
       size.value = String(n);
       editor.setTextStyle({ size: n }, true);
     };
+    $('node-smooth').onclick = () => editor.setNodesSmooth(true);
+    $('node-corner').onclick = () => editor.setNodesSmooth(false);
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
     $('act-delete').onclick = () => editor.deleteSelection();
@@ -153,6 +156,7 @@ export class ToolboxPanel {
       b.classList.toggle('active', b.dataset.tool === this.editor.tool);
     });
     $('tool-help').textContent = TOOL_HELP[this.editor.tool];
+    $('node-actions').hidden = this.editor.tool !== 'node';
     const has = this.active().selection.size > 0;
     $<HTMLButtonElement>('act-copy').disabled = !has;
     $<HTMLButtonElement>('act-delete').disabled = !has;

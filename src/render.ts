@@ -5,7 +5,7 @@ import type { ClickShapeKind, Rect } from './geometry';
 import type { ShapeParams } from './items/types';
 import type { Handle } from './handles';
 import type { ViewAids } from './model';
-import type { DocState, Item, PathNode, Pt, Style } from './types';
+import type { DocState, Item, PathItem, PathNode, Pt, Style } from './types';
 import type { Size, View } from './view';
 import type { Guides } from './snap';
 
@@ -116,6 +116,8 @@ export interface Scene {
   /** Scale and rotate handles around the selection, or null when nothing is selected. */
   handles: Handle[] | null;
   aids: ViewAids;
+  /** The path being edited in the node tool, with its selected node keys. */
+  nodeEdit: { item: PathItem; sel: Set<string> } | null;
   /** A path being drawn with the pen: its nodes, and the pointer after the last one. */
   penDraft: { nodes: PathNode[]; hover: Pt } | null;
   /** A guide being dragged out of a ruler. */
@@ -187,6 +189,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   if (scene.brushCursor) drawBrushCursor(ctx, scene.brushCursor, zoom);
   if (scene.handles) drawHandles(ctx, scene.handles, zoom);
   if (scene.penDraft) drawPenDraft(ctx, scene.penDraft, scene.style, zoom);
+  if (scene.nodeEdit) drawNodeEdit(ctx, scene.nodeEdit.item, scene.nodeEdit.sel, zoom);
   ctx.restore();
   drawRulers(ctx, scene.view, scene.size);
 }
@@ -279,6 +282,35 @@ function drawRulers(ctx: CanvasRenderingContext2D, view: View, size: Size): void
     ctx.restore();
   }
   ctx.stroke();
+  ctx.restore();
+}
+
+/** Nodes as squares (filled when selected) with their handles as stalks and dots. */
+function drawNodeEdit(ctx: CanvasRenderingContext2D, it: PathItem, sel: Set<string>, zoom: number): void {
+  const h = 3.5 / zoom;
+  ctx.save();
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = ACCENT;
+  it.subs.forEach((sub, s) => {
+    sub.nodes.forEach((n, i) => {
+      for (const hp of [n.in, n.out]) {
+        if (!hp) continue;
+        ctx.beginPath();
+        ctx.moveTo(n.p.x, n.p.y);
+        ctx.lineTo(hp.x, hp.y);
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(hp.x, hp.y, h * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      const on = sel.has(`${s}.${i}`);
+      ctx.fillStyle = on ? ACCENT : '#fff';
+      ctx.fillRect(n.p.x - h, n.p.y - h, h * 2, h * 2);
+      ctx.strokeRect(n.p.x - h, n.p.y - h, h * 2, h * 2);
+    });
+  });
   ctx.restore();
 }
 
