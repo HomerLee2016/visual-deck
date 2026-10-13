@@ -256,3 +256,7 @@ pre { white-space: pre-wrap; font: 11px/1.5 ui-monospace, Menlo, Consolas, monos
   white-space: pre;
   transform-origin: top left;
 }
+
+.geo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; padding: 6px 8px; }
+.geo-grid .field { font-size: 11px; }
+.geo-grid input[type='number'] { width: 100%; box-sizing: border-box; }

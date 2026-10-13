@@ -7,6 +7,7 @@ import { PROJECT_EXT } from './project';
 import { HistoryPanel } from './panels/history';
 import { LayersPanel } from './panels/layers';
 import { MenuBar } from './panels/menubar';
+import { GeometryPanel } from './panels/geometry';
 import { ScriptsPanel } from './panels/scripts';
 import { TextInput } from './panels/textinput';
 import { TabBar } from './panels/tabbar';
@@ -23,6 +24,7 @@ export class App {
   private history = new HistoryPanel(() => this.active);
   private layers = new LayersPanel(() => this.active);
   private toolbox = new ToolboxPanel(this.editor, () => this.active);
+  private geometry = new GeometryPanel(this.editor, () => this.active);
   private menu = new MenuBar(
     () => this.active,
     (f) => void this.openImage(f),
@@ -40,7 +42,10 @@ export class App {
 
   constructor() {
     this.editor.onStatus = (m) => ($('status').textContent = m);
-    this.editor.onUiChange = () => this.toolbox.render();
+    this.editor.onUiChange = () => {
+      this.toolbox.render();
+      this.geometry.render();
+    };
     this.editor.onImageFile = (f) => void this.pasteImage(f);
     this.editor.onText = (req) => this.textInput.open(req, this.editor.textStyle, this.editor.style.color);
     new ScriptsPanel(() => this.active, (m) => this.editor.onStatus(m));
@@ -70,6 +75,7 @@ export class App {
       this.history.render();
       this.layers.render();
       this.toolbox.render();
+      this.geometry.render();
     });
     this.editor.setWorkspace(ws);
     this.tabs.render();
