@@ -2,6 +2,23 @@
 
 A lightweight, in-browser image tool for making mobile-game assets. TypeScript + Vite, no framework.
 
+## Getting started
+
+Requirements: [Node.js](https://nodejs.org/) 22 or newer (CI uses 22).
+
+1. Open a terminal in the project folder and install the dependencies:
+   ```
+   npm install
+   ```
+2. Start the app:
+   ```
+   npm run dev
+   ```
+3. Open **http://localhost:5173** in your browser. The address is also printed in the terminal.
+4. Stop the app with `Ctrl+C` in the terminal.
+
+To try the production build instead, run `npm run build` and then `npm run preview`.
+
 ```
 npm install
 npm run dev        # http://localhost:5173
