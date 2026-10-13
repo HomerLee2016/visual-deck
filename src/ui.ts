@@ -2,6 +2,7 @@ import './style.css';
 import { Editor, type TextRequest } from './editor';
 import { fileToCanvas, fileToProject, download, projectToBlob } from './io';
 import { resizeDocument } from './arrange';
+import { importSvg } from './svgimport';
 import { Workspace, imageItem, mapItems, newLayer, removeItems, uid } from './model';
 import { $ } from './panels/dom';
 import { PROJECT_EXT } from './project';
@@ -41,6 +42,7 @@ export class App {
     () => this.saveProject(),
     (m) => this.editor.onStatus(m),
     (w, h, ax, ay) => this.resizeDocument(w, h, ax, ay),
+    (f) => void this.openSvgShapes(f),
   );
   private tabs = new TabBar({
     workspaces: () => this.workspaces,
@@ -132,6 +134,19 @@ export class App {
       this.addWorkspace(ws);
     } catch (e) {
       this.editor.onStatus(`Could not open ${file.name}: ${e instanceof Error ? e.message : 'unknown error'}`);
+    }
+  }
+
+  /** An SVG opened as editable shapes: a new workspace whose unsupported features are reported in the status line. */
+  private async openSvgShapes(file: File): Promise<void> {
+    try {
+      const r = importSvg(await file.text());
+      const layer = newLayer('Imported', r.items);
+      this.addWorkspace(this.newWorkspace(file.name.replace(/\.[^.]+$/, ''), r.width, r.height, [layer]));
+      const note = r.warnings.length ? ` – ${r.warnings.length} not imported: ${r.warnings.slice(0, 3).join('; ')}` : '';
+      this.editor.onStatus(`Opened ${file.name} as shapes${note}`);
+    } catch (e) {
+      this.editor.onStatus(`Could not open ${file.name}: ${(e as Error).message}`);
     }
   }
 

@@ -11,6 +11,7 @@ export class MenuBar {
     private saveProject: () => void,
     private status: (msg: string) => void,
     private resize: (width: number, height: number, anchorX: 0 | 1 | 2, anchorY: 0 | 1 | 2) => void = () => undefined,
+    private openSvg: (file: File) => void = () => undefined,
   ) {
     const menu = document.querySelector<HTMLElement>('#menubar .menu')!;
     const items = menu.querySelector<HTMLElement>('.menu-items')!;
@@ -29,6 +30,16 @@ export class MenuBar {
     input.onchange = () => {
       for (const f of Array.from(input.files ?? [])) this.import(f);
       input.value = '';
+    };
+
+    const svgInput = $<HTMLInputElement>('svg-input');
+    $('menu-import-svg').onclick = () => {
+      closeMenu();
+      svgInput.click();
+    };
+    svgInput.onchange = () => {
+      for (const f of Array.from(svgInput.files ?? [])) this.openSvg(f);
+      svgInput.value = '';
     };
 
     const projectInput = $<HTMLInputElement>('project-input');
