@@ -92,6 +92,8 @@ export interface LineItem {
   style: Style;
   /** Applied to the item's points (which stay in local space). Missing means identity. */
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 /** Circular arc from `a` to `b` passing through `m`. */
@@ -104,6 +106,8 @@ export interface ArcItem {
   style: Style;
   /** Applied to the item's points (which stay in local space). Missing means identity. */
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 /** Cubic Bézier from `a` to `b` with control points `c1`, `c2`. */
@@ -117,6 +121,8 @@ export interface CurveItem {
   style: Style;
   /** Applied to the item's points (which stay in local space). Missing means identity. */
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 export interface ImageItem {
@@ -128,6 +134,8 @@ export interface ImageItem {
   canvas: HTMLCanvasElement;
   /** Applied to the item's position (which stays in local space). Missing means identity. */
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 /** Freehand stroke through `pts`, recorded while the pointer is held down. */
@@ -138,6 +146,8 @@ export interface BrushItem {
   style: Style;
   /** Applied to the item's points (which stay in local space). Missing means identity. */
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 /** Axis-aligned rectangle; (x, y) is the top-left corner, `r` the corner radius. */
@@ -151,6 +161,8 @@ export interface RectItem {
   r: number;
   style: Style;
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 /** Ellipse centred on (cx, cy) with radii rx and ry. */
@@ -163,6 +175,8 @@ export interface EllipseItem {
   ry: number;
   style: Style;
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 /** Regular polygon: `sides` vertices on a circle of radius `r`, the first at angle `rot` (radians). */
@@ -176,6 +190,8 @@ export interface PolygonItem {
   rot: number;
   style: Style;
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 /** Star with `sides` points: outer vertices at `r`, inner vertices at `r * inner`. */
@@ -190,6 +206,8 @@ export interface StarItem {
   rot: number;
   style: Style;
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 /** A path node: its anchor, plus optional handles. A node without handles is a corner. */
@@ -214,6 +232,8 @@ export interface PathItem {
   subs: SubPath[];
   style: Style;
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem | EllipseItem | PolygonItem | StarItem | PathItem;
@@ -234,6 +254,14 @@ export interface TextItem {
   /** Colour comes from `style.color`; stroke and fill settings do not apply to text. */
   style: Style;
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
+}
+
+/** A shape that clips (its outline bounds the item) or masks (its opacity does) the item it is attached to. */
+export interface ClipSpec {
+  mode: 'clip' | 'mask';
+  shape: ShapeItem;
 }
 
 /** Items moved, transformed and selected together. Children keep their own transforms, inside the group's. */
@@ -242,6 +270,8 @@ export interface GroupItem {
   id: string;
   items: Item[];
   transform?: Matrix;
+  /** Clipped or masked by another shape. */
+  clip?: ClipSpec;
 }
 
 export type Item = ShapeItem | ImageItem | TextItem | GroupItem;

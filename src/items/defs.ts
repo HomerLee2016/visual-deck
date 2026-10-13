@@ -1,6 +1,8 @@
 import { esc, num } from './format';
 import { gradientKey } from './paint';
-import type { Gradient, Style } from '../types';
+import type { ClipSpec, Gradient, Style } from '../types';
+import { shapeTypeOf } from './registry';
+import { transformAttr } from './shape';
 import type { SvgEnv } from './types';
 
 /** The `url(#id)` reference for an SVG filter that blurs and/or drop-shadows an item, registering it once. */
@@ -33,6 +35,20 @@ export function gradientRef(g: Gradient, env: SvgEnv): string {
       g.type === 'linear'
         ? `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${num(g.x1)}" y1="${num(g.y1)}" x2="${num(g.x2)}" y2="${num(g.y2)}">${stops}</linearGradient>`
         : `<radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${num(g.cx)}" cy="${num(g.cy)}" r="${num(g.r)}" fx="${num(g.fx)}" fy="${num(g.fy)}">${stops}</radialGradient>`;
+    entry = { id, markup };
+    env.defs.set(key, entry);
+  }
+  return `url(#${entry.id})`;
+}
+
+/** The `url(#id)` reference for a clip path or mask built from a shape, registering it once. */
+export function clipRef(clip: ClipSpec, env: SvgEnv): string {
+  const key = `${clip.mode}:${JSON.stringify(clip.shape)}`;
+  let entry = env.defs.get(key);
+  if (!entry) {
+    const id = `${clip.mode === 'clip' ? 'c' : 'm'}${env.defs.size + 1}`;
+    const shape = `<path d="${shapeTypeOf(clip.shape).pathData(clip.shape)}"${clip.mode === 'mask' ? ' fill="#fff"' : ''}${transformAttr(clip.shape.transform)}/>`;
+    const markup = clip.mode === 'clip' ? `<clipPath id="${id}">${shape}</clipPath>` : `<mask id="${id}">${shape}</mask>`;
     entry = { id, markup };
     env.defs.set(key, entry);
   }
