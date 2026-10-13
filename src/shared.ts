@@ -16,6 +16,7 @@ function applyDef(style: Style, which: 'fill' | 'stroke', def: Definition): Styl
 
 /** One item with its shared references replaced by their values. */
 export function resolveItem(it: Item, defs: Defs): Item {
+  if (it.kind === 'group') return { ...it, items: it.items.map((c) => resolveItem(c, defs)) };
   const style = styleOf(it);
   if (!style || (!style.fillRef && !style.strokeRef)) return it;
   let next = style;
@@ -92,4 +93,19 @@ export function unshareStyle(s: DocState, ids: ReadonlySet<string>): DocState {
 export function updateDefinition(s: DocState, id: string, def: Definition): DocState {
   if (!s.defs || !(id in s.defs)) return s;
   return { ...s, defs: { ...s.defs, [id]: def } };
+}
+
+/**
+ * Instances show their symbol's current content: each instance's children are
+ * replaced by the symbol's items, so editing the symbol changes every instance.
+ */
+export function resolveSymbols(s: DocState): DocState {
+  const symbols = s.symbols;
+  if (!symbols || Object.keys(symbols).length === 0) return s;
+  const show = (it: Item): Item => {
+    if (it.kind !== 'group') return it;
+    const content = it.symbolId ? symbols[it.symbolId] : undefined;
+    return { ...it, items: (content ?? it.items).map(show) };
+  };
+  return { ...s, layers: s.layers.map((l) => ({ ...l, items: l.items.map(show) })) };
 }

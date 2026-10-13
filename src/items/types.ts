@@ -38,6 +38,8 @@ export const DEFAULT_SHAPE_PARAMS: ShapeParams = { radius: 0, sides: 6, inner: 0
 export interface SvgEnv {
   hrefs: Map<HTMLCanvasElement, string>;
   defs: Map<string, { id: string; markup: string }>;
+  /** The document's symbols, so instances can be written as references. */
+  symbols: Readonly<Record<string, Item[]>>;
 }
 
 /** Click-to-place parameters for a shape tool. */

@@ -10,6 +10,7 @@ import { MenuBar } from './panels/menubar';
 import { ArrangePanel } from './panels/arrange';
 import { GridPanel } from './panels/grid';
 import { PalettePanel } from './panels/palette';
+import { SymbolsPanel } from './panels/symbols';
 import { GeometryPanel } from './panels/geometry';
 import { ScriptsPanel } from './panels/scripts';
 import { TextInput } from './panels/textinput';
@@ -31,6 +32,7 @@ export class App {
   private arrange = new ArrangePanel(this.editor, () => this.active);
   private grid = new GridPanel(() => this.active);
   private palette = new PalettePanel(this.editor, () => this.active);
+  private symbols = new SymbolsPanel(() => this.active);
   private menu = new MenuBar(
     () => this.active,
     (f) => void this.openImage(f),
@@ -86,6 +88,7 @@ export class App {
       this.arrange.render();
       this.grid.render();
       this.palette.render();
+      this.symbols.render();
     });
     this.editor.setWorkspace(ws);
     this.tabs.render();
@@ -93,6 +96,7 @@ export class App {
     this.layers.render();
     this.grid.render();
     this.palette.render();
+    this.symbols.render();
   }
 
   private closeWorkspace(ws: Workspace): void {

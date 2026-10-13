@@ -12,7 +12,8 @@ import { lineType } from './line';
 import { rectType } from './rect';
 import type { ItemType, ShapeType, SvgEnv } from './types';
 import { clipRef } from './defs';
-import type { Item, ItemKind, ShapeItem, ShapeKind } from '../types';
+import type { GroupItem, Item, ItemKind, ShapeItem, ShapeKind } from '../types';
+import { transformAttr } from './shape';
 
 /**
  * The behaviour of every item kind. Typed as a full map, so adding a kind to
@@ -112,9 +113,20 @@ function lookup(kind: ItemKind): ItemType {
   return types[kind] as ItemType;
 }
 
+/** An instance is written as a reference to its symbol, which is defined once in <defs>. */
+function useOf(it: GroupItem, env: SvgEnv): string {
+  const id = `symbol-${it.symbolId}`;
+  if (!env.defs.has(`symbol:${id}`)) {
+    const content = env.symbols[it.symbolId!].map((c) => svgOf(c, env)).join('');
+    env.defs.set(`symbol:${id}`, { id, markup: `<symbol id="${id}">${content}</symbol>` });
+  }
+  return `<use href="#${id}"${transformAttr(it.transform)}/>`;
+}
+
 /** An item's SVG markup, wrapped in a group that applies its clip or mask. */
 export function svgOf(it: Item, env: SvgEnv): string {
-  const inner = typeOf(it).toSvg(it, env);
+  const isInstance = it.kind === 'group' && !!it.symbolId && !!env.symbols[it.symbolId];
+  const inner = isInstance ? useOf(it as GroupItem, env) : typeOf(it).toSvg(it, env);
   if (!it.clip) return inner;
   const ref = clipRef(it.clip, env);
   return it.clip.mode === 'clip' ? `<g clip-path="${ref}">${inner}</g>` : `<g mask="${ref}">${inner}</g>`;

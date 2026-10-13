@@ -277,6 +277,8 @@ export interface GroupItem {
   id: string;
   items: Item[];
   transform?: Matrix;
+  /** Set on an instance: the symbol whose content it shows (see `DocState.symbols`). */
+  symbolId?: string;
   /** Clipped or masked by another shape. */
   clip?: ClipSpec;
 }
@@ -301,6 +303,8 @@ export interface DocState {
   readonly layers: readonly Layer[];
   /** Shared colours and gradients by id. Missing means none. */
   readonly defs?: Readonly<Record<string, Definition>>;
+  /** Symbols: reusable content by id. Instances (groups with a `symbolId`) show the current content. */
+  readonly symbols?: Readonly<Record<string, Item[]>>;
 }
 
 export interface HistoryEntry {
