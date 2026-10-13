@@ -61,4 +61,8 @@ deck.setImageData(deck.activeLayerId, img);
 ```
 
 Each run is one history step. Buttons are stored in the browser's `localStorage`.
+
+### Masked scripts
+
+Click **Modify mask**, paint with the brush (Add or Remove), then **Confirm**. While a mask is set, a script only changes the masked pixels. Without a mask, scripts change the whole canvas. The eye button shows the mask in yellow. The mask is not saved in the project file or the history.
 Scripts run with full page privileges, so only paste code you trust.

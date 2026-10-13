@@ -237,6 +237,13 @@ kbd { color: var(--muted); font-size: 10px; }
 .script-btn { display: flex; gap: 4px; }
 .script-btn .run { flex: 1; text-align: left; }
 .script-btn .edit { padding: 4px 6px; color: var(--muted); }
+#mask-bar { display: flex; flex-direction: column; gap: 4px; padding: 0 8px 8px; }
+#mask-bar .row { padding: 0; }
+#mask-modify { flex: 1; text-align: left; }
+#mask-edit .field { padding: 4px 0; white-space: nowrap; }
+#mask-edit .field span { display: flex; align-items: center; gap: 6px; }
+#mask-edit input[type="range"] { width: 90px; }
+#mask-edit .row { flex-direction: column; align-items: flex-start; gap: 2px; }
 
 dialog {
   background: var(--panel);

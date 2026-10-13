@@ -1,3 +1,4 @@
+import type { Editor } from '../editor';
 import { uid } from '../model';
 import { API_HELP, loadScripts, runScript, saveScripts, type ScriptDef } from '../scripting';
 import { $, type ActiveWorkspace } from './dom';
@@ -11,11 +12,48 @@ export class ScriptsPanel {
   private editing: ScriptDef | null = null;
 
   constructor(
+    private editor: Editor,
     private active: ActiveWorkspace,
     private log: (msg: string) => void,
   ) {
     this.bindDialog();
+    this.bindMask();
     this.render();
+  }
+
+  /** The Modify mask controls: which are shown depends on whether a mask session is open. */
+  private bindMask(): void {
+    const size = $<HTMLInputElement>('mask-size');
+    const out = $('mask-size-out');
+    $('mask-modify').onclick = () => this.editor.beginMaskEdit();
+    $('mask-confirm').onclick = () => this.editor.confirmMaskEdit();
+    $('mask-toggle').onclick = () => this.editor.setMaskVisible(!this.editor.maskVisible);
+    size.oninput = () => {
+      out.textContent = `${size.value}px`;
+      this.editor.setMaskBrush({ radius: Number(size.value) / 2 });
+    };
+    document.querySelectorAll<HTMLInputElement>('input[name="mask-op"]').forEach((r) => {
+      r.onchange = () => this.editor.setMaskBrush({ op: r.value as 'add' | 'remove' });
+    });
+  }
+
+  /** Refresh the mask controls from the editor and the active workspace. */
+  renderMask(): void {
+    const editing = this.editor.maskEditing;
+    const visible = this.editor.maskVisible;
+    $<HTMLButtonElement>('mask-modify').disabled = editing;
+    $('mask-edit').hidden = !editing;
+    document.querySelectorAll<HTMLInputElement>('input[name="mask-op"]').forEach((r) => {
+      r.checked = r.value === this.editor.maskOp;
+    });
+    const toggle = $<HTMLButtonElement>('mask-toggle');
+    // The icon shows the action: eye to show the mask, ban to hide it.
+    toggle.textContent = visible ? '🚫' : '👁';
+    toggle.title = visible ? 'Hide the mask' : 'Show the mask in yellow';
+    toggle.setAttribute('aria-pressed', String(visible));
+    // The workspace is set after the panels are built, so it may not exist yet.
+    const mask = this.active?.()?.activeMask();
+    $('mask-hint').textContent = mask ? 'Scripts change only the masked area.' : 'Scripts change the whole canvas.';
   }
 
   render(): void {

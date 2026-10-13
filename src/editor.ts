@@ -16,7 +16,8 @@ import { angleAt, centerOf, handlesFor, hitHandle, rotateMatrix, scaleMatrix, ty
 import type { Rect } from './math';
 import { groupItems, ungroupItems, unionBox } from './arrange';
 import { RULER_PX, drawScene, renderToCanvas } from './render';
-import { DEFAULT_EDGE_OPTIONS, cleanEdge, emptyMask, paintDisc, paintStroke, type EdgeOptions } from './fringe';
+import { DEFAULT_EDGE_OPTIONS, cleanEdge, type EdgeOptions } from './fringe';
+import { emptyMask, paintDisc, paintStroke, type Mask } from './mask';
 import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, imageItem, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
@@ -52,7 +53,8 @@ type Drag =
   | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
   | { mode: 'brush'; pts: Pt[] }
-  | { mode: 'edge'; last: Pt };
+  | { mode: 'edge'; last: Pt }
+  | { mode: 'mask'; last: Pt };
 
 /** History label for each drag that edits the document in place and commits when released. */
 const COMMIT_LABELS = { move: 'Move', nodes: 'Move nodes', gradient: 'Move gradient', handle: 'Move handle', scale: 'Scale', rotate: 'Rotate' } as const;
@@ -74,6 +76,14 @@ interface EdgeSession {
 }
 
 const EDGE_TINT = 'rgba(255, 70, 70, 0.45)';
+/** Colour and opacity of the script-mask highlight. */
+const MASK_TINT = { r: 255, g: 215, b: 0, a: 120 };
+
+/** The Modify mask session: the selection being painted, the brush, and the highlight drawn over it. */
+interface MaskEdit {
+  draft: Uint8Array;
+  overlay: HTMLCanvasElement;
+}
 const HIDDEN_LAYER_MSG = 'The active layer is hidden – show it or pick another layer first.';
 
 /** Where text is being typed: a new block at `at`, or an existing item being re-edited. */
@@ -123,6 +133,13 @@ export class Editor {
   private edgeOpts: EdgeOptions = { ...DEFAULT_EDGE_OPTIONS };
   /** Edge tool brush radius, in document pixels. */
   private edgeRadius = 6;
+  /** The Modify mask session, if one is open. */
+  private maskEdit: MaskEdit | null = null;
+  /** Mask brush: add to or remove from the selection, radius in document pixels. */
+  private maskBrush: { op: 'add' | 'remove'; radius: number } = { op: 'add', radius: 6 };
+  /** Whether the script mask is highlighted on the canvas (outside a Modify mask session). */
+  maskVisible = false;
+  private maskCache: { mask: Mask; canvas: HTMLCanvasElement } | null = null;
   /** Nodes selected in the node tool, as "subpath.node" keys of the path in `nodeItemId`. */
   private nodeSel = new Set<string>();
   private nodeItemId: string | null = null;
@@ -179,6 +196,7 @@ export class Editor {
     this.unsub?.();
     this.cancelInteraction();
     this.cancelEdge();
+    this.cancelMaskEdit();
     this.ws = ws;
     this.unsub = ws.subscribe(() => this.requestRender());
     this.pasteCount = 0;
@@ -189,6 +207,7 @@ export class Editor {
   setTool(t: ToolId): void {
     this.finishPen(false);
     if (t !== 'edge') this.cancelEdge();
+    this.cancelMaskEdit();
     this.nodeSel.clear();
     this.cancelInteraction();
     this.tool = t;
@@ -354,6 +373,10 @@ export class Editor {
     if (e.button !== 0) return;
     this.canvas.setPointerCapture(e.pointerId);
     let p = toDoc(this.ws.view, s);
+    if (this.maskEdit) {
+      this.maskDown(p);
+      return;
+    }
     if (this.tool === 'select' && (this.gradientHandleDown(p) || this.handleDown(p))) return;
     // New points (shapes and text) snap; freehand brush points and selection do not.
     if (this.tool !== 'select' && this.tool !== 'brush' && this.tool !== 'edge') p = this.snapPt(p);
@@ -657,6 +680,106 @@ export class Editor {
     this.ws.addItem('Brush', { kind: 'brush', id: uid('item'), pts: stroke, style: { ...this.style } });
   }
 
+  // ---- script mask ----------------------------------------------------------
+
+  /** True while the Modify mask session is open. */
+  get maskEditing(): boolean {
+    return this.maskEdit !== null;
+  }
+
+  /** Open a Modify mask session, starting from the current mask (or nothing selected). */
+  beginMaskEdit(): void {
+    const { width, height } = this.ws.state;
+    const current = this.ws.activeMask();
+    const draft = current ? new Uint8Array(current.data) : emptyMask(width, height);
+    const overlay = document.createElement('canvas');
+    overlay.width = width;
+    overlay.height = height;
+    this.maskEdit = { draft, overlay };
+    this.maskBrush.op = 'add';
+    this.maskVisible = true;
+    this.drawTint(overlay, draft);
+    this.requestRender();
+    this.onUiChange();
+  }
+
+  /** Whether the mask brush adds or removes. Each Modify mask session starts with add. */
+  get maskOp(): 'add' | 'remove' {
+    return this.maskBrush.op;
+  }
+
+  /** Set the mask brush: add or remove, and radius in document pixels. */
+  setMaskBrush(patch: Partial<{ op: 'add' | 'remove'; radius: number }>): void {
+    this.maskBrush = { ...this.maskBrush, ...patch };
+  }
+
+  /** Keep the painted selection as the script mask. Nothing selected means the whole canvas. */
+  confirmMaskEdit(): void {
+    const edit = this.maskEdit;
+    if (!edit) return;
+    const { width, height } = this.ws.state;
+    this.maskEdit = null;
+    this.ws.setMask(edit.draft.includes(1) ? { width, height, data: edit.draft } : null);
+    this.requestRender();
+    this.onUiChange();
+  }
+
+  /** Close the Modify mask session and keep the previous mask. */
+  cancelMaskEdit(): void {
+    if (!this.maskEdit) return;
+    this.maskEdit = null;
+    if (this.drag?.mode === 'mask') this.drag = null;
+    this.requestRender();
+    this.onUiChange();
+  }
+
+  setMaskVisible(visible: boolean): void {
+    this.maskVisible = visible;
+    this.requestRender();
+    this.onUiChange();
+  }
+
+  private maskDown(p: Pt): void {
+    this.drag = { mode: 'mask', last: p };
+    this.paintMask(p, p);
+  }
+
+  /** Add or remove the brushed discs, then redraw the highlight from the draft. */
+  private paintMask(a: Pt, b: Pt): void {
+    const edit = this.maskEdit;
+    if (!edit) return;
+    const { width, height } = this.ws.state;
+    paintStroke(edit.draft, width, height, a, b, this.maskBrush.radius, this.maskBrush.op === 'add' ? 1 : 0);
+    this.drawTint(edit.overlay, edit.draft);
+    this.requestRender();
+  }
+
+  /** The highlight to draw, if any: the session's draft while editing, else the saved mask when shown. */
+  private maskOverlayCanvas(): HTMLCanvasElement | null {
+    if (this.maskEdit) return this.maskEdit.overlay;
+    const mask = this.ws.activeMask();
+    if (!this.maskVisible || !mask) return null;
+    if (this.maskCache?.mask !== mask) {
+      const canvas = document.createElement('canvas');
+      canvas.width = mask.width;
+      canvas.height = mask.height;
+      this.drawTint(canvas, mask.data);
+      this.maskCache = { mask, canvas };
+    }
+    return this.maskCache.canvas;
+  }
+
+  /** Write the selection into a canvas as the yellow highlight (transparent where not selected). */
+  private drawTint(canvas: HTMLCanvasElement, data: Uint8Array): void {
+    const ctx = canvas.getContext('2d')!;
+    const img = ctx.createImageData(canvas.width, canvas.height);
+    for (let i = 0; i < data.length; i++) {
+      if (data[i] !== 1) continue;
+      img.data.set([MASK_TINT.r, MASK_TINT.g, MASK_TINT.b, MASK_TINT.a], i * 4);
+    }
+    ctx.putImageData(img, 0, 0);
+  }
+
   // ---- edge tool -----------------------------------------------------------
 
   /** Start (or continue) an Edge session on the active layer and paint at `p`. */
@@ -795,6 +918,9 @@ export class Editor {
     } else if (this.drag?.mode === 'brush') {
       const last = this.drag.pts[this.drag.pts.length - 1];
       if (dist(p, last) * this.ws.view.zoom >= BRUSH_SPACING_PX) this.drag.pts.push(p);
+    } else if (this.drag?.mode === 'mask' && this.maskEdit) {
+      this.paintMask(this.drag.last, p);
+      this.drag.last = p;
     } else if (this.drag?.mode === 'edge' && this.edge) {
       paintStroke(this.edge.mask, this.ws.state.width, this.ws.state.height, this.drag.last, p, this.edgeRadius);
       this.paintOverlay(this.drag.last, p);
@@ -937,11 +1063,15 @@ export class Editor {
     } else if (e.key === 'Enter' && this.pen) {
       e.preventDefault();
       this.finishPen(false);
+    } else if (e.key === 'Enter' && this.maskEdit) {
+      e.preventDefault();
+      this.confirmMaskEdit();
     } else if (e.key === 'Enter' && this.edge) {
       e.preventDefault();
       this.applyEdge();
     } else if (e.key === 'Escape') {
-      if (this.edge) this.cancelEdge();
+      if (this.maskEdit) this.cancelMaskEdit();
+      else if (this.edge) this.cancelEdge();
       else if (this.pen) this.finishPen(false);
       else if (this.draft) this.draft = null;
       else {
@@ -1044,6 +1174,7 @@ export class Editor {
         ? { at: this.hover, width: this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width }
         : null,
       edgeOverlay: this.edge?.overlay ?? null,
+      maskOverlay: this.maskOverlayCanvas(),
       aids: ws.aids,
       penDraft: this.pen ? { nodes: this.pen.nodes, hover: this.pen.hover } : null,
       gradientLines: this.gradientLines(),
