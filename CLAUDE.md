@@ -22,12 +22,14 @@
 - `src/types.ts`: item/layer/document types. `DocState` is **immutable**: never mutate it, build a new one.
 - `src/model.ts`: `Workspace` (one tab): state, selection, history snapshots (with thumbnails), layer/item operations. No DOM here, so it is unit-testable.
 - `src/geometry.ts`: arc/curve math, hit-testing, bounds. Pure functions.
-- `src/render.ts`: canvas drawing, thumbnails, selection overlay.
+- `src/view.ts`: pure zoom/pan/fit maths. `View` is readonly: replace it, never mutate it.
+- `src/render.ts`: all canvas drawing (`drawScene`), thumbnails, selection overlay. No state, no status writes.
 - `src/svg.ts`: SVG export (pure string output, shapes as paths).
 - `src/io.ts`: file import (image decode), export and download helpers.
-- `src/editor.ts`: main canvas input (tools, select/move/copy/paste/delete, zoom/pan, shortcuts).
+- `src/editor.ts`: main canvas input only (tools, select/move/copy/paste/delete, zoom/pan, shortcuts). Describes a `Scene`; `render.ts` draws it.
 - `src/scripting.ts`: the `deck` API and script runner. Scripts are JavaScript, saved in `localStorage`.
-- `src/ui.ts`: DOM panels (tabs, history, layers, toolbox, script dialog).
+- `src/ui.ts`: `App` owns the open workspaces and wires editor to panels.
+- `src/panels/`: one class per DOM panel (menubar, tabbar, history, layers, toolbox, scripts). Each has `render()` and reads the workspace via `ActiveWorkspace`.
 - Edits go through `Workspace.edit(label, fn)`: a label records a history step, `null` does not (scripts record one step per run).
 
 # Working on a big story or epic
