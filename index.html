@@ -88,6 +88,28 @@
               <output id="stroke-opacity-out">100%</output>
             </span>
           </label>
+          <label class="field">Line ends
+            <select id="stroke-cap" aria-label="Line end style">
+              <option value="round">Round</option>
+              <option value="butt">Butt</option>
+              <option value="square">Square</option>
+            </select>
+          </label>
+          <label class="field">Corners
+            <select id="stroke-join" aria-label="Corner style">
+              <option value="round">Round</option>
+              <option value="miter">Miter</option>
+              <option value="bevel">Bevel</option>
+            </select>
+          </label>
+          <label class="field">Miter limit <input id="stroke-miter" type="number" min="1" max="100" value="10" /></label>
+          <label class="field">Dash
+            <select id="stroke-dash" aria-label="Dash pattern">
+              <option value="solid">Solid</option>
+              <option value="dashed">Dashed</option>
+              <option value="dotted">Dotted</option>
+            </select>
+          </label>
         </section>
         <section>
           <h2>Selection</h2>

@@ -1,4 +1,5 @@
 import type { Editor, ToolId } from '../editor';
+import type { Style } from '../types';
 import { opacityOf } from '../items/shape';
 import { $, type ActiveWorkspace } from './dom';
 
@@ -64,6 +65,26 @@ export class ToolboxPanel {
       editor.setStyle({ opacity: Number(opacity.value) / 100 });
     };
     opacity.onchange = () => editor.setStyle({ opacity: Number(opacity.value) / 100 }, true);
+    const cap = $<HTMLSelectElement>('stroke-cap');
+    const join = $<HTMLSelectElement>('stroke-join');
+    const miter = $<HTMLInputElement>('stroke-miter');
+    const dashSel = $<HTMLSelectElement>('stroke-dash');
+    cap.value = editor.style.cap ?? 'round';
+    join.value = editor.style.join ?? 'round';
+    miter.value = String(editor.style.miterLimit ?? 10);
+    cap.onchange = () => editor.setStyle({ cap: cap.value as Style['cap'] }, true);
+    join.onchange = () => editor.setStyle({ join: join.value as Style['join'] }, true);
+    miter.onchange = () => {
+      const m = Math.min(100, Math.max(1, Number(miter.value) || 10));
+      miter.value = String(m);
+      editor.setStyle({ miterLimit: m }, true);
+    };
+    // Dash lengths scale with the stroke width so the pattern stays readable when the width changes.
+    dashSel.onchange = () => {
+      const w = editor.style.width;
+      const dash = { solid: undefined, dashed: [4 * w, 2 * w], dotted: [w, 2 * w] }[dashSel.value as 'solid' | 'dashed' | 'dotted'];
+      editor.setStyle({ dash }, true);
+    };
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
     $('act-delete').onclick = () => editor.deleteSelection();

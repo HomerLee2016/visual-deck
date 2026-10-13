@@ -16,6 +16,28 @@ describe('toSvg', () => {
     expect(svg).not.toContain('opacity=');
   });
 
+  it('writes line ends, corners, miter limit and dashes from the style', () => {
+    const svg = toSvg(
+      doc([
+        {
+          kind: 'line',
+          id: 'a',
+          a: { x: 0, y: 0 },
+          b: { x: 1, y: 1 },
+          style: { ...style, cap: 'butt', join: 'miter', miterLimit: 4, dash: [6, 4] },
+        },
+      ]),
+    );
+    expect(svg).toContain('stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dasharray="6 4"');
+  });
+
+  it('ignores dash lengths that cannot be drawn', () => {
+    const svg = toSvg(
+      doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style: { ...style, dash: [0, -1] } }]),
+    );
+    expect(svg).not.toContain('stroke-dasharray');
+  });
+
   it('writes fill and opacity from the style', () => {
     const svg = toSvg(
       doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style: { ...style, fill: '#00ff00', opacity: 0.5 } }]),

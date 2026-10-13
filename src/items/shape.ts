@@ -8,6 +8,18 @@ export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt
 /** Opacity clamped to 0..1; styles saved before opacity existed are fully opaque. */
 export const opacityOf = (style: Style) => Math.min(1, Math.max(0, style.opacity ?? 1));
 
+/** Dash lengths that can be drawn: positive numbers only. Empty means solid. */
+export const dashOf = (style: Style): number[] => (style.dash ?? []).filter((d) => Number.isFinite(d) && d > 0);
+
+/** The stroke attributes shared by every stroked shape's SVG element. */
+function strokeAttrs(style: Style): string {
+  const { color, width, cap = 'round', join = 'round', miterLimit } = style;
+  const dash = dashOf(style);
+  const limit = miterLimit === undefined ? '' : ` stroke-miterlimit="${num(miterLimit)}"`;
+  const dashes = dash.length ? ` stroke-dasharray="${dash.map(num).join(' ')}"` : '';
+  return `stroke="${esc(color)}" stroke-width="${num(width)}" stroke-linecap="${cap}" stroke-linejoin="${join}"${limit}${dashes}`;
+}
+
 /** What a shape kind must say about itself; `defineShape` supplies the stroking, hit-testing and export. */
 export interface ShapeDef<T extends ShapeItem> {
   outline(it: T): Pt[];
@@ -54,7 +66,7 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       return false;
     },
     draw(ctx, it) {
-      const { color, width, fill } = it.style;
+      const { color, width, fill, cap = 'round', join = 'round', miterLimit } = it.style;
       ctx.save();
       ctx.globalAlpha = opacityOf(it.style);
       if (fill) {
@@ -65,18 +77,19 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       }
       ctx.strokeStyle = color;
       ctx.lineWidth = width;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      ctx.lineCap = cap;
+      ctx.lineJoin = join;
+      ctx.miterLimit = miterLimit ?? 10;
+      ctx.setLineDash(dashOf(it.style));
       ctx.beginPath();
       def.trace(ctx, it);
       ctx.stroke();
       ctx.restore();
     },
     toSvg(it) {
-      const { color, width, fill } = it.style;
       const opacity = opacityOf(it.style);
       const fade = opacity < 1 ? ` opacity="${num(opacity)}"` : '';
-      return `<path d="${def.pathData(it)}" fill="${esc(fill ?? 'none')}" stroke="${esc(color)}" stroke-width="${num(width)}" stroke-linecap="round" stroke-linejoin="round"${fade}/>`;
+      return `<path d="${def.pathData(it)}" fill="${esc(it.style.fill ?? 'none')}" ${strokeAttrs(it.style)}${fade}/>`;
     },
   };
 }

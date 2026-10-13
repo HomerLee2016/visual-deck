@@ -94,7 +94,8 @@ deck.addCurve(x1,y1,x2,y2, c1x,c1y,c2x,c2y, style?, layerId?)
 deck.selection                     [{ id, kind }] of the current selection
 deck.clearLayer(layerId?)          remove everything on a layer
 deck.log(...args)                  show a message in the status bar
-style = { color: '#rrggbb', width: 2, fill?: '#rrggbb', opacity?: 0..1 }
+style = { color: '#rrggbb', width: 2, fill?: '#rrggbb', opacity?: 0..1,
+        cap?: 'butt'|'round'|'square', join?: 'miter'|'round'|'bevel', miterLimit?: n, dash?: [on, off, ...] }
 
 Scripts are plain JavaScript (async/await works). One history step is
 recorded per run, named after the button.`;

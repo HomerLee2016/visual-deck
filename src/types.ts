@@ -10,6 +10,14 @@ export interface Style {
   fill?: string;
   /** 0 to 1. Missing means fully opaque. */
   opacity?: number;
+  /** Line end shape. Missing means round. */
+  cap?: 'butt' | 'round' | 'square';
+  /** Corner shape. Missing means round. */
+  join?: 'miter' | 'round' | 'bevel';
+  /** Miter limit, as in Canvas and SVG. Missing means the default of 10. */
+  miterLimit?: number;
+  /** Dash lengths in document units, e.g. [6, 4]. Missing or empty means solid. */
+  dash?: number[];
 }
 
 export interface LineItem {
