@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visual Deck</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%234da3ff'/%3E%3Cpath d='M3 12 L8 4 L13 12' stroke='white' fill='none' stroke-width='1.6'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <header id="tabbar">
+        <div id="tabs"></div>
+        <button id="new-tab" title="New workspace">+</button>
+        <span class="spacer"></span>
+        <button id="open-image">Open image…</button>
+        <button id="export-png">Export PNG</button>
+        <input id="file-input" type="file" accept="image/*" hidden />
+      </header>
+
+      <aside id="left">
+        <section id="history-panel">
+          <h2>History <span class="hint">Ctrl+Z / Ctrl+Shift+Z</span></h2>
+          <ol id="history"></ol>
+        </section>
+        <section id="layers-panel">
+          <h2>Layers</h2>
+          <ul id="layers"></ul>
+          <div class="row">
+            <button id="layer-add" title="Add layer">+ Layer</button>
+            <button id="layer-up" title="Move up">↑</button>
+            <button id="layer-down" title="Move down">↓</button>
+            <button id="layer-del" title="Delete layer">✕</button>
+          </div>
+        </section>
+      </aside>
+
+      <main id="stage">
+        <canvas id="view"></canvas>
+        <div id="status"></div>
+      </main>
+
+      <aside id="right">
+        <section>
+          <h2>Tools</h2>
+          <div id="tools" class="tool-grid">
+            <button data-tool="select" title="Select (V)">Select<kbd>V</kbd></button>
+            <button data-tool="line" title="Straight line (L)">Line<kbd>L</kbd></button>
+            <button data-tool="arc" title="Arc: start, end, then a point on the arc (A)">Arc<kbd>A</kbd></button>
+            <button data-tool="curve" title="Curve: start, end, then two control points (C)">Curve<kbd>C</kbd></button>
+          </div>
+          <div id="tool-help" class="hint"></div>
+        </section>
+        <section>
+          <h2>Stroke</h2>
+          <label class="field">Color <input id="stroke-color" type="color" value="#ffcc00" /></label>
+          <label class="field">Width <input id="stroke-width" type="number" min="1" max="64" value="2" /></label>
+        </section>
+        <section>
+          <h2>Selection</h2>
+          <div class="row">
+            <button id="act-copy">Copy</button>
+            <button id="act-paste">Paste</button>
+            <button id="act-delete">Delete</button>
+          </div>
+        </section>
+        <section>
+          <h2>Scripts <button id="script-add" title="New script button">+</button></h2>
+          <div id="scripts"></div>
+        </section>
+      </aside>
+    </div>
+
+    <dialog id="script-dialog">
+      <form method="dialog" id="script-form">
+        <h3>Script button</h3>
+        <label class="field">Name <input id="script-name" type="text" required /></label>
+        <textarea id="script-code" spellcheck="false" rows="16"></textarea>
+        <details>
+          <summary>API reference</summary>
+          <pre id="script-help"></pre>
+        </details>
+        <div class="row end">
+          <button type="button" id="script-delete" class="danger">Delete</button>
+          <span class="spacer"></span>
+          <button type="button" id="script-cancel">Cancel</button>
+          <button type="button" id="script-run">Save &amp; run</button>
+          <button type="submit" id="script-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="new-dialog">
+      <form method="dialog" id="new-form">
+        <h3>New workspace</h3>
+        <label class="field">Name <input id="new-name" type="text" value="Untitled" /></label>
+        <label class="field">Width <input id="new-w" type="number" min="1" max="8192" value="512" /></label>
+        <label class="field">Height <input id="new-h" type="number" min="1" max="8192" value="512" /></label>
+        <div class="row end">
+          <button type="button" id="new-cancel">Cancel</button>
+          <button type="submit">Create</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

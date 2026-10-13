@@ -1,0 +1,41 @@
+# Visual Deck
+
+A lightweight, in-browser image tool for making mobile-game assets. TypeScript + Vite, no framework.
+
+```
+npm install
+npm run dev        # http://localhost:5173
+npm test           # unit tests
+npm run build      # static site in dist/
+```
+
+## Layout
+
+- **Top**: workspace tabs (`+` new, double-click to rename). *Open image…* / *Export PNG*; you can also drop or paste an image.
+- **Left, top**: edit history with a thumbnail per step. Click a step to jump to it (Ctrl+Z / Ctrl+Shift+Z).
+- **Left, bottom**: layers (checkbox = visible, double-click = rename, click = make active).
+- **Centre**: the canvas. Wheel = zoom, middle-drag or Space+drag = pan, `0` = fit, `1` = 100%.
+- **Right**: toolbox.
+
+## Tools
+
+| Tool | Key | How |
+| --- | --- | --- |
+| Select | `V` | Click or drag a box. Works across all visible layers. Shift adds. Drag to move. `Delete`, `Ctrl+C`, `Ctrl+V`, `Ctrl+A`. |
+| Line | `L` | Drag start→end, or click twice. |
+| Arc | `A` | Start, end, then a point the arc passes through. |
+| Curve | `C` | Start, end, then two Bézier control points. |
+
+## Script buttons
+
+Click **+** in *Scripts* to create a button. A script is JavaScript run against a `deck` object
+(see *API reference* in the editor), e.g.:
+
+```js
+const img = deck.getImageData();           // active layer as ImageData
+for (let i = 0; i < img.data.length; i += 4) img.data[i + 3] *= 0.5; // half alpha
+deck.setImageData(deck.activeLayerId, img);
+```
+
+Each run is one history step. Buttons are stored in the browser's `localStorage`.
+Scripts run with full page privileges, so only paste code you trust.
