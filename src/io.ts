@@ -1,3 +1,4 @@
+import { PROJECT_EXT, parseProject, serializeProject, type ImageCodec, type Project, type Saveable } from './project';
 import { renderToCanvas } from './render';
 import { toSvg } from './svg';
 import type { DocState } from './types';
@@ -49,3 +50,24 @@ export function download(blob: Blob, filename: string): void {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+export const isProjectFile = (file: File) => file.name.toLowerCase().endsWith(PROJECT_EXT);
+
+const domCodec: ImageCodec = {
+  encode: (c) => c.toDataURL('image/png'),
+  decode: async (data) => {
+    const img = new Image();
+    img.src = data;
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    c.getContext('2d')!.drawImage(img, 0, 0);
+    return c;
+  },
+};
+
+export const projectToBlob = (ws: Saveable): Blob =>
+  new Blob([serializeProject(ws, domCodec)], { type: 'application/json' });
+
+export const fileToProject = async (file: File): Promise<Project> => parseProject(await file.text(), domCodec);

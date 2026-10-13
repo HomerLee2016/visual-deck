@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildShape, circle3, flatten, hitTest, itemBounds, translateItem } from './geometry';
-import type { ArcItem, BrushItem, CurveItem, LineItem } from './types';
+import { buildShape, circle3, dist, flatten, hitTest, itemBounds, norm, rectFromPoints, rectsIntersect, translateItem } from './geometry';
+import type { ArcItem, BrushItem, CurveItem, ImageItem, LineItem } from './types';
 
 const style = { color: '#fff', width: 2 };
 const line: LineItem = { kind: 'line', id: 'l', a: { x: 0, y: 0 }, b: { x: 10, y: 0 }, style };
@@ -103,5 +103,62 @@ describe('buildShape', () => {
       c1: p(1, 1),
       c2: p(8, 1),
     });
+  });
+});
+
+describe('rects', () => {
+  it('builds a rect from any two corners', () => {
+    expect(rectFromPoints({ x: 10, y: 2 }, { x: 4, y: 8 })).toEqual({ x: 4, y: 2, w: 6, h: 6 });
+  });
+
+  it('detects intersection, touching edges included', () => {
+    const r = { x: 0, y: 0, w: 10, h: 10 };
+    expect(rectsIntersect(r, { x: 5, y: 5, w: 10, h: 10 })).toBe(true);
+    expect(rectsIntersect(r, { x: 10, y: 10, w: 1, h: 1 })).toBe(true);
+    expect(rectsIntersect(r, { x: 11, y: 0, w: 1, h: 1 })).toBe(false);
+    expect(rectsIntersect(r, { x: 0, y: -5, w: 1, h: 4 })).toBe(false);
+  });
+});
+
+describe('dist and norm', () => {
+  it('measures distance and wraps angles into [0, 2π)', () => {
+    expect(dist({ x: 0, y: 0 }, { x: 3, y: 4 })).toBe(5);
+    expect(norm(-Math.PI / 2)).toBeCloseTo(1.5 * Math.PI);
+    expect(norm(3 * Math.PI)).toBeCloseTo(Math.PI);
+  });
+});
+
+describe('image hit-testing', () => {
+  const img = (alpha: number | 'throw' | 'noctx') =>
+    ({
+      kind: 'image',
+      id: 'i',
+      x: 10,
+      y: 10,
+      canvas: {
+        width: 4,
+        height: 4,
+        getContext: () => {
+          if (alpha === 'noctx') return null;
+          return {
+            getImageData: () => {
+              if (alpha === 'throw') throw new Error('tainted');
+              return { data: [0, 0, 0, alpha] };
+            },
+          };
+        },
+      },
+    }) as unknown as ImageItem;
+
+  it('hits only opaque pixels inside the bitmap', () => {
+    expect(hitTest(img(255), { x: 11, y: 11 }, 1)).toBe(true);
+    expect(hitTest(img(0), { x: 11, y: 11 }, 1)).toBe(false);
+    expect(hitTest(img(255), { x: 9, y: 11 }, 1)).toBe(false);
+    expect(hitTest(img(255), { x: 14, y: 11 }, 1)).toBe(false);
+  });
+
+  it('falls back to a hit when pixels cannot be read', () => {
+    expect(hitTest(img('throw'), { x: 11, y: 11 }, 1)).toBe(true);
+    expect(hitTest(img('noctx'), { x: 11, y: 11 }, 1)).toBe(true);
   });
 });

@@ -12,11 +12,15 @@
         <div class="menu">
           <button class="menu-title">File</button>
           <div class="menu-items" hidden>
+            <button id="menu-open">Open project…</button>
+            <button id="menu-save">Save project</button>
+            <hr />
             <button id="menu-import">Import…</button>
             <button id="menu-export">Export…</button>
           </div>
         </div>
         <input id="file-input" type="file" accept="image/*,.svg" multiple hidden />
+        <input id="project-input" type="file" accept=".vdeck" hidden />
       </header>
       <header id="tabbar">
         <div id="tabs"></div>
@@ -30,6 +34,7 @@
         </section>
         <section id="layers-panel">
           <h2>Layers</h2>
+          <div id="layers-all"><button id="layer-toggle-all" class="eye"></button><span>All layers</span></div>
           <ul id="layers"></ul>
           <div class="row">
             <button id="layer-add" title="Add layer">+ Layer</button>
@@ -37,8 +42,6 @@
             <button id="layer-down" title="Move down">↓</button>
             <button id="layer-merge" title="Merge down into the layer below">⤓</button>
             <button id="layer-del" title="Delete layer">✕</button>
-            <button id="layer-show-all" title="Show all layers">👁 All</button>
-            <button id="layer-hide-all" title="Hide all layers">🚫 All</button>
           </div>
         </section>
       </aside>

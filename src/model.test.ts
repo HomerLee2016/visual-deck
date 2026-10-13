@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_HISTORY, Workspace, imageItem, uid } from './model';
+import { MAX_HISTORY, Workspace, imageItem, mapItems, uid } from './model';
 import type { LineItem } from './types';
 
 const mkLine = (): LineItem => ({
@@ -201,5 +201,44 @@ describe('imageItem', () => {
     expect(a).toMatchObject({ kind: 'image', x: 0, y: 0, canvas });
     expect(b).toMatchObject({ x: 3, y: 5 });
     expect(a.id).not.toBe(b.id);
+  });
+});
+
+describe('item helpers', () => {
+  it('mapItems only transforms the given ids and keeps others by reference', () => {
+    const ws = new Workspace('t', 64, 64);
+    const a = mkLine();
+    const b = mkLine();
+    ws.addItem(null, a);
+    ws.addItem(null, b);
+    const out = mapItems(ws.state, new Set([a.id]), (it) => ({ ...it, id: 'moved' }));
+    expect(out.layers[0].items.map((it) => it.id)).toEqual(['moved', b.id]);
+    expect(out.layers[0].items[1]).toBe(b);
+  });
+
+  it('renames a layer as a history step', () => {
+    const ws = new Workspace('t', 64, 64);
+    ws.renameLayer(ws.activeLayerId, 'Sky');
+    expect(ws.activeLayer.name).toBe('Sky');
+    expect(labels(ws)).toEqual(['Initial', 'Rename layer']);
+  });
+
+  it('reports canUndo and drops the oldest step beyond MAX_HISTORY', () => {
+    const ws = new Workspace('t', 64, 64);
+    expect(ws.canUndo).toBe(false);
+    for (let i = 0; i < MAX_HISTORY + 5; i++) ws.addItem(`S${i}`, mkLine());
+    expect(ws.history).toHaveLength(MAX_HISTORY);
+    expect(ws.canUndo).toBe(true);
+    expect(ws.index).toBe(MAX_HISTORY - 1);
+  });
+
+  it('notifies subscribers until they unsubscribe', () => {
+    const ws = new Workspace('t', 64, 64);
+    let n = 0;
+    const off = ws.subscribe(() => n++);
+    ws.addItem('A', mkLine());
+    off();
+    ws.addItem('B', mkLine());
+    expect(n).toBe(1);
   });
 });

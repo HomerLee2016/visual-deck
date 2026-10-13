@@ -37,7 +37,8 @@ export class TabBar {
       const tab = document.createElement('div');
       tab.className = 'tab' + (ws === active ? ' active' : '');
       const label = document.createElement('span');
-      label.textContent = ws.name;
+      label.textContent = (ws.dirty ? '● ' : '') + ws.name;
+      if (ws.dirty) label.title = 'Unsaved changes';
       const close = document.createElement('button');
       close.className = 'close';
       close.textContent = '×';

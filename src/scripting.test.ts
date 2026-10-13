@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Workspace } from './model';
-import { createDeck, DEFAULT_SCRIPTS, runScript, type ScriptDef } from './scripting';
+import { createDeck, DEFAULT_SCRIPTS, loadScripts, runScript, saveScripts, type ScriptDef } from './scripting';
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => (...a: unknown[]) => Promise<unknown>;
 
@@ -131,5 +131,63 @@ describe('builtin Trace to SVG', () => {
     const colours = fills.map(rgb);
     expect(colours.some(([r, g, b]) => r > 180 && g < 80 && b < 80)).toBe(true);
     expect(colours.some(([r, g, b]) => b > 180 && r < 80 && g < 80)).toBe(true);
+  });
+});
+
+describe('deck getters', () => {
+  it('exposes size, layers, active layer and selection', () => {
+    const ws = newWs();
+    const deck = createDeck(ws, () => {});
+    deck.addLine(0, 0, 1, 1);
+    const id = ws.activeLayer.items[0].id;
+    ws.selection = new Set([id]);
+    expect(deck.width).toBe(64);
+    expect(deck.height).toBe(64);
+    expect(deck.layers).toEqual([{ id: ws.activeLayerId, name: 'Layer 1', visible: true, itemCount: 1 }]);
+    expect(deck.activeLayerId).toBe(ws.activeLayerId);
+    expect(deck.selection).toEqual([{ id, kind: 'line' }]);
+  });
+
+  it('clearLayer and log work', () => {
+    const ws = newWs();
+    const msgs: string[] = [];
+    const deck = createDeck(ws, (m) => msgs.push(m));
+    deck.addLine(0, 0, 1, 1);
+    deck.clearLayer();
+    expect(ws.activeLayer.items).toHaveLength(0);
+    deck.log('a', 1);
+    expect(msgs).toEqual(['a 1']);
+  });
+});
+
+describe('script storage', () => {
+  const stubStorage = (store: Record<string, string>) =>
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => void (store[k] = v),
+    });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('falls back to the defaults when nothing or garbage is stored', () => {
+    stubStorage({});
+    expect(loadScripts().map((s) => s.id)).toEqual(DEFAULT_SCRIPTS.map((s) => s.id));
+    stubStorage({ 'visual-deck.scripts.v1': 'not json' });
+    expect(loadScripts()).toHaveLength(DEFAULT_SCRIPTS.length);
+  });
+
+  it('round-trips saved scripts', () => {
+    stubStorage({});
+    const list = [{ id: 'x', name: 'X', code: '1' }];
+    saveScripts(list);
+    expect(loadScripts()).toEqual(list);
+  });
+
+  it('does not throw when storage is unavailable', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new Error('denied'); },
+      setItem: () => { throw new Error('denied'); },
+    });
+    expect(() => saveScripts([])).not.toThrow();
+    expect(loadScripts()).toHaveLength(DEFAULT_SCRIPTS.length);
   });
 });

@@ -92,6 +92,7 @@ h2 button { padding: 0 8px; }
 }
 .menu-items button { border: none; background: none; text-align: left; padding: 6px 10px; }
 .menu-items button:hover { background: #29405c; }
+.menu-items hr { margin: 2px 0; border: none; border-top: 1px solid var(--border, #3a4a60); width: 100%; }
 #tabbar {
   grid-area: tabbar;
   display: flex;
@@ -161,6 +162,8 @@ aside {
   cursor: pointer;
   border-bottom: 1px solid var(--bg);
 }
+#layers-all { display: flex; align-items: center; gap: 8px; padding: 5px 10px; color: var(--muted); font-size: 11px; border-bottom: 1px solid var(--bg); }
+#layers-all .eye { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; }
 #layers li:hover { background: var(--panel-2); }
 #layers li.active { background: #29405c; }
 #layers li .eye { background: none; border: 0; padding: 0; cursor: pointer; font-size: 13px; line-height: 1; }
