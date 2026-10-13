@@ -2,6 +2,10 @@
 
 A lightweight, in-browser image tool for making mobile-game assets. TypeScript + Vite, no framework.
 
+**Live app:** https://homerlee2016.github.io/visual-deck/
+
+The `main` branch is deployed automatically by the [Deploy workflow](.github/workflows/deploy.yaml).
+
 ## Getting started
 
 Requirements: [Node.js](https://nodejs.org/) 22 or newer (CI uses 22).
