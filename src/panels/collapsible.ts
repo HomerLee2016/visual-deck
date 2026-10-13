@@ -2,13 +2,16 @@ import { loadPrefs, savePrefs } from '../prefs';
 
 /**
  * Makes each sidebar section collapsible by clicking its heading. Sections marked
- * `data-fixed` (Tools, Scripts) always stay expanded. Collapsed state is remembered.
+ * `data-fixed` (Tools, Scripts) always stay expanded. Every other section starts
+ * collapsed until the user changes it; after that the choice is remembered.
  */
 export function initCollapsible(): void {
-  const collapsed = new Set(loadPrefs().collapsed ?? []);
+  const saved = loadPrefs().collapsed;
+  const collapsed = new Set(saved);
   document.querySelectorAll<HTMLElement>('aside section[data-id]').forEach((sec) => {
     if (sec.dataset.fixed !== undefined) return;
     const id = sec.dataset.id!;
+    if (!saved) collapsed.add(id);
     const head = sec.querySelector('h2')!;
     head.setAttribute('role', 'button');
     head.tabIndex = 0;
