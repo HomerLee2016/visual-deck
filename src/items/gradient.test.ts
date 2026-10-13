@@ -46,3 +46,24 @@ describe('gradient svg', () => {
     expect(toSvg(doc([shape({ color: '#fff', width: 2 })]))).not.toContain('<defs>');
   });
 });
+
+describe('effects svg', () => {
+  it('writes a blur and drop shadow filter and references it', () => {
+    const svg = toSvg(doc([shape({ color: '#fff', width: 2, blur: 3, shadow: { dx: 2, dy: 4, blur: 1, color: '#000' } })]));
+    expect(svg).toContain('<filter id="f1" x="-50%" y="-50%" width="200%" height="200%">');
+    expect(svg).toContain('<feGaussianBlur in="SourceGraphic" stdDeviation="3" result="b"/>');
+    expect(svg).toContain('<feDropShadow in="b" dx="2" dy="4" stdDeviation="1" flood-color="#000"/>');
+    expect(svg).toContain('filter="url(#f1)"');
+  });
+
+  it('sets mix-blend-mode for a blend other than normal', () => {
+    const svg = toSvg(doc([shape({ color: '#fff', width: 2, blend: 'multiply' })]));
+    expect(svg).toContain('style="mix-blend-mode:multiply"');
+  });
+
+  it('leaves normal blending and sharp items without a filter', () => {
+    const svg = toSvg(doc([shape({ color: '#fff', width: 2, blend: 'normal' })]));
+    expect(svg).not.toContain('mix-blend-mode');
+    expect(svg).not.toContain('filter=');
+  });
+});
