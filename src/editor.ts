@@ -10,15 +10,16 @@ import {
   type ClickShapeKind,
 } from './geometry';
 import { typeOf } from './items/registry';
+import { DEFAULT_TEXT_STYLE, type TextStyle } from './items/text';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
-import type { DocState, Item, Pt, ShapeKind, Style } from './types';
+import type { DocState, Item, Pt, ShapeKind, Style, TextItem } from './types';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
-export type ToolId = 'select' | ShapeKind;
+export type ToolId = 'select' | ShapeKind | 'text';
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -39,17 +40,31 @@ const PICK_TOLERANCE_PX = 6;
 const BRUSH_SPACING_PX = 2;
 const HIDDEN_LAYER_MSG = 'The active layer is hidden – show it or pick another layer first.';
 
+/** Where text is being typed: a new block at `at`, or an existing item being re-edited. */
+export interface TextRequest {
+  ws: Workspace;
+  at: Pt;
+  /** Canvas-relative pixel position, used to place the input over the canvas. */
+  screen: Pt;
+  zoom: number;
+  item?: TextItem;
+}
+
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
   tool: ToolId = 'select';
   style: Style = { ...DEFAULT_STYLE };
   /** Creation-time settings for click-placed shapes (corner radius, polygon sides, star depth). */
   params: ShapeParams = { ...DEFAULT_SHAPE_PARAMS };
+  /** Font settings for new text and the text tool's defaults. */
+  textStyle: TextStyle = { ...DEFAULT_TEXT_STYLE };
   clipboard: Item[] = [];
   ws!: Workspace;
   /** Called when tool/selection state changes so the toolbox can refresh. */
   onUiChange: () => void = () => {};
   onStatus: (msg: string) => void = () => {};
+  /** Called when text should be typed in (new block, or re-editing with a double-click). */
+  onText: (req: TextRequest) => void = () => {};
   /** Called with a pasted/dropped image file. */
   onImageFile: (file: File) => void = () => {};
 
@@ -79,6 +94,7 @@ export class Editor {
       this.requestRender();
     });
     canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+    canvas.addEventListener('dblclick', (e) => this.onDoubleClick(e));
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
     window.addEventListener('keyup', (e) => {
@@ -108,6 +124,17 @@ export class Editor {
 
   setParams(patch: Partial<ShapeParams>): void {
     this.params = { ...this.params, ...patch };
+  }
+
+  /** Change the font settings; also restyles selected text when `applyToSelection`. */
+  setTextStyle(patch: Partial<TextStyle>, applyToSelection = false): void {
+    this.textStyle = { ...this.textStyle, ...patch };
+    if (applyToSelection && this.ws.selectedItems().some((it) => it.kind === 'text')) {
+      const ids = this.ws.selection;
+      this.ws.edit('Change text style', (s) =>
+        mapItems(s, ids, (it) => (it.kind === 'text' ? { ...it, ...patch } : it)),
+      );
+    }
   }
 
   /** Change the drawing style; also restyles selected shapes when `applyToSelection`. */
@@ -192,6 +219,7 @@ export class Editor {
     const p = toDoc(this.ws.view, s);
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
     else if (this.tool === 'brush') this.brushDown(p);
+    else if (this.tool === 'text') this.textDown(p, s);
     else this.drawDown(this.tool, p, s, e.shiftKey);
   }
 
@@ -222,6 +250,14 @@ export class Editor {
     this.afterSelectionChange();
   }
 
+  /** Double-clicking a text item re-opens it for editing. */
+  private onDoubleClick(e: MouseEvent): void {
+    if (this.tool !== 'select') return;
+    const screen = this.screenPos(e);
+    const hit = this.pick(toDoc(this.ws.view, screen));
+    if (hit?.kind === 'text') this.onText({ ws: this.ws, at: { x: hit.x, y: hit.y }, screen, zoom: this.ws.view.zoom, item: hit });
+  }
+
   private selectDown(p: Pt, shift: boolean): void {
     const point = this.pickPoint(p);
     if (point) {
@@ -247,6 +283,14 @@ export class Editor {
       this.drag = { mode: 'marquee', origin: p, cur: p, additive: shift, baseSel: new Set(sel) };
     }
     this.afterSelectionChange();
+  }
+
+  private textDown(p: Pt, s: Pt): void {
+    if (!this.ws.activeLayer.visible) {
+      this.onStatus(HIDDEN_LAYER_MSG);
+      return;
+    }
+    this.onText({ ws: this.ws, at: p, screen: s, zoom: this.ws.view.zoom });
   }
 
   private brushDown(p: Pt): void {

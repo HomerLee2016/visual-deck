@@ -4,6 +4,7 @@ import { curveType } from './curve';
 import { ellipseType } from './ellipse';
 import { polygonType } from './polygon';
 import { starType } from './star';
+import { textType } from './text';
 import { imageType } from './image';
 import { lineType } from './line';
 import { rectType } from './rect';
@@ -24,6 +25,7 @@ const types: { [K in ItemKind]: ItemType<Extract<Item, { kind: K }>> } = {
   ellipse: ellipseType,
   polygon: polygonType,
   star: starType,
+  text: textType,
 };
 
 /** Behaviour for an item's kind. */
