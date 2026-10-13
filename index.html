@@ -264,8 +264,9 @@
           </div>
           <div data-opt="mask">
             <div class="row mask-ops">
-              <label><input type="radio" name="mask-op" value="add" checked /> Add brush</label>
-              <label><input type="radio" name="mask-op" value="remove" /> Remove brush</label>
+              <button id="mask-op" class="switch" role="switch" aria-checked="false" title="Switch the mask brush between adding and removing">
+                <span data-op="add">Add</span><span data-op="remove">Remove</span>
+              </button>
             </div>
             <div class="row">
               <button id="mask-confirm" title="Keep this selection as the mask (Enter)">Confirm</button>

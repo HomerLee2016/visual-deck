@@ -1183,8 +1183,8 @@ export class Editor {
       params: this.params,
       handles: box && this.tool === 'select' ? handlesFor(box, ws.view.zoom) : null,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
-      brushCursor: this.hover && (this.tool === 'brush' || this.tool === 'edge')
-        ? { at: this.hover, width: this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width }
+      brushCursor: this.hover && (this.maskEditing || this.tool === 'brush' || this.tool === 'edge')
+        ? { at: this.hover, width: this.maskEditing ? this.maskRadius * 2 : this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width }
         : null,
       edgeOverlay: this.edge?.overlay ?? null,
       maskOverlay: this.maskOverlayCanvas(),
