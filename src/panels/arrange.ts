@@ -1,7 +1,10 @@
-import { alignItems, distributeItems, flipItems, reorderItems, type AlignTo, type Axis, type Order } from '../arrange';
+import { alignItems, clipItems, distributeItems, flipItems, releaseClip, reorderItems, type AlignTo, type Axis, type Order } from '../arrange';
+import { reversePath, simplifyBrush, toPath } from '../convert';
+import { offsetPath, outlineItem } from '../outline';
+import { shareStyle, unshareStyle } from '../shared';
 import type { Editor } from '../editor';
-import type { Workspace } from '../model';
-import type { ActiveWorkspace } from './dom';
+import { mapItems, type Workspace } from '../model';
+import { $, type ActiveWorkspace } from './dom';
 
 /** Align, distribute, flip and stacking-order buttons for the selection. Each click is one history step. */
 export class ArrangePanel {
@@ -19,7 +22,7 @@ export class ArrangePanel {
   render(): void {
     const n = this.active().selection.size;
     for (const b of this.buttons) {
-      const min = b.dataset.align || b.dataset.group ? 2 : b.dataset.distribute ? 3 : 1;
+      const min = b.dataset.align || b.dataset.group || b.dataset.clip ? 2 : b.dataset.distribute ? 3 : 1;
       b.disabled = n < min;
     }
   }
@@ -42,6 +45,33 @@ export class ArrangePanel {
     } else if (b.dataset.order) {
       const order = b.dataset.order as Order;
       ws.edit(`Arrange: ${b.textContent}`, (s) => reorderItems(s, ids, order));
+    } else if (b.dataset.convert) {
+      ws.edit('To path', (s) => mapItems(s, ids, (it) => toPath(it, it.id) ?? it));
+    } else if (b.dataset.reverse) {
+      ws.edit('Reverse path', (s) => mapItems(s, ids, (it) => (it.kind === 'path' ? reversePath(it) : it)));
+    } else if (b.dataset.share) {
+      const which = b.dataset.share as 'fill' | 'stroke';
+      ws.edit(`Share ${which}`, (s) => shareStyle(s, ids, which));
+    } else if (b.dataset.unshare) {
+      ws.edit('Unshare', (s) => unshareStyle(s, ids));
+    } else if (b.dataset.clip) {
+      const mode = b.dataset.clip as 'clip' | 'mask';
+      ws.edit(mode === 'clip' ? 'Clip' : 'Mask', (s) => clipItems(s, ids, mode));
+    } else if (b.dataset.release) {
+      ws.edit('Release clip', (s) => releaseClip(s, ids));
+    } else if (b.dataset.outline) {
+      ws.edit('Outline stroke', (s) => mapItems(s, ids, (it) => outlineItem(it) ?? it));
+    } else if (b.dataset.offset) {
+      const d = Number($<HTMLInputElement>('offset-dist').value) || 0;
+      ws.edit('Offset path', (s) => mapItems(s, ids, (it) => {
+        const p = toPath(it, it.id);
+        return p && d !== 0 ? offsetPath(p, d) : it;
+      }));
+    } else if (b.dataset.simplify) {
+      // Strokes keep their shape within one document unit; fewer nodes is the point.
+      ws.edit('Simplify', (s) =>
+        mapItems(s, ids, (it) => (it.kind === 'brush' ? simplifyBrush(it.pts, it.style, it.id, 1, it.transform) : it)),
+      );
     }
   }
 }

@@ -16,10 +16,15 @@
             <button id="menu-save">Save project</button>
             <hr />
             <button id="menu-import">Import…</button>
+            <button id="menu-import-svg">Open SVG as shapes…</button>
             <button id="menu-export">Export…</button>
+            <hr />
+            <button id="menu-size">Document size…</button>
+            <button id="menu-code">SVG code…</button>
           </div>
         </div>
         <input id="file-input" type="file" accept="image/*,.svg" multiple hidden />
+        <input id="svg-input" type="file" accept=".svg,image/svg+xml" hidden />
         <input id="project-input" type="file" accept=".vdeck" hidden />
       </header>
       <header id="tabbar">
@@ -69,8 +74,14 @@
             <button data-tool="polygon" title="Polygon: click the centre, then a vertex (G)">Polygon<kbd>G</kbd></button>
             <button data-tool="star" title="Star: click the centre, then a point (S)">Star<kbd>S</kbd></button>
             <button data-tool="text" title="Text: click, then type (T)">Text<kbd>T</kbd></button>
+            <button data-tool="pen" title="Pen: click for corners, drag for smooth nodes, Enter to finish (P)">Pen<kbd>P</kbd></button>
+            <button data-tool="node" title="Node: edit a path's nodes and handles (N)">Node<kbd>N</kbd></button>
           </div>
           <div id="tool-help" class="hint"></div>
+          <div id="node-actions" class="row" hidden>
+            <button id="node-smooth" title="Make the selected nodes smooth">Smooth</button>
+            <button id="node-corner" title="Make the selected nodes corners">Corner</button>
+          </div>
           <label class="field">Corner radius <input id="shape-radius" type="number" min="0" max="512" value="0" /></label>
           <label class="field">Sides / points <input id="shape-sides" type="number" min="3" max="64" value="6" /></label>
           <label class="field">Star inner radius <input id="shape-inner" type="number" min="5" max="100" value="50" />%</label>
@@ -96,12 +107,55 @@
               <label class="check"><input id="fill-none" type="checkbox" checked /> None</label>
             </span>
           </label>
+          <label class="field">Paint
+            <select id="fill-paint" aria-label="Fill paint">
+              <option value="solid">Solid</option>
+              <option value="linear">Linear gradient</option>
+              <option value="radial">Radial gradient</option>
+            </select>
+          </label>
+          <div id="grad-editor" class="grad-editor" hidden>
+            <div id="grad-stops"></div>
+            <div class="row"><button id="grad-add" type="button">+ Stop</button></div>
+          </div>
           <label class="field">Opacity
             <span class="width-controls">
               <input id="stroke-opacity" type="range" min="0" max="100" value="100" aria-label="Opacity slider" />
               <output id="stroke-opacity-out">100%</output>
             </span>
           </label>
+          <label class="field">Pattern
+            <select id="fx-pattern" aria-label="Fill pattern">
+              <option value="">None</option>
+              <option value="stripes">Stripes</option>
+              <option value="dots">Dots</option>
+            </select>
+          </label>
+          <label class="field">Line end
+            <select id="fx-marker" aria-label="Marker at the end of the line">
+              <option value="">None</option>
+              <option value="arrow">Arrow</option>
+              <option value="dot">Dot</option>
+            </select>
+          </label>
+          <label class="field">Blend
+            <select id="fx-blend" aria-label="Blend mode">
+              <option value="normal">Normal</option>
+              <option value="multiply">Multiply</option>
+              <option value="screen">Screen</option>
+              <option value="overlay">Overlay</option>
+              <option value="darken">Darken</option>
+              <option value="lighten">Lighten</option>
+              <option value="color-dodge">Colour dodge</option>
+              <option value="color-burn">Colour burn</option>
+              <option value="hard-light">Hard light</option>
+              <option value="soft-light">Soft light</option>
+              <option value="difference">Difference</option>
+              <option value="exclusion">Exclusion</option>
+            </select>
+          </label>
+          <label class="field">Blur <input id="fx-blur" type="number" min="0" max="64" step="0.5" value="0" /></label>
+          <label class="check"><input id="fx-shadow" type="checkbox" /> Drop shadow</label>
           <label class="field">Line ends
             <select id="stroke-cap" aria-label="Line end style">
               <option value="round">Round</option>
@@ -178,7 +232,29 @@
             <button data-order="front" title="Bring to front">To front</button>
             <button data-group="1" title="Group the selection (Ctrl+G)">Group</button>
             <button data-ungroup="1" title="Ungroup the selected groups (Ctrl+Shift+G)">Ungroup</button>
+            <button data-convert="1" title="Convert the selection to editable paths">To path</button>
+            <button data-reverse="1" title="Reverse the direction of selected paths">Reverse</button>
+            <button data-simplify="1" title="Simplify selected freehand strokes into fewer nodes">Simplify</button>
+            <button data-outline="1" title="Turn each selected stroke into a filled outline">Outline</button>
+            <button data-offset="1" title="Grow (positive) or shrink (negative) the selected paths by this distance">Offset</button>
+            <label class="field offset-field">by <input id="offset-dist" type="number" step="any" value="4" /></label>
+            <button data-share="fill" title="Share the selection's fill as a definition that can be edited for all users">Share fill</button>
+            <button data-share="stroke" title="Share the selection's stroke as a definition">Share stroke</button>
+            <button data-unshare="1" title="Replace shared fills and strokes with their values">Unshare</button>
+            <button data-clip="clip" title="Clip the other selected items to the topmost shape">Clip</button>
+            <button data-clip="mask" title="Mask the other selected items with the topmost shape">Mask</button>
+            <button data-release="1" title="Release the clip or mask from the selection">Release</button>
           </div>
+        </section>
+        <section>
+          <h2>Swatches <button id="swatch-add" title="Save the current stroke colour as a swatch">+</button></h2>
+          <div id="swatches" class="swatches"></div>
+          <p class="hint">Click applies the colour to the stroke of the selection. Alt-click sets the fill. Right-click removes a swatch.</p>
+        </section>
+        <section>
+          <h2>Symbols <button id="symbol-make" title="Save the selection as a symbol">Make</button></h2>
+          <div id="symbol-list" class="symbol-list"></div>
+          <p class="hint">Make replaces the selection with an instance. Place adds another instance at the centre; instances follow their symbol.</p>
         </section>
         <section>
           <h2>Grid &amp; guides</h2>
@@ -229,9 +305,49 @@
           <label><input type="radio" name="format" value="svg" /> SVG <span class="hint">vector shapes, images embedded</span></label>
           <label><input type="radio" name="format" value="png" checked /> PNG <span class="hint">flattened image</span></label>
         </fieldset>
+        <fieldset class="formats">
+          <legend>PNG scale</legend>
+          <label><input type="radio" name="scale" value="1" checked /> 1x</label>
+          <label><input type="radio" name="scale" value="2" /> 2x</label>
+          <label><input type="radio" name="scale" value="4" /> 4x</label>
+        </fieldset>
+        <label class="check"><input id="export-selection" type="checkbox" name="selection" /> Selection only <span class="hint">cropped to the selected items</span></label>
         <div class="row end">
           <button type="button" id="export-cancel">Cancel</button>
           <button type="submit">Export</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="code-dialog" class="code-dialog">
+      <form method="dialog" id="code-form">
+        <h3>SVG code</h3>
+        <textarea id="code-text" spellcheck="false" rows="20" aria-label="SVG source"></textarea>
+        <p id="code-note" class="hint"></p>
+        <div class="row end">
+          <button type="button" id="code-close">Close</button>
+          <button type="button" id="code-apply">Apply</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="size-dialog">
+      <form method="dialog" id="size-form">
+        <h3>Document size</h3>
+        <label class="field">Width <input id="size-w" type="number" min="1" max="8192" value="512" /></label>
+        <label class="field">Height <input id="size-h" type="number" min="1" max="8192" value="512" /></label>
+        <fieldset class="anchor">
+          <legend>Anchor</legend>
+          <div class="anchor-grid">
+            <label><input type="radio" name="anchor" value="0,0" /></label><label><input type="radio" name="anchor" value="1,0" /></label><label><input type="radio" name="anchor" value="2,0" /></label>
+            <label><input type="radio" name="anchor" value="0,1" /></label><label><input type="radio" name="anchor" value="1,1" checked /></label><label><input type="radio" name="anchor" value="2,1" /></label>
+            <label><input type="radio" name="anchor" value="0,2" /></label><label><input type="radio" name="anchor" value="1,2" /></label><label><input type="radio" name="anchor" value="2,2" /></label>
+          </div>
+          <span class="hint">Content stays at this point of the canvas when it grows or shrinks.</span>
+        </fieldset>
+        <div class="row end">
+          <button type="button" id="size-cancel">Cancel</button>
+          <button type="submit">Apply</button>
         </div>
       </form>
     </dialog>

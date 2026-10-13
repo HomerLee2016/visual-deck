@@ -14,6 +14,8 @@ const TOOL_HELP: Record<ToolId, string> = {
   rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
   ellipse: 'Drag or click two opposite corners of the bounding box. Shift for a circle.',
   polygon: 'Click the centre, then a vertex. Sides set below. Shift snaps the angle.',
+  node: 'Click a node or handle to select it; drag to move it. Double-click a segment to add a node. Delete removes selected nodes.',
+  pen: 'Click to place corner nodes; drag to make a smooth node. Click the first node or press Enter to finish; Esc finishes an open path.',
   text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
   star: 'Click the centre, then a point. Points and inner radius set below. Shift snaps the angle.',
 };
@@ -142,6 +144,74 @@ export class ToolboxPanel {
       size.value = String(n);
       editor.setTextStyle({ size: n }, true);
     };
+    const paint = $<HTMLSelectElement>('fill-paint');
+    const gradEditor = $('grad-editor');
+    const stopsBox = $('grad-stops');
+    const renderStops = () => {
+      const g = editor.style.fillGradient;
+      gradEditor.hidden = !g;
+      stopsBox.replaceChildren();
+      if (!g) return;
+      g.stops.forEach((stop, i) => {
+        const row = document.createElement('div');
+        row.className = 'grad-stop';
+        const color = Object.assign(document.createElement('input'), { type: 'color', value: stop.color, title: 'Stop colour' });
+        const offset = Object.assign(document.createElement('input'), { type: 'number', min: 0, max: 100, step: 1, value: String(Math.round(stop.offset * 100)), title: 'Stop position (%)' });
+        const remove = Object.assign(document.createElement('button'), { type: 'button', textContent: '×', title: 'Remove stop', disabled: g.stops.length <= 2 });
+        const update = (apply: boolean) => {
+          const stops = editor.style.fillGradient!.stops.map((s, j) =>
+            j === i ? { color: color.value, offset: Math.min(1, Math.max(0, Number(offset.value) / 100 || 0)) } : s,
+          );
+          editor.setFillStops(stops, apply);
+        };
+        color.oninput = () => update(false);
+        color.onchange = () => update(true);
+        offset.onchange = () => update(true);
+        remove.onclick = () => {
+          editor.setFillStops(editor.style.fillGradient!.stops.filter((_, j) => j !== i), true);
+          renderStops();
+        };
+        row.append(color, offset, remove);
+        stopsBox.append(row);
+      });
+    };
+    paint.onchange = () => {
+      editor.setFillPaint(paint.value as 'solid' | 'linear' | 'radial');
+      renderStops();
+    };
+    $('grad-add').onclick = () => {
+      const g = editor.style.fillGradient;
+      if (!g) return;
+      // The new stop sits midway between the last two, in the last one's colour.
+      const [prev, last] = g.stops.slice(-2);
+      const mid = prev && last ? { offset: (prev.offset + last.offset) / 2, color: last.color } : { offset: 0.5, color: '#888888' };
+      const stops = [...g.stops, mid].sort((a, b) => a.offset - b.offset);
+      editor.setFillStops(stops, true);
+      renderStops();
+    };
+    renderStops();
+    const pattern = $<HTMLSelectElement>('fx-pattern');
+    const marker = $<HTMLSelectElement>('fx-marker');
+    pattern.value = editor.style.pattern ?? '';
+    marker.value = editor.style.markerEnd ?? '';
+    pattern.onchange = () => editor.setStyle({ pattern: (pattern.value || undefined) as Style['pattern'] }, true);
+    marker.onchange = () => editor.setStyle({ markerEnd: (marker.value || undefined) as Style['markerEnd'] }, true);
+    const blend = $<HTMLSelectElement>('fx-blend');
+    const blur = $<HTMLInputElement>('fx-blur');
+    const shadow = $<HTMLInputElement>('fx-shadow');
+    blend.value = editor.style.blend ?? 'normal';
+    blur.value = String(editor.style.blur ?? 0);
+    shadow.checked = !!editor.style.shadow;
+    blend.onchange = () => editor.setStyle({ blend: blend.value as Style['blend'] }, true);
+    blur.onchange = () => {
+      const b = Math.min(64, Math.max(0, Number(blur.value) || 0));
+      blur.value = String(b);
+      editor.setStyle({ blur: b }, true);
+    };
+    // The shadow starts as a soft, offset black; its values are not yet editable.
+    shadow.onchange = () => editor.setStyle({ shadow: shadow.checked ? { dx: 4, dy: 4, blur: 6, color: '#000000' } : undefined }, true);
+    $('node-smooth').onclick = () => editor.setNodesSmooth(true);
+    $('node-corner').onclick = () => editor.setNodesSmooth(false);
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
     $('act-delete').onclick = () => editor.deleteSelection();
@@ -152,6 +222,8 @@ export class ToolboxPanel {
       b.classList.toggle('active', b.dataset.tool === this.editor.tool);
     });
     $('tool-help').textContent = TOOL_HELP[this.editor.tool];
+    $<HTMLSelectElement>('fill-paint').value = this.editor.style.fillGradient?.type ?? 'solid';
+    $('node-actions').hidden = this.editor.tool !== 'node';
     const has = this.active().selection.size > 0;
     $<HTMLButtonElement>('act-copy').disabled = !has;
     $<HTMLButtonElement>('act-delete').disabled = !has;

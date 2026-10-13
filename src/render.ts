@@ -1,11 +1,12 @@
 import { buildShape, itemBounds } from './geometry';
 import { drawItem, typeOf } from './items/registry';
+import { resolveDefs, resolveSymbols } from './shared';
 import { apply } from './matrix';
 import type { ClickShapeKind, Rect } from './geometry';
 import type { ShapeParams } from './items/types';
 import type { Handle } from './handles';
 import type { ViewAids } from './model';
-import type { DocState, Item, Pt, Style } from './types';
+import type { DocState, Item, PathItem, PathNode, Pt, Style } from './types';
 import type { Size, View } from './view';
 import type { Guides } from './snap';
 
@@ -15,17 +16,21 @@ const ACCENT = '#4da3ff';
 
 /** Draw visible layers bottom to top. `only` renders a single layer regardless of its visibility. */
 export function drawState(ctx: CanvasRenderingContext2D, s: DocState, only?: string): void {
+  s = resolveDefs(resolveSymbols(s));
   for (const layer of s.layers) {
     if (only ? layer.id !== only : !layer.visible) continue;
     for (const it of layer.items) drawItem(ctx, it);
   }
 }
 
-export function renderToCanvas(s: DocState, onlyLayerId?: string): HTMLCanvasElement {
+/** The document as a bitmap, `scale` times its size (1, 2 or 4 for exports). */
+export function renderToCanvas(s: DocState, onlyLayerId?: string, scale = 1): HTMLCanvasElement {
   const c = document.createElement('canvas');
-  c.width = Math.max(1, s.width);
-  c.height = Math.max(1, s.height);
-  drawState(c.getContext('2d', { willReadFrequently: true })!, s, onlyLayerId);
+  c.width = Math.max(1, Math.round(s.width * scale));
+  c.height = Math.max(1, Math.round(s.height * scale));
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.scale(scale, scale);
+  drawState(ctx, s, onlyLayerId);
   return c;
 }
 
@@ -116,6 +121,12 @@ export interface Scene {
   /** Scale and rotate handles around the selection, or null when nothing is selected. */
   handles: Handle[] | null;
   aids: ViewAids;
+  /** The path being edited in the node tool, with its selected node keys. */
+  nodeEdit: { item: PathItem; sel: Set<string> } | null;
+  /** Gradient handle pairs of the selection, in document space. */
+  gradientLines: { a: Pt; b: Pt }[];
+  /** A path being drawn with the pen: its nodes, and the pointer after the last one. */
+  penDraft: { nodes: PathNode[]; hover: Pt } | null;
   /** A guide being dragged out of a ruler. */
   guideDraft: { axis: 'x' | 'y'; pos: number } | null;
 }
@@ -184,6 +195,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);
   if (scene.brushCursor) drawBrushCursor(ctx, scene.brushCursor, zoom);
   if (scene.handles) drawHandles(ctx, scene.handles, zoom);
+  if (scene.penDraft) drawPenDraft(ctx, scene.penDraft, scene.style, zoom);
+  if (scene.nodeEdit) drawNodeEdit(ctx, scene.nodeEdit.item, scene.nodeEdit.sel, zoom);
+  drawGradientLines(ctx, scene.gradientLines, zoom);
   ctx.restore();
   drawRulers(ctx, scene.view, scene.size);
 }
@@ -277,6 +291,72 @@ function drawRulers(ctx: CanvasRenderingContext2D, view: View, size: Size): void
   }
   ctx.stroke();
   ctx.restore();
+}
+
+/** Gradient handles: a line joining the two handles, with a dot on each. */
+function drawGradientLines(ctx: CanvasRenderingContext2D, lines: { a: Pt; b: Pt }[], zoom: number): void {
+  const r = 4 / zoom;
+  ctx.save();
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = GUIDE;
+  ctx.fillStyle = '#fff';
+  for (const { a, b } of lines) {
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    for (const p of [a, b]) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/** Nodes as squares (filled when selected) with their handles as stalks and dots. */
+function drawNodeEdit(ctx: CanvasRenderingContext2D, it: PathItem, sel: Set<string>, zoom: number): void {
+  const h = 3.5 / zoom;
+  ctx.save();
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = ACCENT;
+  it.subs.forEach((sub, s) => {
+    sub.nodes.forEach((n, i) => {
+      for (const hp of [n.in, n.out]) {
+        if (!hp) continue;
+        ctx.beginPath();
+        ctx.moveTo(n.p.x, n.p.y);
+        ctx.lineTo(hp.x, hp.y);
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(hp.x, hp.y, h * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+      const on = sel.has(`${s}.${i}`);
+      ctx.fillStyle = on ? ACCENT : '#fff';
+      ctx.fillRect(n.p.x - h, n.p.y - h, h * 2, h * 2);
+      ctx.strokeRect(n.p.x - h, n.p.y - h, h * 2, h * 2);
+    });
+  });
+  ctx.restore();
+}
+
+/** The pen path in progress: the placed nodes, the segment to the pointer, and a dot on each node. */
+function drawPenDraft(ctx: CanvasRenderingContext2D, d: { nodes: PathNode[]; hover: Pt }, style: Style, zoom: number): void {
+  const preview = { kind: 'path' as const, id: 'preview', subs: [{ nodes: [...d.nodes, { p: d.hover }], closed: false }], style };
+  ctx.globalAlpha = 0.8;
+  drawItem(ctx, preview);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = ACCENT;
+  const r = 3.5 / zoom;
+  for (const n of d.nodes) {
+    ctx.beginPath();
+    ctx.arc(n.p.x, n.p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 /** Scale handles as small squares, the rotate handle as a knob on a stalk. */

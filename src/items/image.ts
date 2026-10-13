@@ -23,11 +23,11 @@ export const imageType: ItemType<ImageItem> = {
   bounds: (it) => ({ x: it.x, y: it.y, w: it.canvas.width, h: it.canvas.height }),
   hitTest: (it, p) => imageAlphaAt(it, p),
   translate: (it, dx, dy) => ({ ...it, x: it.x + dx, y: it.y + dy }),
-  toSvg(it, hrefs) {
-    let href = hrefs.get(it.canvas);
+  toSvg(it, env) {
+    let href = env.hrefs.get(it.canvas);
     if (!href) {
       href = it.canvas.toDataURL('image/png');
-      hrefs.set(it.canvas, href);
+      env.hrefs.set(it.canvas, href);
     }
     return `<image x="${num(it.x)}" y="${num(it.y)}" width="${it.canvas.width}" height="${it.canvas.height}" href="${esc(href)}"${transformAttr(it.transform)}/>`;
   },

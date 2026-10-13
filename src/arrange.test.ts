@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { itemBounds } from './geometry';
-import { alignItems, distributeItems, flipItems, reorderItems, unionBox } from './arrange';
+import { alignItems, clipItems, cropToItems, distributeItems, flipItems, releaseClip, reorderItems, resizeDocument, unionBox } from './arrange';
 import type { DocState, LineItem } from './types';
 
 const style = { color: '#fff', width: 0 };
@@ -91,5 +91,65 @@ describe('z-order', () => {
 
   it('stays put at the top or bottom', () => {
     expect(order(reorderItems(s, ids('d'), 'forward'))).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('clip and mask', () => {
+  const s0 = doc(seg('a', 0, 0, 10, 0), seg('b', 0, 5, 10, 5), seg('c', 0, 9, 10, 9));
+
+  it('uses the topmost selected shape to clip the others and takes it out of its layer', () => {
+    const out = clipItems(s0, ids('a', 'b', 'c'), 'clip');
+    expect(out.layers[0].items.map((it) => it.id)).toEqual(['a', 'b']);
+    expect(out.layers[0].items[0]).toMatchObject({ clip: { mode: 'clip', shape: { id: 'c' } } });
+    expect(out.layers[0].items[1]).toMatchObject({ clip: { mode: 'clip', shape: { id: 'c' } } });
+  });
+
+  it('masks instead of clipping when asked', () => {
+    const out = clipItems(s0, ids('a', 'c'), 'mask');
+    expect(out.layers[0].items.find((it) => it.id === 'a')).toMatchObject({ clip: { mode: 'mask' } });
+  });
+
+  it('does nothing for a single item', () => {
+    expect(clipItems(s0, ids('a'), 'clip')).toBe(s0);
+  });
+
+  it('releases the shape back into the layer just above its item', () => {
+    const clipped = clipItems(s0, ids('a', 'b', 'c'), 'clip');
+    const released = releaseClip(clipped, ids('a'));
+    expect(released.layers[0].items.map((it) => it.id)).toEqual(['a', 'c', 'b']);
+    expect(released.layers[0].items[0]).not.toHaveProperty('clip');
+  });
+});
+
+describe('crop to selection', () => {
+  it('makes the selection a document of its own, starting at the origin', () => {
+    const s = doc(seg('a', 10, 20, 20, 20), seg('b', 50, 60, 60, 60), seg('c', 0, 0, 1, 0));
+    const out = cropToItems(s, ids('a', 'b'));
+    expect(out.width).toBe(50);
+    expect(out.height).toBe(40);
+    expect(out.layers[0].items.map((it) => it.id)).toEqual(['a', 'b']);
+    expect(boxOf(out, 'a').x).toBeCloseTo(0);
+    expect(boxOf(out, 'b').y).toBeCloseTo(40);
+  });
+});
+
+describe('document size', () => {
+  // The test document is 100 x 100; growing it to 200 x 150 adds 100 across and 50 down.
+  it('keeps content at the chosen anchor when the document grows', () => {
+    const grown = resizeDocument(doc(seg('a', 0, 0, 10, 0)), 200, 150, 2, 2); // bottom-right anchor
+    expect(grown).toMatchObject({ width: 200, height: 150 });
+    expect(boxOf(grown, 'a').x).toBeCloseTo(100);
+    expect(boxOf(grown, 'a').y).toBeCloseTo(50);
+  });
+
+  it('centres the content when anchored in the middle', () => {
+    const grown = resizeDocument(doc(seg('a', 0, 0, 10, 0)), 200, 100, 1, 1);
+    expect(boxOf(grown, 'a').x).toBeCloseTo(50);
+    expect(boxOf(grown, 'a').y).toBeCloseTo(0);
+  });
+
+  it('leaves content in place when anchored top-left', () => {
+    const grown = resizeDocument(doc(seg('a', 5, 5, 10, 5)), 50, 50, 0, 0);
+    expect(boxOf(grown, 'a').x).toBeCloseTo(5);
   });
 });

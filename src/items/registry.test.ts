@@ -29,7 +29,7 @@ describe('item registry', () => {
     const img = { kind: 'image', id: 'x', x: 1.23456, y: 0, canvas } as const;
     expect(typeOf(img).bounds(img)).toEqual({ x: 1.23456, y: 0, w: 4, h: 2 });
     expect(typeOf(img).handles(img)).toEqual([]);
-    expect(typeOf(img).toSvg(img, new Map())).toBe(
+    expect(typeOf(img).toSvg(img, { hrefs: new Map(), defs: new Map(), symbols: {} })).toBe(
       '<image x="1.235" y="0" width="4" height="2" href="data:image/png;base64,AAA"/>',
     );
   });

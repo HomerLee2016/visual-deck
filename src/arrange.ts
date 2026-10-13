@@ -2,7 +2,7 @@ import { itemBounds, transformItem, translateItem } from './geometry';
 import { mapItems } from './model';
 import type { Rect } from './math';
 import { multiply, translation } from './matrix';
-import type { DocState, Item } from './types';
+import type { DocState, Item, ShapeItem } from './types';
 
 export type AlignTo = 'left' | 'hcenter' | 'right' | 'top' | 'vcenter' | 'bottom';
 export type Axis = 'x' | 'y';
@@ -11,6 +11,41 @@ export type Order = 'front' | 'back' | 'forward' | 'backward';
 /** Items in `ids`, in stacking order (bottom layer first). */
 export function itemsIn(s: DocState, ids: ReadonlySet<string>): Item[] {
   return s.layers.flatMap((l) => l.items.filter((it) => ids.has(it.id)));
+}
+
+/**
+ * The selection as a document of its own: its items moved so their bounding
+ * box starts at the origin, on the layers they were on, with that box as the size.
+ */
+export function cropToItems(s: DocState, ids: ReadonlySet<string>): DocState {
+  const picked = itemsIn(s, ids);
+  if (picked.length === 0) return s;
+  const box = unionBox(picked.map(itemBounds));
+  return {
+    width: Math.max(1, Math.ceil(box.w)),
+    height: Math.max(1, Math.ceil(box.h)),
+    layers: s.layers.map((l) => ({
+      ...l,
+      items: l.items.filter((it) => ids.has(it.id)).map((it) => translateItem(it, -box.x, -box.y)),
+    })),
+    ...(s.defs ? { defs: s.defs } : {}),
+    ...(s.symbols ? { symbols: s.symbols } : {}),
+  };
+}
+
+/**
+ * Change the document's size. Items move with the content they anchor to: an
+ * anchor on the right keeps the right edge fixed, and so on.
+ */
+export function resizeDocument(s: DocState, width: number, height: number, anchorX: 0 | 1 | 2, anchorY: 0 | 1 | 2): DocState {
+  const dx = [0, (width - s.width) / 2, width - s.width][anchorX];
+  const dy = [0, (height - s.height) / 2, height - s.height][anchorY];
+  return {
+    ...s,
+    width,
+    height,
+    layers: s.layers.map((l) => ({ ...l, items: l.items.map((it) => translateItem(it, dx, dy)) })),
+  };
 }
 
 /** The smallest box that holds every rectangle. */
@@ -137,5 +172,51 @@ export function ungroupItems(s: DocState, ids: ReadonlySet<string>): DocState {
         return it.transform ? it.items.map((c) => transformItem(c, it.transform!)) : it.items;
       }),
     })),
+  };
+}
+
+/** Kinds that can serve as a clipping or masking shape (they have an outline). */
+const CLIP_KINDS: ReadonlySet<Item['kind']> = new Set(['line', 'arc', 'curve', 'brush', 'rect', 'ellipse', 'polygon', 'star', 'path']);
+
+/**
+ * Use the topmost selected shape to clip (or mask) the other selected items.
+ * The shape leaves its layer and lives on each item as its clip. Returns `s`
+ * unchanged unless there are two items and the top one is a shape.
+ */
+export function clipItems(s: DocState, ids: ReadonlySet<string>, mode: 'clip' | 'mask'): DocState {
+  const picked = itemsIn(s, ids);
+  if (picked.length < 2) return s;
+  const top = picked[picked.length - 1];
+  if (!CLIP_KINDS.has(top.kind)) return s;
+  const shape = top as ShapeItem;
+  const targets = new Set(picked.slice(0, -1).map((it) => it.id));
+  return {
+    ...s,
+    layers: s.layers.map((layer) => ({
+      ...layer,
+      items: layer.items
+        .filter((it) => it.id !== top.id)
+        .map((it) => (targets.has(it.id) ? { ...it, clip: { mode, shape } } : it)),
+    })),
+  };
+}
+
+/** Take the clipping shape off the selected items and put it back in its layer, just above each. */
+export function releaseClip(s: DocState, ids: ReadonlySet<string>): DocState {
+  return {
+    ...s,
+    layers: s.layers.map((layer) => {
+      const items: Item[] = [];
+      for (const it of layer.items) {
+        if (ids.has(it.id) && it.clip) {
+          // The clipping shape goes back just above the item it was attached to.
+          const { clip, ...without } = it;
+          items.push(without as Item, clip.shape);
+        } else {
+          items.push(it);
+        }
+      }
+      return { ...layer, items };
+    }),
   };
 }

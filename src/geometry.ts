@@ -45,7 +45,7 @@ export function transformItem(it: Item, m: Matrix): Item {
 }
 
 /** Shapes placed by clicking points. The brush is drawn by dragging, so it has no point count. */
-export type ClickShapeKind = Exclude<ShapeKind, 'brush'>;
+export type ClickShapeKind = Exclude<ShapeKind, 'brush' | 'path'>;
 
 /** Click-to-place parameters (point count and builder) for a shape tool. */
 export function clickSpec(kind: ClickShapeKind): ClickSpec {

@@ -263,3 +263,18 @@ pre { white-space: pre-wrap; font: 11px/1.5 ui-monospace, Menlo, Consolas, monos
 
 .arrange-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px 8px; }
 .arrange-grid button { font-size: 11px; padding: 3px 0; }
+.offset-field input { width: 56px; }
+.arrange-grid .offset-field { grid-column: span 2; }
+
+.grad-editor { padding: 0 8px 6px; }
+.grad-stop { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.grad-stop input[type='number'] { width: 56px; }
+
+.swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; padding: 6px 8px; }
+.swatch { width: 100%; aspect-ratio: 1; min-height: 0; padding: 0; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }
+.symbol-list { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; }
+.anchor-grid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; width: max-content; margin: 6px 0; }
+.anchor-grid label { display: flex; justify-content: center; }
+
+.code-dialog { width: min(720px, 92vw); }
+#code-text { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; background: var(--bg); color: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 6px; resize: vertical; }

@@ -2,10 +2,15 @@ import { parseColor } from '../color';
 import { distToSegment, type Rect } from '../math';
 import type { Matrix } from '../matrix';
 import type { Pt, ShapeItem, Style } from '../types';
-import type { ClickSpec, ShapeType } from './types';
+import type { ClickSpec, ShapeType, SvgEnv } from './types';
+import { fillPaint, strokePaint } from './paint';
+import { filterRef, gradientRef, markerRef, patternRef } from './defs';
+import { canvasFilter, compositeOf, hasFilter } from './effects';
+import { drawMarkers } from './markers';
 
-export const num = (v: number) => String(Math.round(v * 1000) / 1000);
-export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+import { esc, num } from './format';
+
+export { esc, num };
 
 /** Opacity clamped to 0..1; styles saved before opacity existed are fully opaque. */
 export const opacityOf = (style: Style) => Math.min(1, Math.max(0, style.opacity ?? 1));
@@ -17,14 +22,15 @@ export const dashOf = (style: Style): number[] => (style.dash ?? []).filter((d) 
 export const transformAttr = (m?: Matrix) => (m ? ` transform="matrix(${m.map(num).join(' ')})"` : '');
 
 /** The stroke attributes shared by every stroked shape's SVG element. */
-function strokeAttrs(style: Style): string {
+function strokeAttrs(style: Style, env: SvgEnv): string {
   const { color, width, cap = 'round', join = 'round', miterLimit } = style;
   const dash = dashOf(style);
   const limit = miterLimit === undefined ? '' : ` stroke-miterlimit="${num(miterLimit)}"`;
   const dashes = dash.length ? ` stroke-dasharray="${dash.map(num).join(' ')}"` : '';
   const { hex, alpha } = parseColor(color);
-  const opacity = alpha < 1 ? ` stroke-opacity="${num(alpha)}"` : '';
-  return `stroke="${esc(hex)}"${opacity} stroke-width="${num(width)}" stroke-linecap="${cap}" stroke-linejoin="${join}"${limit}${dashes}`;
+  const paint = style.strokeGradient ? gradientRef(style.strokeGradient, env) : esc(hex);
+  const opacity = !style.strokeGradient && alpha < 1 ? ` stroke-opacity="${num(alpha)}"` : '';
+  return `stroke="${paint}"${opacity} stroke-width="${num(width)}" stroke-linecap="${cap}" stroke-linejoin="${join}"${limit}${dashes}`;
 }
 
 /** What a shape kind must say about itself; `defineShape` supplies the stroking, hit-testing and export. */
@@ -55,6 +61,7 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       let x1 = -Infinity;
       let y1 = -Infinity;
       for (const p of pts) {
+        if (Number.isNaN(p.x)) continue; // subpath break
         x0 = Math.min(x0, p.x);
         y0 = Math.min(y0, p.y);
         x1 = Math.max(x1, p.x);
@@ -68,21 +75,25 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       const pts = def.outline(it);
       const reach = tol + it.style.width / 2;
       for (let i = 0; i + 1 < pts.length; i++) {
+        if (Number.isNaN(pts[i].x) || Number.isNaN(pts[i + 1].x)) continue; // subpath break
         if (distToSegment(p, pts[i], pts[i + 1]) <= reach) return true;
       }
       return false;
     },
     draw(ctx, it) {
-      const { color, width, fill, cap = 'round', join = 'round', miterLimit } = it.style;
+      const { width, cap = 'round', join = 'round', miterLimit } = it.style;
       ctx.save();
       ctx.globalAlpha = opacityOf(it.style);
+      ctx.globalCompositeOperation = compositeOf(it.style.blend);
+      ctx.filter = canvasFilter(it.style);
+      const fill = fillPaint(ctx, it.style);
       if (fill) {
         ctx.fillStyle = fill;
         ctx.beginPath();
         def.trace(ctx, it);
         ctx.fill();
       }
-      ctx.strokeStyle = color;
+      ctx.strokeStyle = strokePaint(ctx, it.style);
       ctx.lineWidth = width;
       ctx.lineCap = cap;
       ctx.lineJoin = join;
@@ -91,12 +102,24 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       ctx.beginPath();
       def.trace(ctx, it);
       ctx.stroke();
+      if (it.style.markerStart || it.style.markerEnd) {
+        ctx.setLineDash([]);
+        drawMarkers(ctx, def.outline(it), it.style);
+      }
       ctx.restore();
     },
-    toSvg(it) {
+    toSvg(it, env) {
       const opacity = opacityOf(it.style);
       const fade = opacity < 1 ? ` opacity="${num(opacity)}"` : '';
-      return `<path d="${def.pathData(it)}" fill="${esc(it.style.fill ?? 'none')}" ${strokeAttrs(it.style)}${fade}${transformAttr(it.transform)}/>`;
+      const fill = it.style.pattern
+        ? patternRef(it.style.pattern, it.style.color, env)
+        : it.style.fillGradient
+          ? gradientRef(it.style.fillGradient, env)
+          : esc(it.style.fill ?? 'none');
+      const filter = hasFilter(it.style) ? ` filter="${filterRef(it.style, env)}"` : '';
+      const blend = it.style.blend && it.style.blend !== 'normal' ? ` style="mix-blend-mode:${it.style.blend}"` : '';
+      const markers = `${it.style.markerStart ? ` marker-start="${markerRef(it.style.markerStart, it.style.color, env)}"` : ''}${it.style.markerEnd ? ` marker-end="${markerRef(it.style.markerEnd, it.style.color, env)}"` : ''}`;
+      return `<path d="${def.pathData(it)}" fill="${fill}" ${strokeAttrs(it.style, env)}${fade}${filter}${blend}${markers}${transformAttr(it.transform)}/>`;
     },
   };
 }
