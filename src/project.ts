@@ -25,6 +25,7 @@ interface StoredState {
   width: number;
   height: number;
   layers: StoredLayer[];
+  defs?: DocState['defs'];
 }
 
 /** What a project file holds; also what `Workspace.restore` needs. */
@@ -88,7 +89,12 @@ export function serializeProject(ws: Saveable, codec: ImageCodec): string {
     images,
     history: ws.history.map((h) => ({
       label: h.label,
-      state: { width: h.state.width, height: h.state.height, layers: h.state.layers.map((l) => ({ ...l, items: l.items.map(item) })) },
+      state: {
+        width: h.state.width,
+        height: h.state.height,
+        layers: h.state.layers.map((l) => ({ ...l, items: l.items.map(item) })),
+        ...(h.state.defs ? { defs: h.state.defs } : {}),
+      },
     })),
   };
   return JSON.stringify(file);
@@ -124,6 +130,7 @@ export async function parseProject(text: string, codec: ImageCodec): Promise<Pro
         reserveUid(l.id);
         return { ...l, items: l.items.map(item) };
       }),
+      ...(h.state.defs ? { defs: h.state.defs } : {}),
     } satisfies DocState,
   }));
   const index = Math.min(Math.max(file.index ?? 0, 0), history.length - 1);

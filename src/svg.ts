@@ -1,12 +1,14 @@
 import { svgOf } from './items/registry';
 import type { SvgEnv } from './items/types';
+import { resolveDefs } from './shared';
 import type { DocState, Item } from './types';
 
 /**
  * Serialise a document as SVG. Shapes stay vector paths, image items are
  * embedded as PNG data. Hidden layers are skipped, as on screen.
  */
-export function toSvg(s: DocState): string {
+export function toSvg(doc: DocState): string {
+  const s = resolveDefs(doc);
   const env: SvgEnv = { hrefs: new Map(), defs: new Map() };
   const body: string[] = [];
   for (const layer of s.layers) {

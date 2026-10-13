@@ -1,5 +1,6 @@
 import { buildShape, itemBounds } from './geometry';
 import { drawItem, typeOf } from './items/registry';
+import { resolveDefs } from './shared';
 import { apply } from './matrix';
 import type { ClickShapeKind, Rect } from './geometry';
 import type { ShapeParams } from './items/types';
@@ -15,6 +16,7 @@ const ACCENT = '#4da3ff';
 
 /** Draw visible layers bottom to top. `only` renders a single layer regardless of its visibility. */
 export function drawState(ctx: CanvasRenderingContext2D, s: DocState, only?: string): void {
+  s = resolveDefs(s);
   for (const layer of s.layers) {
     if (only ? layer.id !== only : !layer.visible) continue;
     for (const it of layer.items) drawItem(ctx, it);

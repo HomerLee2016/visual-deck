@@ -57,9 +57,16 @@ export type BlendMode =
   | 'difference'
   | 'exclusion';
 
+/** A shared colour or gradient, referenced by id from item styles (`fillRef`, `strokeRef`). */
+export type Definition = { kind: 'color'; color: string } | { kind: 'gradient'; gradient: Gradient };
+
 export interface Style {
   color: string;
   width: number;
+  /** Id of a shared definition supplying the fill. Overrides `fill` and `fillGradient` when it resolves. */
+  fillRef?: string;
+  /** Id of a shared definition supplying the stroke. Overrides `color` and `strokeGradient` when it resolves. */
+  strokeRef?: string;
   /** Interior colour of closed or open outlines. Missing means no fill. */
   fill?: string;
   /** Replaces `fill` when set. */
@@ -292,6 +299,8 @@ export interface DocState {
   readonly width: number;
   readonly height: number;
   readonly layers: readonly Layer[];
+  /** Shared colours and gradients by id. Missing means none. */
+  readonly defs?: Readonly<Record<string, Definition>>;
 }
 
 export interface HistoryEntry {
