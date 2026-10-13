@@ -34,6 +34,29 @@ export interface RadialGradient {
 
 export type Gradient = LinearGradient | RadialGradient;
 
+export interface Shadow {
+  dx: number;
+  dy: number;
+  /** Blur radius in document units. */
+  blur: number;
+  color: string;
+}
+
+/** Blend modes shared by Canvas (`globalCompositeOperation`) and SVG (`mix-blend-mode`). */
+export type BlendMode =
+  | 'normal'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'darken'
+  | 'lighten'
+  | 'color-dodge'
+  | 'color-burn'
+  | 'hard-light'
+  | 'soft-light'
+  | 'difference'
+  | 'exclusion';
+
 export interface Style {
   color: string;
   width: number;
@@ -43,6 +66,12 @@ export interface Style {
   fillGradient?: Gradient;
   /** Replaces `color` for the stroke when set. */
   strokeGradient?: Gradient;
+  /** Gaussian blur radius in document units. Missing or 0 means sharp. */
+  blur?: number;
+  /** Drop shadow, drawn under the item. */
+  shadow?: Shadow;
+  /** How the item mixes with what is below it. Missing means normal. */
+  blend?: BlendMode;
   /** 0 to 1. Missing means fully opaque. */
   opacity?: number;
   /** Line end shape. Missing means round. */

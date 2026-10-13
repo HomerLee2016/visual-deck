@@ -119,6 +119,24 @@
               <output id="stroke-opacity-out">100%</output>
             </span>
           </label>
+          <label class="field">Blend
+            <select id="fx-blend" aria-label="Blend mode">
+              <option value="normal">Normal</option>
+              <option value="multiply">Multiply</option>
+              <option value="screen">Screen</option>
+              <option value="overlay">Overlay</option>
+              <option value="darken">Darken</option>
+              <option value="lighten">Lighten</option>
+              <option value="color-dodge">Colour dodge</option>
+              <option value="color-burn">Colour burn</option>
+              <option value="hard-light">Hard light</option>
+              <option value="soft-light">Soft light</option>
+              <option value="difference">Difference</option>
+              <option value="exclusion">Exclusion</option>
+            </select>
+          </label>
+          <label class="field">Blur <input id="fx-blur" type="number" min="0" max="64" step="0.5" value="0" /></label>
+          <label class="check"><input id="fx-shadow" type="checkbox" /> Drop shadow</label>
           <label class="field">Line ends
             <select id="stroke-cap" aria-label="Line end style">
               <option value="round">Round</option>
