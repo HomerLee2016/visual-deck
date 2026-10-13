@@ -47,6 +47,7 @@ npm run build      # static site in dist/
 | Arc | `A` | Start, end, then a point the arc passes through. |
 | Curve | `C` | Start, end, then two Bézier control points. |
 | Brush | `B` | Press and drag to paint a freehand stroke. |
+| Edge | `F` | Paint over a cut-out edge to remove its light fringe. `Enter` applies (rasterizes the layer), `Esc` cancels. Settings: background colour, band, light threshold, brush size, fringe mode. |
 
 ## Script buttons
 

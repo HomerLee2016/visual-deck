@@ -19,6 +19,7 @@ const TOOL_HELP: Record<ToolId, string> = {
   pen: 'Click to place corner nodes; drag to make a smooth node. Click the first node or press Enter to finish; Esc finishes an open path.',
   text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
   star: 'Click the centre, then a point. Points and inner radius set below. Shift snaps the angle.',
+  edge: 'Paint over a cut-out edge with a light fringe. Only painted pixels near transparency change. Apply (Enter) rasterizes the layer; Cancel (Esc) discards.',
 };
 
 const SELECT_HELP: Record<SelectMode, string> = {
@@ -26,6 +27,12 @@ const SELECT_HELP: Record<SelectMode, string> = {
   layer: 'Click an item to select its whole layer and make it the active layer. A box selects every layer it touches. Shift adds.',
   points: 'Click a point on a brush stroke to select it. Shift adds points. Delete removes the selected points.',
 };
+
+/** `#rrggbb` from a colour input into 0-255 channels. */
+function parseRgb(hex: string): { r: number; g: number; b: number } {
+  const v = parseInt(hex.slice(1), 16);
+  return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
+}
 
 /** Tool buttons, stroke style and the copy / paste / delete actions. */
 export class ToolboxPanel {
@@ -124,6 +131,26 @@ export class ToolboxPanel {
       inner.value = String(pct);
       editor.setParams({ inner: pct / 100 });
     };
+    const edgeBg = $<HTMLInputElement>('edge-bg');
+    const edgeBand = $<HTMLInputElement>('edge-band');
+    const edgeLight = $<HTMLInputElement>('edge-light');
+    const edgeBrush = $<HTMLInputElement>('edge-brush');
+    const edgeMode = $<HTMLSelectElement>('edge-mode');
+    const edgeInt = (el: HTMLInputElement, min: number, max: number, fallback: number) => {
+      const n = Math.min(max, Math.max(min, Math.round(Number(el.value)) || fallback));
+      el.value = String(n);
+      return n;
+    };
+    edgeBg.onchange = () => {
+      const { r, g, b } = parseRgb(edgeBg.value);
+      editor.setEdgeOptions({ background: [r, g, b] });
+    };
+    edgeBand.onchange = () => editor.setEdgeOptions({ band: edgeInt(edgeBand, 1, 32, 2) });
+    edgeLight.onchange = () => editor.setEdgeOptions({ lightness: edgeInt(edgeLight, 0, 255, 200) });
+    edgeBrush.onchange = () => editor.setEdgeRadius(edgeInt(edgeBrush, 1, 256, 12) / 2);
+    edgeMode.onchange = () => editor.setEdgeOptions({ mode: edgeMode.value as 'fill' | 'remove' });
+    $('edge-apply').onclick = () => editor.applyEdge();
+    $('edge-cancel').onclick = () => editor.cancelEdge();
     const font = $<HTMLSelectElement>('text-font');
     const size = $<HTMLInputElement>('text-size');
     const weight = $<HTMLSelectElement>('text-weight');
@@ -250,6 +277,9 @@ export class ToolboxPanel {
     $<HTMLSelectElement>('select-mode').value = this.editor.selectMode;
     $('tool-help').textContent = this.editor.tool === 'select' ? SELECT_HELP[this.editor.selectMode] : TOOL_HELP[this.editor.tool];
     $('node-actions').hidden = this.editor.tool !== 'node';
+    $('edge-panel').hidden = this.editor.tool !== 'edge';
+    $<HTMLButtonElement>('edge-apply').disabled = !this.editor.edgePending;
+    $<HTMLButtonElement>('edge-cancel').disabled = !this.editor.edgePending;
     const has = this.active().selection.size > 0;
     $<HTMLButtonElement>('act-copy').disabled = !has;
     $<HTMLButtonElement>('act-delete').disabled = !has;

@@ -117,6 +117,8 @@ export interface Scene {
   marquee: Rect | null;
   /** Brush size preview: the stroke width as a circle around the pointer, in document space. */
   brushCursor: { at: Pt; width: number } | null;
+  /** Brushed area of the Edge tool, drawn over the layer in document space. */
+  edgeOverlay: HTMLCanvasElement | null;
   /** Scale and rotate handles around the selection, or null when nothing is selected. */
   handles: Handle[] | null;
   aids: ViewAids;
@@ -191,6 +193,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     drawItem(ctx, { kind: 'brush', id: 'preview', pts: scene.stroke, style: scene.style });
     ctx.globalAlpha = 1;
   }
+  if (scene.edgeOverlay) ctx.drawImage(scene.edgeOverlay, 0, 0);
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);
   if (scene.brushCursor) drawBrushCursor(ctx, scene.brushCursor, zoom);
   if (scene.handles) drawHandles(ctx, scene.handles, zoom);
