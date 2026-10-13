@@ -80,6 +80,16 @@ describe('hit-testing and bounds', () => {
     expect(hitTest(line, { x: 5, y: 10 }, 3)).toBe(false);
   });
 
+  it('hits the inside of a filled path but not an unfilled one', () => {
+    const square = { x: 0, y: 0 };
+    const subs = [{ closed: true, nodes: [{ p: square }, { p: { x: 20, y: 0 } }, { p: { x: 20, y: 20 } }, { p: { x: 0, y: 20 } }] }];
+    const base = { kind: 'path' as const, id: 'sq', subs, style: { color: '#000', width: 1 } };
+    const filled = { ...base, style: { ...base.style, fill: '#f00' } };
+    expect(hitTest(filled, { x: 10, y: 10 }, 1)).toBe(true);
+    expect(hitTest(filled, { x: 30, y: 10 }, 1)).toBe(false);
+    expect(hitTest(base, { x: 10, y: 10 }, 1)).toBe(false);
+  });
+
   it('bounds include stroke width', () => {
     expect(itemBounds(line)).toEqual({ x: -1, y: -1, w: 12, h: 2 });
   });
