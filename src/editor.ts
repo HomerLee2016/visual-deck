@@ -10,6 +10,7 @@ import {
   type ClickShapeKind,
 } from './geometry';
 import { typeOf } from './items/registry';
+import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
 import type { DocState, Item, Pt, ShapeKind, Style } from './types';
@@ -17,7 +18,7 @@ import { fitView, toDoc, zoomAround, type Size } from './view';
 
 export type ToolId = 'select' | ShapeKind;
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -42,6 +43,8 @@ const HIDDEN_LAYER_MSG = 'The active layer is hidden – show it or pick another
 export class Editor {
   tool: ToolId = 'select';
   style: Style = { ...DEFAULT_STYLE };
+  /** Creation-time settings for click-placed shapes (corner radius, polygon sides, star depth). */
+  params: ShapeParams = { ...DEFAULT_SHAPE_PARAMS };
   clipboard: Item[] = [];
   ws!: Workspace;
   /** Called when tool/selection state changes so the toolbox can refresh. */
@@ -101,6 +104,10 @@ export class Editor {
     this.tool = t;
     this.canvas.style.cursor = t === 'select' ? 'default' : 'crosshair';
     this.onUiChange();
+  }
+
+  setParams(patch: Partial<ShapeParams>): void {
+    this.params = { ...this.params, ...patch };
   }
 
   /** Change the drawing style; also restyles selected shapes when `applyToSelection`. */
@@ -185,7 +192,7 @@ export class Editor {
     const p = toDoc(this.ws.view, s);
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
     else if (this.tool === 'brush') this.brushDown(p);
-    else this.drawDown(this.tool, p, s);
+    else this.drawDown(this.tool, p, s, e.shiftKey);
   }
 
   /** A point handle of a selected brush stroke under `p`, if any. */
@@ -258,7 +265,13 @@ export class Editor {
     this.ws.addItem('Brush', { kind: 'brush', id: uid('item'), pts: stroke, style: { ...this.style } });
   }
 
-  private drawDown(kind: ClickShapeKind, p: Pt, s: Pt): void {
+  /** Where the next point of a draft really goes: Shift constrains the second point (square, circle). */
+  private aim(d: Draft, p: Pt, shift: boolean): Pt {
+    const constrain = clickSpec(d.kind).constrain;
+    return shift && d.pts.length === 1 && constrain ? constrain(d.pts[0], p) : p;
+  }
+
+  private drawDown(kind: ClickShapeKind, p: Pt, s: Pt, shift: boolean): void {
     if (!this.ws.activeLayer.visible) {
       this.onStatus(HIDDEN_LAYER_MSG);
       return;
@@ -266,7 +279,7 @@ export class Editor {
     if (!this.draft) {
       this.draft = { kind, pts: [p], hover: p, pressing: true, downScreen: s };
     } else {
-      this.draft.pts.push(p);
+      this.draft.pts.push(this.aim(this.draft, p, shift));
       this.finishDraftIfComplete();
     }
     this.showDraftHint();
@@ -281,7 +294,7 @@ export class Editor {
   private finishDraftIfComplete(): void {
     const d = this.draft;
     if (!d || d.pts.length < clickSpec(d.kind).needed) return;
-    const shape = buildShape(d.kind, d.pts, { ...this.style }, uid('item'));
+    const shape = buildShape(d.kind, d.pts, { ...this.style }, uid('item'), this.params);
     this.draft = null;
     if (!shape) return;
     this.ws.addItem(clickSpec(d.kind).label, shape);
@@ -295,7 +308,7 @@ export class Editor {
     if (this.pan) {
       this.ws.view = { ...this.ws.view, panX: this.pan.px + (s.x - this.pan.sx), panY: this.pan.py + (s.y - this.pan.sy) };
     } else if (this.draft) {
-      this.draft.hover = p;
+      this.draft.hover = this.aim(this.draft, p, e.shiftKey);
     } else if (this.drag?.mode === 'brush') {
       const last = this.drag.pts[this.drag.pts.length - 1];
       if (dist(p, last) * this.ws.view.zoom >= BRUSH_SPACING_PX) this.drag.pts.push(p);
@@ -326,7 +339,7 @@ export class Editor {
       const p = toDoc(this.ws.view, this.screenPos(e));
       // Dragged far enough: treat the release point as the end point.
       if (dist(this.screenPos(e), d.downScreen) > 5) {
-        d.pts.push(p);
+        d.pts.push(this.aim(d, p, e.shiftKey));
         this.finishDraftIfComplete();
       }
     }
@@ -450,6 +463,7 @@ export class Editor {
       draft: this.draft,
       stroke: this.drag?.mode === 'brush' ? this.drag.pts : null,
       style: this.style,
+      params: this.params,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
       brushCursor: this.tool === 'brush' && this.hover ? { at: this.hover, width: this.style.width } : null,
     });

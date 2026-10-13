@@ -1,5 +1,5 @@
 import { shapeTypeOf, typeOf } from './items/registry';
-import type { ClickSpec } from './items/types';
+import { DEFAULT_SHAPE_PARAMS, type ClickSpec, type ShapeParams } from './items/types';
 import type { Rect } from './math';
 import { IDENTITY, apply, applyLinear, invert, multiply, scaleOf, transformRect, type Matrix } from './matrix';
 import type { Item, Pt, ShapeItem, ShapeKind, Style } from './types';
@@ -47,13 +47,6 @@ export function transformItem(it: Item, m: Matrix): Item {
 /** Shapes placed by clicking points. The brush is drawn by dragging, so it has no point count. */
 export type ClickShapeKind = Exclude<ShapeKind, 'brush'>;
 
-/** Points each click-placed shape needs before it is complete. */
-export const POINTS_NEEDED = {
-  line: clickSpec('line').needed,
-  arc: clickSpec('arc').needed,
-  curve: clickSpec('curve').needed,
-} satisfies Record<ClickShapeKind, number>;
-
 /** Click-to-place parameters (point count and builder) for a shape tool. */
 export function clickSpec(kind: ClickShapeKind): ClickSpec {
   const spec = shapeTypeOf(kind).clicks;
@@ -66,7 +59,13 @@ export function clickSpec(kind: ClickShapeKind): ClickSpec {
  * start, end, then extras (arc: a point on the arc; curve: two control
  * points). With too few points it degrades to a straight preview line.
  */
-export function buildShape(kind: ClickShapeKind, pts: Pt[], style: Style, id: string): ShapeItem | null {
+export function buildShape(
+  kind: ClickShapeKind,
+  pts: Pt[],
+  style: Style,
+  id: string,
+  params: ShapeParams = DEFAULT_SHAPE_PARAMS,
+): ShapeItem | null {
   if (pts.length < 2) return null;
-  return clickSpec(kind).build(pts, style, id);
+  return clickSpec(kind).build(pts, style, id, params);
 }

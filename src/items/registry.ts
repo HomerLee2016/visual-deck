@@ -3,6 +3,7 @@ import { brushType } from './brush';
 import { curveType } from './curve';
 import { imageType } from './image';
 import { lineType } from './line';
+import { rectType } from './rect';
 import type { ItemType, ShapeType } from './types';
 import type { Item, ItemKind, ShapeItem, ShapeKind } from '../types';
 
@@ -16,6 +17,7 @@ const types: { [K in ItemKind]: ItemType<Extract<Item, { kind: K }>> } = {
   curve: curveType,
   brush: brushType,
   image: imageType,
+  rect: rectType,
 };
 
 /** Behaviour for an item's kind. */
