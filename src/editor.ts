@@ -15,22 +15,23 @@ import { DEFAULT_TEXT_STYLE, type TextStyle } from './items/text';
 import { angleAt, centerOf, handlesFor, hitHandle, rotateMatrix, scaleMatrix, type HandleId } from './handles';
 import type { Rect } from './math';
 import { groupItems, ungroupItems, unionBox } from './arrange';
-import { RULER_PX, drawScene } from './render';
+import { RULER_PX, drawScene, renderToCanvas } from './render';
+import { DEFAULT_EDGE_OPTIONS, cleanEdge, emptyMask, paintDisc, paintStroke, type EdgeOptions } from './fringe';
 import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
-import { DEFAULT_STYLE, Workspace, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
+import { DEFAULT_STYLE, Workspace, imageItem, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
 import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeItem, ShapeKind, Style, TextItem } from './types';
 import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, nodeKey, setSmooth } from './nodes';
 import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
-export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node';
+export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge';
 
 /** What the Select tool picks: whole items, every item on a layer, or brush-stroke points. */
 export type SelectMode = 'object' | 'layer' | 'points';
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node', f: 'edge' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -50,7 +51,8 @@ type Drag =
   | { mode: 'scale'; handle: HandleId; box: Rect; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
-  | { mode: 'brush'; pts: Pt[] };
+  | { mode: 'brush'; pts: Pt[] }
+  | { mode: 'edge'; last: Pt };
 
 /** History label for each drag that edits the document in place and commits when released. */
 const COMMIT_LABELS = { move: 'Move', nodes: 'Move nodes', gradient: 'Move gradient', handle: 'Move handle', scale: 'Scale', rotate: 'Rotate' } as const;
@@ -62,6 +64,16 @@ const HANDLE_TOLERANCE_PX = 6;
 const SNAP_PX = 6;
 /** Minimum screen distance between recorded brush points; denser samples add nothing visible. */
 const BRUSH_SPACING_PX = 2;
+/** An Edge session: the layer being cleaned, its pixels, and the brushed mask (1 = may change). */
+interface EdgeSession {
+  layerId: string;
+  work: HTMLCanvasElement;
+  mask: Uint8Array;
+  /** Red tint of the brushed area, drawn over the layer while painting. */
+  overlay: HTMLCanvasElement;
+}
+
+const EDGE_TINT = 'rgba(255, 70, 70, 0.45)';
 const HIDDEN_LAYER_MSG = 'The active layer is hidden – show it or pick another layer first.';
 
 /** Where text is being typed: a new block at `at`, or an existing item being re-edited. */
@@ -106,6 +118,11 @@ export class Editor {
   params: ShapeParams = { ...DEFAULT_SHAPE_PARAMS };
   /** Path being drawn with the pen tool, if any. */
   private pen: PenDraft | null = null;
+  /** The Edge tool's pending cleanup, if the brush has been used and not yet applied or cancelled. */
+  private edge: EdgeSession | null = null;
+  private edgeOpts: EdgeOptions = { ...DEFAULT_EDGE_OPTIONS };
+  /** Edge tool brush radius, in document pixels. */
+  private edgeRadius = 6;
   /** Nodes selected in the node tool, as "subpath.node" keys of the path in `nodeItemId`. */
   private nodeSel = new Set<string>();
   private nodeItemId: string | null = null;
@@ -161,6 +178,7 @@ export class Editor {
   setWorkspace(ws: Workspace): void {
     this.unsub?.();
     this.cancelInteraction();
+    this.cancelEdge();
     this.ws = ws;
     this.unsub = ws.subscribe(() => this.requestRender());
     this.pasteCount = 0;
@@ -170,6 +188,7 @@ export class Editor {
 
   setTool(t: ToolId): void {
     this.finishPen(false);
+    if (t !== 'edge') this.cancelEdge();
     this.nodeSel.clear();
     this.cancelInteraction();
     this.tool = t;
@@ -337,9 +356,10 @@ export class Editor {
     let p = toDoc(this.ws.view, s);
     if (this.tool === 'select' && (this.gradientHandleDown(p) || this.handleDown(p))) return;
     // New points (shapes and text) snap; freehand brush points and selection do not.
-    if (this.tool !== 'select' && this.tool !== 'brush') p = this.snapPt(p);
+    if (this.tool !== 'select' && this.tool !== 'brush' && this.tool !== 'edge') p = this.snapPt(p);
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
     else if (this.tool === 'brush') this.brushDown(p);
+    else if (this.tool === 'edge') this.edgeDown(p);
     else if (this.tool === 'text') this.textDown(p, s);
     else if (this.tool === 'pen') this.penDown(p, s);
     else if (this.tool === 'node') this.nodeDown(p, e.shiftKey);
@@ -637,6 +657,83 @@ export class Editor {
     this.ws.addItem('Brush', { kind: 'brush', id: uid('item'), pts: stroke, style: { ...this.style } });
   }
 
+  // ---- edge tool -----------------------------------------------------------
+
+  /** Start (or continue) an Edge session on the active layer and paint at `p`. */
+  private edgeDown(p: Pt): void {
+    if (!this.activeLayerVisible()) return;
+    const { width, height } = this.ws.state;
+    if (!this.edge || this.edge.layerId !== this.ws.activeLayerId) {
+      const overlay = document.createElement('canvas');
+      overlay.width = width;
+      overlay.height = height;
+      this.edge = { layerId: this.ws.activeLayerId, work: renderToCanvas(this.ws.state, this.ws.activeLayerId), mask: emptyMask(width, height), overlay };
+    }
+    paintDisc(this.edge.mask, width, height, p, this.edgeRadius);
+    this.paintOverlay(p, p);
+    this.drag = { mode: 'edge', last: p };
+    this.requestRender();
+    this.onUiChange();
+  }
+
+  /** Draw the brush segment a→b into the tint overlay, matching the mask's brush radius. */
+  private paintOverlay(a: Pt, b: Pt): void {
+    const ctx = this.edge?.overlay.getContext('2d');
+    if (!ctx) return;
+    ctx.strokeStyle = EDGE_TINT;
+    ctx.fillStyle = EDGE_TINT;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = this.edgeRadius * 2;
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+
+  /** True while an Edge cleanup is painted but not yet applied or cancelled. */
+  get edgePending(): boolean {
+    return this.edge !== null && this.edge.mask.includes(1);
+  }
+
+  /** Clean the brushed area and record one history step. Does nothing if nothing was brushed. */
+  applyEdge(): void {
+    const edge = this.edge;
+    if (!edge || !edge.mask.includes(1)) return;
+    const { width, height } = this.ws.state;
+    const ctx = edge.work.getContext('2d', { willReadFrequently: true })!;
+    const out = cleanEdge(ctx.getImageData(0, 0, width, height), edge.mask, this.edgeOpts);
+    const c = document.createElement('canvas');
+    c.width = width;
+    c.height = height;
+    c.getContext('2d')!.putImageData(new ImageData(out.data, width, height), 0, 0);
+    this.edge = null;
+    this.ws.replaceLayerItems('Edge cleanup', edge.layerId, [imageItem(c)]);
+    this.requestRender();
+    this.onUiChange();
+  }
+
+  /** Drop the pending Edge cleanup without changing the document. */
+  cancelEdge(): void {
+    if (!this.edge) return;
+    this.edge = null;
+    this.requestRender();
+    this.onUiChange();
+  }
+
+  /** Change how the Edge tool cleans (applies to the next Apply). */
+  setEdgeOptions(patch: Partial<EdgeOptions>): void {
+    this.edgeOpts = { ...this.edgeOpts, ...patch };
+  }
+
+  setEdgeRadius(radius: number): void {
+    this.edgeRadius = radius;
+    this.requestRender();
+  }
+
+  get edgeSettings(): { opts: EdgeOptions; radius: number } {
+    return { opts: this.edgeOpts, radius: this.edgeRadius };
+  }
+
   /** A document point moved onto the nearest grid line or guide, when snapping is on. */
   private snapPt(p: Pt): Pt {
     const { aids, view } = this.ws;
@@ -698,6 +795,11 @@ export class Editor {
     } else if (this.drag?.mode === 'brush') {
       const last = this.drag.pts[this.drag.pts.length - 1];
       if (dist(p, last) * this.ws.view.zoom >= BRUSH_SPACING_PX) this.drag.pts.push(p);
+    } else if (this.drag?.mode === 'edge' && this.edge) {
+      paintStroke(this.edge.mask, this.ws.state.width, this.ws.state.height, this.drag.last, p, this.edgeRadius);
+      this.paintOverlay(this.drag.last, p);
+      this.drag.last = p;
+      this.requestRender();
     } else if (this.drag?.mode === 'move') {
       const d = this.drag;
       d.moved ||= dist(p, d.origin) * this.ws.view.zoom > 3;
@@ -835,8 +937,12 @@ export class Editor {
     } else if (e.key === 'Enter' && this.pen) {
       e.preventDefault();
       this.finishPen(false);
+    } else if (e.key === 'Enter' && this.edge) {
+      e.preventDefault();
+      this.applyEdge();
     } else if (e.key === 'Escape') {
-      if (this.pen) this.finishPen(false);
+      if (this.edge) this.cancelEdge();
+      else if (this.pen) this.finishPen(false);
       else if (this.draft) this.draft = null;
       else {
         this.ws.selection.clear();
@@ -934,7 +1040,10 @@ export class Editor {
       params: this.params,
       handles: box && this.tool === 'select' ? handlesFor(box, ws.view.zoom) : null,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
-      brushCursor: this.tool === 'brush' && this.hover ? { at: this.hover, width: this.style.width } : null,
+      brushCursor: this.hover && (this.tool === 'brush' || this.tool === 'edge')
+        ? { at: this.hover, width: this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width }
+        : null,
+      edgeOverlay: this.edge?.overlay ?? null,
       aids: ws.aids,
       penDraft: this.pen ? { nodes: this.pen.nodes, hover: this.pen.hover } : null,
       gradientLines: this.gradientLines(),
