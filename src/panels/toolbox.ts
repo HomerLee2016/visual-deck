@@ -11,6 +11,7 @@ const TOOL_HELP: Record<ToolId, string> = {
   curve: 'Drag start→end (or click twice), then click two control points.',
   brush: 'Press and drag to paint a freehand stroke. Release to finish. A click leaves a dot.',
   rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
+  ellipse: 'Drag or click two opposite corners of the bounding box. Shift for a circle.',
 };
 
 /** Tool buttons, stroke style and the copy / paste / delete actions. */

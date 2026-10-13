@@ -1,6 +1,7 @@
 import { arcType } from './arc';
 import { brushType } from './brush';
 import { curveType } from './curve';
+import { ellipseType } from './ellipse';
 import { imageType } from './image';
 import { lineType } from './line';
 import { rectType } from './rect';
@@ -18,6 +19,7 @@ const types: { [K in ItemKind]: ItemType<Extract<Item, { kind: K }>> } = {
   brush: brushType,
   image: imageType,
   rect: rectType,
+  ellipse: ellipseType,
 };
 
 /** Behaviour for an item's kind. */
