@@ -1,8 +1,9 @@
 import { alignItems, distributeItems, flipItems, reorderItems, type AlignTo, type Axis, type Order } from '../arrange';
 import { reversePath, simplifyBrush, toPath } from '../convert';
+import { offsetPath, outlineItem } from '../outline';
 import type { Editor } from '../editor';
 import { mapItems, type Workspace } from '../model';
-import type { ActiveWorkspace } from './dom';
+import { $, type ActiveWorkspace } from './dom';
 
 /** Align, distribute, flip and stacking-order buttons for the selection. Each click is one history step. */
 export class ArrangePanel {
@@ -47,6 +48,14 @@ export class ArrangePanel {
       ws.edit('To path', (s) => mapItems(s, ids, (it) => toPath(it, it.id) ?? it));
     } else if (b.dataset.reverse) {
       ws.edit('Reverse path', (s) => mapItems(s, ids, (it) => (it.kind === 'path' ? reversePath(it) : it)));
+    } else if (b.dataset.outline) {
+      ws.edit('Outline stroke', (s) => mapItems(s, ids, (it) => outlineItem(it) ?? it));
+    } else if (b.dataset.offset) {
+      const d = Number($<HTMLInputElement>('offset-dist').value) || 0;
+      ws.edit('Offset path', (s) => mapItems(s, ids, (it) => {
+        const p = toPath(it, it.id);
+        return p && d !== 0 ? offsetPath(p, d) : it;
+      }));
     } else if (b.dataset.simplify) {
       // Strokes keep their shape within one document unit; fewer nodes is the point.
       ws.edit('Simplify', (s) =>
