@@ -5,11 +5,44 @@ export interface Pt {
   y: number;
 }
 
+/** A colour stop along a gradient; `offset` runs from 0 to 1. */
+export interface GradientStop {
+  offset: number;
+  color: string;
+}
+
+/** Linear gradient from (x1, y1) to (x2, y2), in the item's own coordinates. */
+export interface LinearGradient {
+  type: 'linear';
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  stops: GradientStop[];
+}
+
+/** Radial gradient: stop 0 at the focal point (fx, fy), stop 1 on the circle (cx, cy, r). */
+export interface RadialGradient {
+  type: 'radial';
+  cx: number;
+  cy: number;
+  r: number;
+  fx: number;
+  fy: number;
+  stops: GradientStop[];
+}
+
+export type Gradient = LinearGradient | RadialGradient;
+
 export interface Style {
   color: string;
   width: number;
   /** Interior colour of closed or open outlines. Missing means no fill. */
   fill?: string;
+  /** Replaces `fill` when set. */
+  fillGradient?: Gradient;
+  /** Replaces `color` for the stroke when set. */
+  strokeGradient?: Gradient;
   /** 0 to 1. Missing means fully opaque. */
   opacity?: number;
   /** Line end shape. Missing means round. */
