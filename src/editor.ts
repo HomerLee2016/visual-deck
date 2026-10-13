@@ -17,7 +17,7 @@ import type { Rect } from './math';
 import { groupItems, ungroupItems, unionBox } from './arrange';
 import { RULER_PX, drawScene, renderToCanvas } from './render';
 import { DEFAULT_EDGE_OPTIONS, cleanEdge, type EdgeOptions } from './fringe';
-import { emptyMask, paintDisc, paintStroke, type Mask } from './mask';
+import { emptyMask, paintDisc, paintStroke, storedMask, wholeCanvas, type Mask } from './mask';
 import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, imageItem, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
@@ -140,6 +140,7 @@ export class Editor {
   /** Whether the script mask is highlighted on the canvas (outside a Modify mask session). */
   maskVisible = false;
   private maskCache: { mask: Mask; canvas: HTMLCanvasElement } | null = null;
+  private wholeMask: Mask | null = null;
   /** Nodes selected in the node tool, as "subpath.node" keys of the path in `nodeItemId`. */
   private nodeSel = new Set<string>();
   private nodeItemId: string | null = null;
@@ -690,8 +691,8 @@ export class Editor {
   /** Open a Modify mask session, starting from the current mask (or nothing selected). */
   beginMaskEdit(): void {
     const { width, height } = this.ws.state;
-    const current = this.ws.activeMask();
-    const draft = current ? new Uint8Array(current.data) : emptyMask(width, height);
+    // Without a mask, the whole canvas is the starting selection; Remove carves areas out of it.
+    const draft = new Uint8Array((this.ws.activeMask() ?? this.wholeCanvasMask()).data);
     const overlay = document.createElement('canvas');
     overlay.width = width;
     overlay.height = height;
@@ -719,7 +720,7 @@ export class Editor {
     if (!edit) return;
     const { width, height } = this.ws.state;
     this.maskEdit = null;
-    this.ws.setMask(edit.draft.includes(1) ? { width, height, data: edit.draft } : null);
+    this.ws.setMask(storedMask({ width, height, data: edit.draft }));
     this.requestRender();
     this.onUiChange();
   }
@@ -757,8 +758,8 @@ export class Editor {
   /** The highlight to draw, if any: the session's draft while editing, else the saved mask when shown. */
   private maskOverlayCanvas(): HTMLCanvasElement | null {
     if (this.maskEdit) return this.maskEdit.overlay;
-    const mask = this.ws.activeMask();
-    if (!this.maskVisible || !mask) return null;
+    if (!this.maskVisible) return null;
+    const mask = this.ws.activeMask() ?? this.wholeCanvasMask();
     if (this.maskCache?.mask !== mask) {
       const canvas = document.createElement('canvas');
       canvas.width = mask.width;
@@ -767,6 +768,13 @@ export class Editor {
       this.maskCache = { mask, canvas };
     }
     return this.maskCache.canvas;
+  }
+
+  /** The full-canvas mask used when no mask is set. Cached, so its identity is stable for the highlight cache. */
+  private wholeCanvasMask(): Mask {
+    const { width, height } = this.ws.state;
+    if (this.wholeMask?.width !== width || this.wholeMask?.height !== height) this.wholeMask = wholeCanvas(width, height);
+    return this.wholeMask;
   }
 
   /** Write the selection into a canvas as the yellow highlight (transparent where not selected). */
