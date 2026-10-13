@@ -136,6 +136,41 @@ describe('layers', () => {
     expect(seen).toEqual([{ selection: 0, active: first }]);
   });
 
+  it('merges a layer into the one below as one undoable step', () => {
+    const ws = new Workspace('t', 8, 8);
+    const bottom = ws.activeLayer.id;
+    const low = mkLine();
+    ws.addItem('Low', low, bottom);
+    const top = ws.addLayer('Add', 'Top');
+    const high = mkLine();
+    ws.addItem('High', high, top);
+
+    ws.mergeLayerDown(top);
+    expect(ws.state.layers).toHaveLength(1);
+    expect(ws.state.layers[0].id).toBe(bottom);
+    expect(ws.state.layers[0].items.map((it) => it.id)).toEqual([low.id, high.id]);
+    expect(ws.activeLayerId).toBe(bottom);
+
+    ws.undo();
+    expect(ws.state.layers).toHaveLength(2);
+    expect(ws.state.layers[1].items.map((it) => it.id)).toEqual([high.id]);
+  });
+
+  it('does not reveal hidden items when merging', () => {
+    const ws = new Workspace('t', 8, 8);
+    const top = ws.addLayer('Add', 'Top');
+    ws.setLayerVisible(top, false);
+    ws.mergeLayerDown(top);
+    expect(ws.state.layers[0].visible).toBe(false);
+  });
+
+  it('ignores merging the bottom layer', () => {
+    const ws = new Workspace('t', 8, 8);
+    const bottom = ws.activeLayer.id;
+    ws.mergeLayerDown(bottom);
+    expect(ws.state.layers).toHaveLength(1);
+  });
+
   it('reorders layers', () => {
     const ws = new Workspace('t', 8, 8);
     const second = ws.addLayer('Add', 'Second');

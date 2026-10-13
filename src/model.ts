@@ -179,6 +179,23 @@ export class Workspace {
     });
   }
 
+  /**
+   * Merge a layer into the layer directly below it. The lower layer keeps its
+   * id and name, its items stay under the upper layer's items, and the result
+   * is hidden if either layer was hidden, so nothing is revealed by merging.
+   */
+  mergeLayerDown(id: string): void {
+    const i = this.state.layers.findIndex((l) => l.id === id);
+    if (i <= 0) return;
+    const upper = this.state.layers[i];
+    const lower = this.state.layers[i - 1];
+    this.activeLayerId = lower.id;
+    this.apply(`Merge ${upper.name} into ${lower.name}`, (s) => {
+      const merged: Layer = { ...lower, visible: lower.visible && upper.visible, items: [...lower.items, ...upper.items] };
+      return { ...s, layers: s.layers.flatMap((l) => (l.id === lower.id ? [merged] : l.id === upper.id ? [] : [l])) };
+    }, true);
+  }
+
   setLayerVisible(id: string, visible: boolean): void {
     const l = this.state.layers.find((x) => x.id === id);
     if (!l || l.visible === visible) return;
