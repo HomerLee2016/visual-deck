@@ -1,7 +1,7 @@
-// Trace the active layer into flat colour regions, drawn onto a new "Trace" layer.
+// Trace the active layer into flat colour regions, one editable path per colour on new "Trace" layers.
 // Port of trace_to_svg.py. Settings from trace_config.json are inlined as CFG.
 // Pipeline: 2x upscale -> denoise -> k-means quantise -> majority filter ->
-// contours -> area filter -> simplify -> Catmull-Rom to cubic Bezier -> fill.
+// contours -> area filter -> simplify -> Catmull-Rom handles -> path nodes.
 const CFG = {
   nColors: 10,
   upscale: 2,
@@ -12,7 +12,6 @@ const CFG = {
   minRegionArea: 40,
   simplifyEpsilon: 1.0,
   curveTension: 0.1666,
-  coordinateDecimals: 1,
   majorityKernelSize: 5,
   silhouetteUnderlay: true,
 };
@@ -278,32 +277,34 @@ function simplifyClosed(pts, eps) {
   return first.slice(0, -1).concat(second.slice(0, -1));
 }
 
-// Closed Catmull-Rom spline through pts, as SVG cubic Bezier commands.
-function loopPath(pts) {
-  const n = pts.length, t = CFG.curveTension;
-  const f = (v) => v.toFixed(CFG.coordinateDecimals);
-  let d = `M${f(pts[0].x)} ${f(pts[0].y)}`;
-  for (let i = 0; i < n; i++) {
-    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
-    const c1x = p1.x + (p2.x - p0.x) * t, c1y = p1.y + (p2.y - p0.y) * t;
-    const c2x = p2.x - (p3.x - p1.x) * t, c2y = p2.y - (p3.y - p1.y) * t;
-    d += `C${f(c1x)} ${f(c1y)} ${f(c2x)} ${f(c2y)} ${f(p2.x)} ${f(p2.y)}`;
-  }
-  return d + 'Z';
+// Closed Catmull-Rom spline through pts as path nodes with handles, in document units.
+// A node's handles run parallel to the chord between its neighbours, so the curve is smooth.
+function loopNodes(pts) {
+  const n = pts.length, t = CFG.curveTension, k = 1 / CFG.upscale;
+  return pts.map((p, i) => {
+    const a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
+    const dx = (b.x - a.x) * t, dy = (b.y - a.y) * t;
+    return {
+      x: p.x * k, y: p.y * k,
+      in: { x: (p.x - dx) * k, y: (p.y - dy) * k },
+      out: { x: (p.x + dx) * k, y: (p.y + dy) * k },
+    };
+  });
 }
 
-// Trace one mask into path data plus its total area. Small regions are dropped.
+// Trace one mask into closed subpaths plus its total area. Small regions are dropped.
 function tracePath(mask, W, H) {
-  let d = '', area = 0;
+  const subs = [];
+  let area = 0;
   for (const loop of traceLoops(mask, W, H)) {
     const a = loopArea(loop);
     if (a < CFG.minRegionArea) continue;
     const pts = simplifyClosed(loop, CFG.simplifyEpsilon);
     if (pts.length < 3) continue;
-    d += loopPath(pts);
+    subs.push({ nodes: loopNodes(pts), closed: true });
     area += a;
   }
-  return { d, area };
+  return { subs, area };
 }
 
 function toHex([r, g, b]) {
@@ -352,29 +353,22 @@ if (!opaque.some((v) => v)) {
 
   const layers = [];
   for (let k = 0; k < palette.length; k++) {
-    const { d, area } = tracePath(smoothed.map((l) => (l === k ? 1 : 0)), W, H);
-    if (d) layers.push({ area, colour: palette[k], d });
+    const { subs, area } = tracePath(smoothed.map((l) => (l === k ? 1 : 0)), W, H);
+    if (subs.length) layers.push({ area, colour: palette[k], subs });
   }
   layers.sort((a, b) => b.area - a.area);
   if (CFG.silhouetteUnderlay) {
-    const { d } = tracePath(opaque, W, H);
-    if (d) layers.unshift({ area: Infinity, colour: palette[base], d });
+    const { subs } = tracePath(opaque, W, H);
+    if (subs.length) layers.unshift({ area: Infinity, colour: palette[base], subs });
   }
 
-  // One layer per colour, added bottom-up in draw order. Each layer is filled at
-  // the original size: the transform maps upscaled coordinates back down.
+  // One layer per colour, added bottom-up in draw order. Each colour is a single
+  // path item with one subpath per region, so its nodes can be edited directly.
+  // Holes need no even-odd rule: contour loops wind opposite to their outer loop.
   for (const layer of layers) {
     const hex = toHex(layer.colour);
-    const canvas = document.createElement('canvas');
-    canvas.width = w0;
-    canvas.height = h0;
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(1 / s, 0, 0, 1 / s, 0, 0);
-    ctx.fillStyle = hex;
-    ctx.fill(new Path2D(layer.d), 'evenodd');
-
     const layerId = deck.addLayer(layer.area === Infinity ? `Trace silhouette ${hex}` : `Trace ${hex}`);
-    deck.setImageData(layerId, ctx.getImageData(0, 0, w0, h0));
+    deck.addPath(layer.subs, { color: hex, width: 0, fill: hex }, layerId);
   }
   deck.log(`Trace: ${palette.length} colours, ${layers.length} layers`);
 }
