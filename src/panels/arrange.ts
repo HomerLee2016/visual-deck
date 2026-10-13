@@ -1,6 +1,7 @@
 import { alignItems, distributeItems, flipItems, reorderItems, type AlignTo, type Axis, type Order } from '../arrange';
+import { reversePath, simplifyBrush, toPath } from '../convert';
 import type { Editor } from '../editor';
-import type { Workspace } from '../model';
+import { mapItems, type Workspace } from '../model';
 import type { ActiveWorkspace } from './dom';
 
 /** Align, distribute, flip and stacking-order buttons for the selection. Each click is one history step. */
@@ -42,6 +43,15 @@ export class ArrangePanel {
     } else if (b.dataset.order) {
       const order = b.dataset.order as Order;
       ws.edit(`Arrange: ${b.textContent}`, (s) => reorderItems(s, ids, order));
+    } else if (b.dataset.convert) {
+      ws.edit('To path', (s) => mapItems(s, ids, (it) => toPath(it, it.id) ?? it));
+    } else if (b.dataset.reverse) {
+      ws.edit('Reverse path', (s) => mapItems(s, ids, (it) => (it.kind === 'path' ? reversePath(it) : it)));
+    } else if (b.dataset.simplify) {
+      // Strokes keep their shape within one document unit; fewer nodes is the point.
+      ws.edit('Simplify', (s) =>
+        mapItems(s, ids, (it) => (it.kind === 'brush' ? simplifyBrush(it.pts, it.style, it.id, 1, it.transform) : it)),
+      );
     }
   }
 }
