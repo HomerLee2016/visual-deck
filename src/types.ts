@@ -150,7 +150,15 @@ export interface TextItem {
   transform?: Matrix;
 }
 
-export type Item = ShapeItem | ImageItem | TextItem;
+/** Items moved, transformed and selected together. Children keep their own transforms, inside the group's. */
+export interface GroupItem {
+  kind: 'group';
+  id: string;
+  items: Item[];
+  transform?: Matrix;
+}
+
+export type Item = ShapeItem | ImageItem | TextItem | GroupItem;
 export type ShapeKind = ShapeItem['kind'];
 
 export interface Layer {

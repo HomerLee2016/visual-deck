@@ -11,6 +11,12 @@ import {
 } from './geometry';
 import { typeOf } from './items/registry';
 import { DEFAULT_TEXT_STYLE, type TextStyle } from './items/text';
+import { angleAt, centerOf, handlesFor, hitHandle, rotateMatrix, scaleMatrix, type HandleId } from './handles';
+import type { Rect } from './math';
+import { transformItem } from './geometry';
+import { groupItems, ungroupItems } from './arrange';
+import { RULER_PX } from './render';
+import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
@@ -31,11 +37,18 @@ interface Draft {
 }
 
 type Drag =
-  | { mode: 'move'; origin: Pt; base: DocState; moved: boolean }
+  | { mode: 'move'; origin: Pt; base: DocState; moved: boolean; box: Rect | null }
+  | { mode: 'guide'; axis: 'x' | 'y'; pos: number }
+  | { mode: 'scale'; handle: HandleId; box: Rect; ids: Set<string>; base: DocState; moved: boolean }
+  | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
   | { mode: 'brush'; pts: Pt[] };
 
 const PICK_TOLERANCE_PX = 6;
+/** How close (screen pixels) the pointer must be to a selection handle to grab it. */
+const HANDLE_TOLERANCE_PX = 6;
+/** How close (screen pixels) a moved edge must be to a grid line or guide to snap to it. */
+const SNAP_PX = 6;
 /** Minimum screen distance between recorded brush points; denser samples add nothing visible. */
 const BRUSH_SPACING_PX = 2;
 const HIDDEN_LAYER_MSG = 'The active layer is hidden – show it or pick another layer first.';
@@ -150,7 +163,7 @@ export class Editor {
   }
 
   private cancelInteraction(): void {
-    if (this.drag?.mode === 'move' && this.drag.moved) this.ws.state = this.drag.base;
+    if (this.drag && 'base' in this.drag && this.drag.moved) this.ws.state = this.drag.base;
     this.draft = null;
     this.drag = null;
     this.pan = null;
@@ -209,6 +222,17 @@ export class Editor {
 
   private onPointerDown(e: PointerEvent): void {
     const s = this.screenPos(e);
+    // Canvas drags must not select page text. Moving focus off the page also commits any open text entry (it commits on blur).
+    e.preventDefault();
+    (document.activeElement as HTMLElement | null)?.blur();
+    // Rulers start a guide drag. The top ruler makes a horizontal guide, the left one a vertical guide.
+    if (e.button === 0 && !this.spaceDown && this.ws && (s.y < RULER_PX) !== (s.x < RULER_PX)) {
+      this.canvas.setPointerCapture(e.pointerId);
+      const axis = s.y < RULER_PX ? 'y' : 'x';
+      this.drag = { mode: 'guide', axis, pos: toDoc(this.ws.view, s)[axis] };
+      this.requestRender();
+      return;
+    }
     if (e.button === 1 || (e.button === 0 && this.spaceDown)) {
       this.pan = { sx: s.x, sy: s.y, px: this.ws.view.panX, py: this.ws.view.panY };
       this.canvas.setPointerCapture(e.pointerId);
@@ -216,7 +240,10 @@ export class Editor {
     }
     if (e.button !== 0) return;
     this.canvas.setPointerCapture(e.pointerId);
-    const p = toDoc(this.ws.view, s);
+    let p = toDoc(this.ws.view, s);
+    if (this.tool === 'select' && this.handleDown(p)) return;
+    // New points (shapes and text) snap; freehand brush points and selection do not.
+    if (this.tool !== 'select' && this.tool !== 'brush') p = this.snapPt(p);
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
     else if (this.tool === 'brush') this.brushDown(p);
     else if (this.tool === 'text') this.textDown(p, s);
@@ -250,6 +277,41 @@ export class Editor {
     this.afterSelectionChange();
   }
 
+  /** The box around the visible selection, in document space. */
+  selectionBox(): Rect | null {
+    const items = this.ws.selectedItems(true);
+    if (items.length === 0) return null;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const it of items) {
+      const b = itemBounds(it);
+      x0 = Math.min(x0, b.x);
+      y0 = Math.min(y0, b.y);
+      x1 = Math.max(x1, b.x + b.w);
+      y1 = Math.max(y1, b.y + b.h);
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  /** Starts a scale or rotate drag if the pointer is on one of the selection's handles. */
+  private handleDown(p: Pt): boolean {
+    const box = this.selectionBox();
+    if (!box) return false;
+    const id = hitHandle(handlesFor(box, this.ws.view.zoom), p, HANDLE_TOLERANCE_PX / this.ws.view.zoom);
+    if (!id) return false;
+    const ids = new Set(this.ws.selectedItems(true).map((it) => it.id));
+    const base = this.ws.state;
+    if (id === 'rot') {
+      const center = centerOf(box);
+      this.drag = { mode: 'rotate', center, start: angleAt(center, p), ids, base, moved: false };
+    } else {
+      this.drag = { mode: 'scale', handle: id, box, ids, base, moved: false };
+    }
+    return true;
+  }
+
   /** Double-clicking a text item re-opens it for editing. */
   private onDoubleClick(e: MouseEvent): void {
     if (this.tool !== 'select') return;
@@ -277,7 +339,7 @@ export class Editor {
         if (!shift) sel.clear();
         sel.add(hit.id);
       }
-      this.drag = { mode: 'move', origin: p, base: this.ws.state, moved: false };
+      this.drag = { mode: 'move', origin: p, base: this.ws.state, moved: false, box: this.selectionBox() };
     } else {
       if (!shift) sel.clear();
       this.drag = { mode: 'marquee', origin: p, cur: p, additive: shift, baseSel: new Set(sel) };
@@ -307,6 +369,14 @@ export class Editor {
     // A click with no movement becomes a dot: a zero-length segment with round caps.
     const stroke = pts.length === 1 ? [pts[0], pts[0]] : pts;
     this.ws.addItem('Brush', { kind: 'brush', id: uid('item'), pts: stroke, style: { ...this.style } });
+  }
+
+  /** A document point moved onto the nearest grid line or guide, when snapping is on. */
+  private snapPt(p: Pt): Pt {
+    const { aids, view } = this.ws;
+    if (!aids.snap) return p;
+    const d = snapBox({ x: p.x, y: p.y, w: 0, h: 0 }, aids.guides, aids.gridSize, SNAP_PX / view.zoom);
+    return { x: p.x + d.dx, y: p.y + d.dy };
   }
 
   /** Where the next point of a draft really goes: Shift constrains the second point (square, circle). */
@@ -352,7 +422,7 @@ export class Editor {
     if (this.pan) {
       this.ws.view = { ...this.ws.view, panX: this.pan.px + (s.x - this.pan.sx), panY: this.pan.py + (s.y - this.pan.sy) };
     } else if (this.draft) {
-      this.draft.hover = this.aim(this.draft, p, e.shiftKey);
+      this.draft.hover = this.aim(this.draft, this.snapPt(p), e.shiftKey);
     } else if (this.drag?.mode === 'brush') {
       const last = this.drag.pts[this.drag.pts.length - 1];
       if (dist(p, last) * this.ws.view.zoom >= BRUSH_SPACING_PX) this.drag.pts.push(p);
@@ -360,10 +430,29 @@ export class Editor {
       const d = this.drag;
       d.moved ||= dist(p, d.origin) * this.ws.view.zoom > 3;
       if (d.moved) {
-        const dx = p.x - d.origin.x;
-        const dy = p.y - d.origin.y;
+        let dx = p.x - d.origin.x;
+        let dy = p.y - d.origin.y;
+        const { aids } = this.ws;
+        if (aids.snap && d.box) {
+          // Snap the moved box's edges and centre to the grid and guides.
+          const snap = snapBox({ ...d.box, x: d.box.x + dx, y: d.box.y + dy }, aids.guides, aids.gridSize, SNAP_PX / this.ws.view.zoom);
+          dx += snap.dx;
+          dy += snap.dy;
+        }
         this.ws.state = mapItems(d.base, this.ws.selection, (it) => translateItem(it, dx, dy));
       }
+    } else if (this.drag?.mode === 'guide') {
+      this.drag.pos = p[this.drag.axis];
+    } else if (this.drag?.mode === 'scale') {
+      const d = this.drag;
+      d.moved = true;
+      const m = scaleMatrix(d.box, d.handle, p, e.shiftKey);
+      this.ws.state = mapItems(d.base, d.ids, (it) => transformItem(it, m));
+    } else if (this.drag?.mode === 'rotate') {
+      const d = this.drag;
+      d.moved = true;
+      const m = rotateMatrix(d.center, angleAt(d.center, p) - d.start);
+      this.ws.state = mapItems(d.base, d.ids, (it) => transformItem(it, m));
     } else if (this.drag?.mode === 'marquee') {
       const d = this.drag;
       d.cur = p;
@@ -383,17 +472,28 @@ export class Editor {
       const p = toDoc(this.ws.view, this.screenPos(e));
       // Dragged far enough: treat the release point as the end point.
       if (dist(this.screenPos(e), d.downScreen) > 5) {
-        d.pts.push(this.aim(d, p, e.shiftKey));
+        d.pts.push(this.aim(d, this.snapPt(p), e.shiftKey));
         this.finishDraftIfComplete();
       }
     }
     const drag = this.drag;
     this.drag = null;
+    if (drag?.mode === 'guide') this.addGuide(drag.axis, drag.pos);
     if (drag?.mode === 'brush') this.commitBrush(drag.pts);
     if (drag?.mode === 'move' && drag.moved) this.ws.commit('Move');
+    if (drag?.mode === 'scale' && drag.moved) this.ws.commit('Scale');
+    if (drag?.mode === 'rotate' && drag.moved) this.ws.commit('Rotate');
     if (drag) this.afterSelectionChange();
     this.showDraftHint();
     this.requestRender();
+  }
+
+  /** A guide dropped inside the document is kept; one dropped outside is discarded. */
+  private addGuide(axis: 'x' | 'y', pos: number): void {
+    const size = axis === 'x' ? this.ws.state.width : this.ws.state.height;
+    if (pos < 0 || pos > size) return;
+    this.ws.aids = { ...this.ws.aids, guides: { ...this.ws.aids.guides, [axis]: [...this.ws.aids.guides[axis], pos] } };
+    this.ws.changed();
   }
 
   private afterSelectionChange(): void {
@@ -427,6 +527,10 @@ export class Editor {
       this.ws.selection = new Set(visibleItemsTopFirst(this.ws.state).map((it) => it.id));
       this.ws.pointSelection.clear();
       this.afterSelectionChange();
+    } else if (mod && key === 'g') {
+      e.preventDefault();
+      if (e.shiftKey) this.ungroupSelection();
+      else this.groupSelection();
     } else if (mod && (key === 'c' || key === 'x')) {
       e.preventDefault();
       this.copy();
@@ -448,6 +552,27 @@ export class Editor {
     } else if (!mod && TOOL_KEYS[key]) {
       this.setTool(TOOL_KEYS[key]);
     }
+  }
+
+  /** Group the selected items (Ctrl+G). The group becomes the new selection. */
+  groupSelection(): void {
+    const ids = new Set(this.ws.selectedItems(true).map((it) => it.id));
+    if (ids.size < 2) return;
+    const groupId = uid('item');
+    this.ws.edit('Group', (s) => groupItems(s, ids, groupId));
+    this.ws.selection = new Set([groupId]);
+    this.afterSelectionChange();
+  }
+
+  /** Ungroup the selected groups (Ctrl+Shift+G). Their children become the selection. */
+  ungroupSelection(): void {
+    const groups = this.ws.selectedItems(true).filter((it) => it.kind === 'group');
+    if (groups.length === 0) return;
+    const groupIds = new Set(groups.map((g) => g.id));
+    const childIds = groups.flatMap((g) => (g.kind === 'group' ? g.items.map((c) => c.id) : []));
+    this.ws.edit('Ungroup', (s) => ungroupItems(s, groupIds));
+    this.ws.selection = new Set(childIds);
+    this.afterSelectionChange();
   }
 
   copy(): void {
@@ -497,6 +622,7 @@ export class Editor {
     const ws = this.ws;
     if (!ws || !this.sized) return;
     if (!ws.view.fitted) this.fit();
+    const box = this.selectionBox();
     drawScene(this.ctx, {
       state: ws.state,
       view: ws.view,
@@ -508,8 +634,11 @@ export class Editor {
       stroke: this.drag?.mode === 'brush' ? this.drag.pts : null,
       style: this.style,
       params: this.params,
+      handles: box && this.tool === 'select' ? handlesFor(box, ws.view.zoom) : null,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
       brushCursor: this.tool === 'brush' && this.hover ? { at: this.hover, width: this.style.width } : null,
+      aids: ws.aids,
+      guideDraft: this.drag?.mode === 'guide' ? { axis: this.drag.axis, pos: this.drag.pos } : null,
     });
   }
 }
