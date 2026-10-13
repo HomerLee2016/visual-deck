@@ -1,6 +1,7 @@
 import type { Editor, SelectMode, ToolId } from '../editor';
 import { parseColor, withAlpha } from '../color';
-import type { Style } from '../types';
+import type { ShapeItem, Style } from '../types';
+import { typeOf } from '../items/registry';
 import { opacityOf } from '../items/shape';
 import type { TextStyle } from '../items/text';
 import { $, type ActiveWorkspace } from './dom';
@@ -40,12 +41,6 @@ export class ToolboxPanel {
     const range = $<HTMLInputElement>('stroke-width-range');
     const alpha = $<HTMLInputElement>('stroke-alpha-range');
     const alphaOut = $('stroke-alpha-value');
-    const parts = parseColor(editor.style.color);
-    color.value = parts.hex;
-    alpha.value = String(Math.round(parts.alpha * 100));
-    alphaOut.textContent = `${alpha.value}%`;
-    width.value = String(editor.style.width);
-    range.value = String(editor.style.width);
     // The colour input has no alpha, so colour and opacity are combined here.
     const apply = (applyToSelection: boolean) =>
       editor.setStyle({ color: withAlpha(color.value, Number(alpha.value) / 100) }, applyToSelection);
@@ -72,11 +67,6 @@ export class ToolboxPanel {
     const fillNone = $<HTMLInputElement>('fill-none');
     const opacity = $<HTMLInputElement>('stroke-opacity');
     const opacityOut = $('stroke-opacity-out');
-    fill.value = editor.style.fill ?? fill.value;
-    fillNone.checked = !editor.style.fill;
-    fill.disabled = fillNone.checked;
-    opacity.value = String(Math.round(opacityOf(editor.style) * 100));
-    opacityOut.textContent = `${opacity.value}%`;
     // Picking a colour turns "None" off; the fill applies to the selection on release.
     fill.oninput = () => {
       fillNone.checked = false;
@@ -225,10 +215,37 @@ export class ToolboxPanel {
     $('act-delete').onclick = () => editor.deleteSelection();
   }
 
+  /** The style the pickers show: the selected item's when exactly one styled item is selected, else the drawing style. */
+  private pickerStyle(): Style {
+    const styled = this.active().selectedItems().filter((it): it is ShapeItem => 'style' in it && typeOf(it).withStyle !== undefined);
+    return styled.length === 1 ? styled[0].style : this.editor.style;
+  }
+
+  /** Sets the colour, width, fill and opacity pickers from the style being shown. */
+  private syncPickers(): void {
+    const style = this.pickerStyle();
+    const parts = parseColor(style.color);
+    const alpha = $<HTMLInputElement>('stroke-alpha-range');
+    alpha.value = String(Math.round(parts.alpha * 100));
+    $('stroke-alpha-value').textContent = `${alpha.value}%`;
+    $<HTMLInputElement>('stroke-color').value = parts.hex;
+    $<HTMLInputElement>('stroke-width').value = String(style.width);
+    $<HTMLInputElement>('stroke-width-range').value = String(style.width);
+    const fill = $<HTMLInputElement>('fill-color');
+    const fillNone = $<HTMLInputElement>('fill-none');
+    fill.value = style.fill ?? fill.value;
+    fillNone.checked = !style.fill;
+    fill.disabled = fillNone.checked;
+    const opacity = $<HTMLInputElement>('stroke-opacity');
+    opacity.value = String(Math.round(opacityOf(style) * 100));
+    $('stroke-opacity-out').textContent = `${opacity.value}%`;
+  }
+
   render(): void {
     document.querySelectorAll<HTMLButtonElement>('#tools button').forEach((b) => {
       b.classList.toggle('active', b.dataset.tool === this.editor.tool);
     });
+    this.syncPickers();
     $<HTMLSelectElement>('fill-paint').value = this.editor.style.fillGradient?.type ?? 'solid';
     $<HTMLSelectElement>('select-mode').value = this.editor.selectMode;
     $('tool-help').textContent = this.editor.tool === 'select' ? SELECT_HELP[this.editor.selectMode] : TOOL_HELP[this.editor.tool];

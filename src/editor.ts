@@ -19,7 +19,7 @@ import { RULER_PX, drawScene } from './render';
 import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
-import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeKind, Style, TextItem } from './types';
+import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeItem, ShapeKind, Style, TextItem } from './types';
 import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, nodeKey, setSmooth } from './nodes';
 import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
@@ -229,14 +229,20 @@ export class Editor {
     }
   }
 
-  /** Change the drawing style; also restyles selected shapes when `applyToSelection`. */
+  /**
+   * Change the drawing style; also restyles selected shapes when `applyToSelection`.
+   * Only the keys in `patch` change on each selected item, so a traced region's
+   * fill does not pick up the drawing style's stroke.
+   */
   setStyle(patch: Partial<Style>, applyToSelection = false): void {
     this.style = { ...this.style, ...patch };
     if (applyToSelection) {
       const ids = this.ws.selection;
       const hasStyled = this.ws.selectedItems().some((it) => typeOf(it).withStyle);
       if (hasStyled) {
-        this.ws.edit('Change style', (s) => mapItems(s, ids, (it) => typeOf(it).withStyle?.(it, this.style) ?? it));
+        this.ws.edit('Change style', (s) =>
+          mapItems(s, ids, (it) => typeOf(it).withStyle?.(it, { ...(it as ShapeItem).style, ...patch }) ?? it),
+        );
       }
     }
   }
