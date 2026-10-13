@@ -1,4 +1,4 @@
-import { esc, num } from './shape';
+import { esc, num, transformAttr } from './shape';
 import type { ItemType } from './types';
 import type { ImageItem, Pt } from '../types';
 
@@ -29,7 +29,7 @@ export const imageType: ItemType<ImageItem> = {
       href = it.canvas.toDataURL('image/png');
       hrefs.set(it.canvas, href);
     }
-    return `<image x="${num(it.x)}" y="${num(it.y)}" width="${it.canvas.width}" height="${it.canvas.height}" href="${esc(href)}"/>`;
+    return `<image x="${num(it.x)}" y="${num(it.y)}" width="${it.canvas.width}" height="${it.canvas.height}" href="${esc(href)}"${transformAttr(it.transform)}/>`;
   },
   handles: () => [],
 };

@@ -1,10 +1,31 @@
 import { parseColor } from '../color';
 import { distToSegment, type Rect } from '../math';
+import type { Matrix } from '../matrix';
 import type { Pt, ShapeItem, Style } from '../types';
 import type { ClickSpec, ShapeType } from './types';
 
 export const num = (v: number) => String(Math.round(v * 1000) / 1000);
 export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** Opacity clamped to 0..1; styles saved before opacity existed are fully opaque. */
+export const opacityOf = (style: Style) => Math.min(1, Math.max(0, style.opacity ?? 1));
+
+/** Dash lengths that can be drawn: positive numbers only. Empty means solid. */
+export const dashOf = (style: Style): number[] => (style.dash ?? []).filter((d) => Number.isFinite(d) && d > 0);
+
+/** `transform` attribute for an item's SVG element, or nothing for the identity. */
+export const transformAttr = (m?: Matrix) => (m ? ` transform="matrix(${m.map(num).join(' ')})"` : '');
+
+/** The stroke attributes shared by every stroked shape's SVG element. */
+function strokeAttrs(style: Style): string {
+  const { color, width, cap = 'round', join = 'round', miterLimit } = style;
+  const dash = dashOf(style);
+  const limit = miterLimit === undefined ? '' : ` stroke-miterlimit="${num(miterLimit)}"`;
+  const dashes = dash.length ? ` stroke-dasharray="${dash.map(num).join(' ')}"` : '';
+  const { hex, alpha } = parseColor(color);
+  const opacity = alpha < 1 ? ` stroke-opacity="${num(alpha)}"` : '';
+  return `stroke="${esc(hex)}"${opacity} stroke-width="${num(width)}" stroke-linecap="${cap}" stroke-linejoin="${join}"${limit}${dashes}`;
+}
 
 /** What a shape kind must say about itself; `defineShape` supplies the stroking, hit-testing and export. */
 export interface ShapeDef<T extends ShapeItem> {
@@ -52,21 +73,30 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       return false;
     },
     draw(ctx, it) {
+      const { color, width, fill, cap = 'round', join = 'round', miterLimit } = it.style;
       ctx.save();
-      ctx.strokeStyle = it.style.color;
-      ctx.lineWidth = it.style.width;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      ctx.globalAlpha = opacityOf(it.style);
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.beginPath();
+        def.trace(ctx, it);
+        ctx.fill();
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.lineCap = cap;
+      ctx.lineJoin = join;
+      ctx.miterLimit = miterLimit ?? 10;
+      ctx.setLineDash(dashOf(it.style));
       ctx.beginPath();
       def.trace(ctx, it);
       ctx.stroke();
       ctx.restore();
     },
     toSvg(it) {
-      const { color, width } = it.style;
-      const { hex, alpha } = parseColor(color);
-      const opacity = alpha < 1 ? ` stroke-opacity="${num(alpha)}"` : '';
-      return `<path d="${def.pathData(it)}" fill="none" stroke="${esc(hex)}"${opacity} stroke-width="${num(width)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      const opacity = opacityOf(it.style);
+      const fade = opacity < 1 ? ` opacity="${num(opacity)}"` : '';
+      return `<path d="${def.pathData(it)}" fill="${esc(it.style.fill ?? 'none')}" ${strokeAttrs(it.style)}${fade}${transformAttr(it.transform)}/>`;
     },
   };
 }

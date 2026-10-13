@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildShape, circle3, dist, flatten, hitTest, itemBounds, norm, rectFromPoints, rectsIntersect, translateItem } from './geometry';
+import { buildShape, circle3, dist, flatten, hitTest, itemBounds, norm, rectFromPoints, rectsIntersect, transformItem, translateItem } from './geometry';
+import { apply, translation } from './matrix';
 import type { ArcItem, BrushItem, CurveItem, ImageItem, LineItem } from './types';
 
 const style = { color: '#fff', width: 2 };
@@ -160,5 +161,34 @@ describe('image hit-testing', () => {
   it('falls back to a hit when pixels cannot be read', () => {
     expect(hitTest(img('throw'), { x: 11, y: 11 }, 1)).toBe(true);
     expect(hitTest(img('noctx'), { x: 11, y: 11 }, 1)).toBe(true);
+  });
+});
+
+describe('transform', () => {
+  it('moves hit-testing and bounds with the transform', () => {
+    const moved = { ...line, transform: translation(100, 0) } as const;
+    expect(hitTest(moved, { x: 105, y: 0 }, 0.5)).toBe(true);
+    expect(hitTest(moved, { x: 5, y: 0 }, 0.5)).toBe(false);
+    expect(itemBounds(moved)).toEqual({ x: 99, y: -1, w: 12, h: 2 });
+  });
+
+  it('scales the stroke and the hit tolerance with the transform', () => {
+    // Width 2 scaled by 10 is a 10-unit half-width in document space; tolerance adds 0.5 more.
+    const big = { ...line, transform: [10, 0, 0, 10, 0, 0] as const };
+    expect(hitTest(big, { x: 50, y: 10.4 }, 0.5)).toBe(true);
+    expect(hitTest(big, { x: 50, y: 11 }, 0.5)).toBe(false);
+  });
+
+  it('moves by the document-space offset even when the item is scaled', () => {
+    const scaled = { ...line, transform: [2, 0, 0, 2, 0, 0] as const };
+    const moved = translateItem(scaled, 10, 0);
+    expect(apply(moved.transform!, (moved as typeof line).a)).toEqual({ x: 10, y: 0 });
+    expect(apply(moved.transform!, (moved as typeof line).b)).toEqual({ x: 30, y: 0 });
+  });
+
+  it('composes a new transform on top of the existing one', () => {
+    const once = transformItem(line, translation(5, 0));
+    const twice = transformItem(once, translation(0, 7));
+    expect(apply(twice.transform!, { x: 0, y: 0 })).toEqual({ x: 5, y: 7 });
   });
 });

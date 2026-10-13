@@ -10,6 +10,49 @@ const doc = (items: Item[], visible = true): DocState => ({
 });
 
 describe('toSvg', () => {
+  it('leaves shapes unfilled and opaque unless the style says otherwise', () => {
+    const svg = toSvg(doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style }]));
+    expect(svg).toContain('fill="none"');
+    expect(svg).not.toContain('opacity=');
+  });
+
+  it('writes line ends, corners, miter limit and dashes from the style', () => {
+    const svg = toSvg(
+      doc([
+        {
+          kind: 'line',
+          id: 'a',
+          a: { x: 0, y: 0 },
+          b: { x: 1, y: 1 },
+          style: { ...style, cap: 'butt', join: 'miter', miterLimit: 4, dash: [6, 4] },
+        },
+      ]),
+    );
+    expect(svg).toContain('stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4" stroke-dasharray="6 4"');
+  });
+
+  it('ignores dash lengths that cannot be drawn', () => {
+    const svg = toSvg(
+      doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style: { ...style, dash: [0, -1] } }]),
+    );
+    expect(svg).not.toContain('stroke-dasharray');
+  });
+
+  it('writes the item transform as a matrix attribute', () => {
+    const svg = toSvg(
+      doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style, transform: [1, 0, 0, 1, 5, 6] }]),
+    );
+    expect(svg).toContain('stroke-linejoin="round" transform="matrix(1 0 0 1 5 6)"/>');
+  });
+
+  it('writes fill and opacity from the style', () => {
+    const svg = toSvg(
+      doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style: { ...style, fill: '#00ff00', opacity: 0.5 } }]),
+    );
+    expect(svg).toContain('fill="#00ff00"');
+    expect(svg).toContain('stroke-linejoin="round" opacity="0.5"/>');
+  });
+
   it('writes a sized svg root with a viewBox', () => {
     const svg = toSvg(doc([]));
     expect(svg).toContain('width="64" height="32" viewBox="0 0 64 32"');

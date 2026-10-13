@@ -1,5 +1,6 @@
 import { buildShape, itemBounds } from './geometry';
 import { typeOf } from './items/registry';
+import { apply } from './matrix';
 import type { ClickShapeKind, Rect } from './geometry';
 import type { DocState, Item, Pt, Style } from './types';
 import type { Size, View } from './view';
@@ -9,7 +10,14 @@ const DOC_BORDER = '#8a8a96';
 const ACCENT = '#4da3ff';
 
 export function drawItem(ctx: CanvasRenderingContext2D, it: Item): void {
+  if (!it.transform) {
+    typeOf(it).draw(ctx, it);
+    return;
+  }
+  ctx.save();
+  ctx.transform(...it.transform);
   typeOf(it).draw(ctx, it);
+  ctx.restore();
 }
 
 /** Draw visible layers bottom to top. `only` renders a single layer regardless of its visibility. */
@@ -68,6 +76,9 @@ export function drawSelection(
       const picked = points.get(it.id);
       it.pts.forEach((p, i) => drawHandle(ctx, p, h, !!picked?.has(i)));
       continue;
+    }
+    for (const local of typeOf(it).handles(it)) {
+      drawHandle(ctx, it.transform ? apply(it.transform, local) : local, h, false);
     }
     for (const p of typeOf(it).handles(it)) drawHandle(ctx, p, h, false);
   }
