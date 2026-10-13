@@ -1,0 +1,51 @@
+import { renderToCanvas } from './render';
+import { toSvg } from './svg';
+import type { DocState } from './types';
+
+export type ExportFormat = 'svg' | 'png';
+
+export function isImageFile(file: File): boolean {
+  return file.type.startsWith('image/') || /\.svg$/i.test(file.name);
+}
+
+/** Decode an image file into a canvas. SVG goes through <img> since createImageBitmap rejects it. */
+export async function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d')!;
+  if (file.type === 'image/svg+xml' || /\.svg$/i.test(file.name)) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      if (!img.naturalWidth || !img.naturalHeight) throw new Error('SVG has no intrinsic size');
+      c.width = img.naturalWidth;
+      c.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0);
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+    return c;
+  }
+  const bmp = await createImageBitmap(file);
+  c.width = bmp.width;
+  c.height = bmp.height;
+  ctx.drawImage(bmp, 0, 0);
+  bmp.close();
+  return c;
+}
+
+export function exportDocument(s: DocState, format: ExportFormat): Promise<Blob> {
+  if (format === 'svg') return Promise.resolve(new Blob([toSvg(s)], { type: 'image/svg+xml' }));
+  return new Promise((resolve, reject) =>
+    renderToCanvas(s).toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png'),
+  );
+}
+
+export function download(blob: Blob, filename: string): void {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}

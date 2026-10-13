@@ -1,7 +1,8 @@
 import './style.css';
 import { Editor, type ToolId } from './editor';
+import { download, exportDocument, fileToCanvas, isImageFile, type ExportFormat } from './io';
 import { Workspace, newLayer, uid } from './model';
-import { renderToCanvas, thumbnail } from './render';
+import { thumbnail } from './render';
 import { API_HELP, loadScripts, runScript, saveScripts, type ScriptDef } from './scripting';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -12,16 +13,6 @@ const TOOL_HELP: Record<ToolId, string> = {
   arc: 'Drag start→end (or click twice), then click a point the arc passes through.',
   curve: 'Drag start→end (or click twice), then click two control points.',
 };
-
-async function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
-  const bmp = await createImageBitmap(file);
-  const c = document.createElement('canvas');
-  c.width = bmp.width;
-  c.height = bmp.height;
-  c.getContext('2d')!.drawImage(bmp, 0, 0);
-  bmp.close();
-  return c;
-}
 
 export class App {
   private workspaces: Workspace[] = [];
@@ -38,6 +29,7 @@ export class App {
     this.editor.onImageFile = (f) => void this.pasteImage(f);
 
     this.bindToolbox();
+    this.bindMenubar();
     this.bindTabbar();
     this.bindLayerButtons();
     this.bindScriptDialog();
@@ -85,6 +77,15 @@ export class App {
     else this.renderTabs();
   }
 
+  /** Import: each image file becomes its own workspace tab. */
+  private importFile(file: File): void {
+    if (!isImageFile(file)) {
+      this.editor.onStatus(`${file.name} is not an image`);
+      return;
+    }
+    void this.openImage(file);
+  }
+
   private async openImage(file: File): Promise<void> {
     try {
       const canvas = await fileToCanvas(file);
@@ -118,22 +119,43 @@ export class App {
       const name = $<HTMLInputElement>('new-name').value.trim() || 'Untitled';
       this.addWorkspace(this.newWorkspace(name, clamp($<HTMLInputElement>('new-w').value), clamp($<HTMLInputElement>('new-h').value)));
     };
+  }
+
+  // ---- menu bar (File > Import / Export) ------------------------------------------
+
+  private bindMenubar(): void {
+    const menu = document.querySelector<HTMLElement>('#menubar .menu')!;
+    const items = menu.querySelector<HTMLElement>('.menu-items')!;
+    const title = menu.querySelector<HTMLElement>('.menu-title')!;
+    const closeMenu = () => (items.hidden = true);
+    title.onclick = () => (items.hidden = !items.hidden);
+    document.addEventListener('pointerdown', (e) => {
+      if (!menu.contains(e.target as Node)) closeMenu();
+    });
+
     const input = $<HTMLInputElement>('file-input');
-    $('open-image').onclick = () => input.click();
+    $('menu-import').onclick = () => {
+      closeMenu();
+      input.click();
+    };
     input.onchange = () => {
-      for (const f of Array.from(input.files ?? [])) void this.openImage(f);
+      for (const f of Array.from(input.files ?? [])) this.importFile(f);
       input.value = '';
     };
-    $('export-png').onclick = () => {
+
+    const dlg = $<HTMLDialogElement>('export-dialog');
+    $('menu-export').onclick = () => {
+      closeMenu();
+      dlg.showModal();
+    };
+    $('export-cancel').onclick = () => dlg.close();
+    $<HTMLFormElement>('export-form').onsubmit = () => {
+      const data = new FormData($<HTMLFormElement>('export-form'));
+      const format = (data.get('format') as ExportFormat | null) ?? 'png';
       const ws = this.active;
-      renderToCanvas(ws.state).toBlob((blob) => {
-        if (!blob) return;
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${ws.name}.png`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-      });
+      exportDocument(ws.state, format)
+        .then((blob) => download(blob, `${ws.name}.${format}`))
+        .catch(() => this.editor.onStatus(`Could not export ${ws.name}`));
     };
   }
 
@@ -345,10 +367,27 @@ export class App {
   // ---- drag & drop ---------------------------------------------------------------------
 
   private bindFileDrop(): void {
+    // dragenter/dragleave also fire for child elements, so count them.
+    let depth = 0;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
+    const setDropping = (on: boolean) => document.body.classList.toggle('dropping', on);
+    window.addEventListener('dragenter', (e) => {
+      if (!hasFiles(e)) return;
+      depth++;
+      setDropping(true);
+    });
+    window.addEventListener('dragleave', () => {
+      if (--depth <= 0) {
+        depth = 0;
+        setDropping(false);
+      }
+    });
     window.addEventListener('dragover', (e) => e.preventDefault());
     window.addEventListener('drop', (e) => {
       e.preventDefault();
-      for (const f of Array.from(e.dataTransfer?.files ?? [])) if (f.type.startsWith('image/')) void this.openImage(f);
+      depth = 0;
+      setDropping(false);
+      for (const f of Array.from(e.dataTransfer?.files ?? [])) this.importFile(f);
     });
   }
 }
