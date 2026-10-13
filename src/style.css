@@ -246,7 +246,7 @@ kbd { color: var(--muted); font-size: 10px; }
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 250px;
+  width: 280px;
   max-height: calc(100% - 48px);
   overflow-y: auto;
   background: var(--panel);
@@ -257,6 +257,8 @@ kbd { color: var(--muted); font-size: 10px; }
 }
 #options[hidden], #options [hidden] { display: none; }
 #options h3 { margin: 0; padding: 6px 10px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--panel-2); border-radius: 8px 8px 0 0; }
+#options h4, #options summary { margin: 0; padding: 6px 10px; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+#options summary { cursor: pointer; }
 #options .row { padding: 6px 10px; }
 #options .mask-ops { flex-direction: column; align-items: flex-start; gap: 2px; }
 #options .check { padding: 4px 10px; }

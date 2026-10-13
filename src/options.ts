@@ -3,6 +3,8 @@ import type { ToolId } from './editor';
 /** A block of controls in the Options pop-out. Each is a `data-opt` element in index.html. */
 export type OptionGroup =
   | 'selectMode'
+  | 'selection'
+  | 'transform'
   | 'size'
   | 'color'
   | 'fill'
@@ -27,12 +29,15 @@ export interface OptionContext {
 const STROKE: OptionGroup[] = ['size', 'color', 'lineStyle', 'effects'];
 const SHAPE: OptionGroup[] = ['size', 'color', 'fill', 'lineStyle', 'effects'];
 
+/** What the Select tool always offers: its mode, then the actions on the selection. */
+const SELECT: OptionGroup[] = ['selectMode', 'selection', 'transform'];
+
 /** The option groups to show, in no particular order. Empty means the pop-out is hidden. */
 export function optionGroups(tool: ToolId, ctx: OptionContext): OptionGroup[] {
   if (ctx.maskEditing) return ['size', 'mask'];
   switch (tool) {
     case 'select':
-      return ctx.hasStyled ? ['selectMode', ...SHAPE] : ['selectMode'];
+      return ctx.hasStyled ? [...SELECT, ...SHAPE] : SELECT;
     case 'line':
     case 'arc':
     case 'curve':

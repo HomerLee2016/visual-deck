@@ -65,6 +65,60 @@
               </select>
             </label>
           </div>
+          <div data-opt="selection">
+            <h4>Selection</h4>
+              <div class="row">
+                <button id="act-copy">Copy</button>
+                <button id="act-paste">Paste</button>
+                <button id="act-delete">Delete</button>
+              </div>
+          </div>
+          <div data-opt="transform">
+            <h4>Transform</h4>
+            <details open>
+              <summary>Geometry</summary>
+              <div class="geo-grid">
+                <label class="field">X <input id="geo-x" type="number" step="any" disabled /></label>
+                <label class="field">Y <input id="geo-y" type="number" step="any" disabled /></label>
+                <label class="field">W <input id="geo-w" type="number" step="any" min="0.1" disabled /></label>
+                <label class="field">H <input id="geo-h" type="number" step="any" min="0.1" disabled /></label>
+                <label class="field">Rotate° <input id="geo-rot" type="number" step="any" disabled /></label>
+              </div>
+            </details>
+            <details>
+              <summary>Arrange</summary>
+              <div id="arrange" class="arrange-grid">
+                <button data-align="left" title="Align left edges">Left</button>
+                <button data-align="hcenter" title="Align horizontal centres">Centre</button>
+                <button data-align="right" title="Align right edges">Right</button>
+                <button data-align="top" title="Align top edges">Top</button>
+                <button data-align="vcenter" title="Align vertical centres">Middle</button>
+                <button data-align="bottom" title="Align bottom edges">Bottom</button>
+                <button data-distribute="x" title="Space evenly horizontally (3+ items)">Space H</button>
+                <button data-distribute="y" title="Space evenly vertically (3+ items)">Space V</button>
+                <button data-flip="x" title="Flip horizontally">Flip H</button>
+                <button data-flip="y" title="Flip vertically">Flip V</button>
+                <button data-order="back" title="Send to back">To back</button>
+                <button data-order="backward" title="Send backward one step">Back 1</button>
+                <button data-order="forward" title="Bring forward one step">Front 1</button>
+                <button data-order="front" title="Bring to front">To front</button>
+                <button data-group="1" title="Group the selection (Ctrl+G)">Group</button>
+                <button data-ungroup="1" title="Ungroup the selected groups (Ctrl+Shift+G)">Ungroup</button>
+                <button data-convert="1" title="Convert the selection to editable paths">To path</button>
+                <button data-reverse="1" title="Reverse the direction of selected paths">Reverse</button>
+                <button data-simplify="1" title="Simplify selected freehand strokes into fewer nodes">Simplify</button>
+                <button data-outline="1" title="Turn each selected stroke into a filled outline">Outline</button>
+                <button data-offset="1" title="Grow (positive) or shrink (negative) the selected paths by this distance">Offset</button>
+                <label class="field offset-field">by <input id="offset-dist" type="number" step="any" value="4" /></label>
+                <button data-share="fill" title="Share the selection's fill as a definition that can be edited for all users">Share fill</button>
+                <button data-share="stroke" title="Share the selection's stroke as a definition">Share stroke</button>
+                <button data-unshare="1" title="Replace shared fills and strokes with their values">Unshare</button>
+                <button data-clip="clip" title="Clip the other selected items to the topmost shape">Clip</button>
+                <button data-clip="mask" title="Mask the other selected items with the topmost shape">Mask</button>
+                <button data-release="1" title="Release the clip or mask from the selection">Release</button>
+              </div>
+            </details>
+          </div>
           <div data-opt="size">
             <label class="field"><span id="opt-size-label">Width</span>
               <span class="width-controls">
@@ -250,49 +304,6 @@
           </div>
           <div id="tool-help" class="hint"></div>
         </section>
-        <section data-id="geometry">
-          <h2>Geometry</h2>
-          <div class="geo-grid">
-            <label class="field">X <input id="geo-x" type="number" step="any" disabled /></label>
-            <label class="field">Y <input id="geo-y" type="number" step="any" disabled /></label>
-            <label class="field">W <input id="geo-w" type="number" step="any" min="0.1" disabled /></label>
-            <label class="field">H <input id="geo-h" type="number" step="any" min="0.1" disabled /></label>
-            <label class="field">Rotate° <input id="geo-rot" type="number" step="any" disabled /></label>
-          </div>
-        </section>
-        <section data-id="arrange">
-          <h2>Arrange</h2>
-          <div id="arrange" class="arrange-grid">
-            <button data-align="left" title="Align left edges">Left</button>
-            <button data-align="hcenter" title="Align horizontal centres">Centre</button>
-            <button data-align="right" title="Align right edges">Right</button>
-            <button data-align="top" title="Align top edges">Top</button>
-            <button data-align="vcenter" title="Align vertical centres">Middle</button>
-            <button data-align="bottom" title="Align bottom edges">Bottom</button>
-            <button data-distribute="x" title="Space evenly horizontally (3+ items)">Space H</button>
-            <button data-distribute="y" title="Space evenly vertically (3+ items)">Space V</button>
-            <button data-flip="x" title="Flip horizontally">Flip H</button>
-            <button data-flip="y" title="Flip vertically">Flip V</button>
-            <button data-order="back" title="Send to back">To back</button>
-            <button data-order="backward" title="Send backward one step">Back 1</button>
-            <button data-order="forward" title="Bring forward one step">Front 1</button>
-            <button data-order="front" title="Bring to front">To front</button>
-            <button data-group="1" title="Group the selection (Ctrl+G)">Group</button>
-            <button data-ungroup="1" title="Ungroup the selected groups (Ctrl+Shift+G)">Ungroup</button>
-            <button data-convert="1" title="Convert the selection to editable paths">To path</button>
-            <button data-reverse="1" title="Reverse the direction of selected paths">Reverse</button>
-            <button data-simplify="1" title="Simplify selected freehand strokes into fewer nodes">Simplify</button>
-            <button data-outline="1" title="Turn each selected stroke into a filled outline">Outline</button>
-            <button data-offset="1" title="Grow (positive) or shrink (negative) the selected paths by this distance">Offset</button>
-            <label class="field offset-field">by <input id="offset-dist" type="number" step="any" value="4" /></label>
-            <button data-share="fill" title="Share the selection's fill as a definition that can be edited for all users">Share fill</button>
-            <button data-share="stroke" title="Share the selection's stroke as a definition">Share stroke</button>
-            <button data-unshare="1" title="Replace shared fills and strokes with their values">Unshare</button>
-            <button data-clip="clip" title="Clip the other selected items to the topmost shape">Clip</button>
-            <button data-clip="mask" title="Mask the other selected items with the topmost shape">Mask</button>
-            <button data-release="1" title="Release the clip or mask from the selection">Release</button>
-          </div>
-        </section>
         <section data-id="swatches">
           <h2>Swatches <button id="swatch-add" title="Save the current stroke colour as a swatch">+</button></h2>
           <div id="swatches" class="swatches"></div>
@@ -310,14 +321,6 @@
           <label class="field">Grid size <input id="grid-size" type="number" min="1" max="512" value="16" /></label>
           <div class="row"><button id="guides-clear">Clear guides</button></div>
           <p class="hint">Drag from the top or left ruler to make a guide.</p>
-        </section>
-        <section data-id="selection">
-          <h2>Selection</h2>
-          <div class="row">
-            <button id="act-copy">Copy</button>
-            <button id="act-paste">Paste</button>
-            <button id="act-delete">Delete</button>
-          </div>
         </section>
         <section data-id="scripts" data-fixed>
           <h2>Scripts <button id="script-add" title="New script button">+</button></h2>

@@ -31,8 +31,13 @@ describe('optionGroups', () => {
   });
 
   it('shows style groups for select only when something styled is selected', () => {
-    expect(optionGroups('select', idle)).toEqual(['selectMode']);
+    expect(optionGroups('select', idle)).toEqual(['selectMode', 'selection', 'transform']);
     expect(optionGroups('select', { ...idle, hasStyled: true })).toEqual(expect.arrayContaining(['selectMode', 'color', 'fill']));
+  });
+
+  it('puts Transform and Selection with the Select tool only', () => {
+    expect(optionGroups('select', idle)).toEqual(expect.arrayContaining(['transform', 'selection']));
+    expect(optionGroups('brush', idle)).not.toContain('transform');
   });
 
   it('shares the size control with the edge brush', () => {
