@@ -91,7 +91,19 @@ export interface RectItem {
   transform?: Matrix;
 }
 
-export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem;
+/** Ellipse centred on (cx, cy) with radii rx and ry. */
+export interface EllipseItem {
+  kind: 'ellipse';
+  id: string;
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
+  style: Style;
+  transform?: Matrix;
+}
+
+export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem | EllipseItem;
 export type Item = ShapeItem | ImageItem;
 export type ShapeKind = ShapeItem['kind'];
 
