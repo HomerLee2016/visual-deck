@@ -1,6 +1,7 @@
-import { buildShape, circle3, itemBounds } from './geometry';
+import { buildShape, itemBounds } from './geometry';
+import { typeOf } from './items/registry';
 import type { ClickShapeKind, Rect } from './geometry';
-import type { DocState, Item, Pt, ShapeItem, Style } from './types';
+import type { DocState, Item, Pt, Style } from './types';
 import type { Size, View } from './view';
 
 const BACKDROP = '#26262b';
@@ -8,37 +9,8 @@ const DOC_BORDER = '#8a8a96';
 const ACCENT = '#4da3ff';
 
 export function drawItem(ctx: CanvasRenderingContext2D, it: Item): void {
-  if (it.kind === 'image') {
-    ctx.drawImage(it.canvas, it.x, it.y);
-    return;
-  }
-  ctx.save();
-  ctx.strokeStyle = it.style.color;
-  ctx.lineWidth = it.style.width;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  tracePath(ctx, it);
-  ctx.stroke();
-  ctx.restore();
-}
-
-/** Add the shape's outline to the current path (no stroke). */
-function tracePath(ctx: CanvasRenderingContext2D, it: ShapeItem): void {
-  if (it.kind === 'brush') {
-    it.pts.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
-    return;
-  }
-  ctx.moveTo(it.a.x, it.a.y);
-  if (it.kind === 'line') {
-    ctx.lineTo(it.b.x, it.b.y);
-  } else if (it.kind === 'arc') {
-    const c = circle3(it.a, it.b, it.m);
-    if (c) ctx.arc(c.cx, c.cy, c.r, c.ta, c.tb, c.anticlockwise);
-    else ctx.lineTo(it.b.x, it.b.y);
-  } else {
-    ctx.bezierCurveTo(it.c1.x, it.c1.y, it.c2.x, it.c2.y, it.b.x, it.b.y);
-  }
+  if (it.kind === 'image') ctx.drawImage(it.canvas, it.x, it.y);
+  else typeOf(it).draw(ctx, it);
 }
 
 /** Draw visible layers bottom to top. `only` renders a single layer regardless of its visibility. */
@@ -87,10 +59,8 @@ export function drawSelection(ctx: CanvasRenderingContext2D, items: Item[], zoom
   ctx.fillStyle = '#fff';
   const h = 3 / zoom;
   for (const it of items) {
-    // Brush strokes have too many points for handles; only the bounding box is shown.
-    if (it.kind === 'image' || it.kind === 'brush') continue;
-    const pts = it.kind === 'line' ? [it.a, it.b] : it.kind === 'arc' ? [it.a, it.b, it.m] : [it.a, it.b, it.c1, it.c2];
-    for (const p of pts) {
+    if (it.kind === 'image') continue;
+    for (const p of typeOf(it).handles(it)) {
       ctx.fillRect(p.x - h, p.y - h, h * 2, h * 2);
       ctx.strokeRect(p.x - h, p.y - h, h * 2, h * 2);
     }

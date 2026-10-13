@@ -23,11 +23,11 @@ export interface ItemType<T extends Item = Item> {
 }
 
 /** Click-to-place parameters for a shape tool. */
-export interface ClickSpec<T extends ShapeItem = ShapeItem> {
+export interface ClickSpec {
   /** Points needed before the shape is complete. */
   needed: number;
   /** Build from the points so far; may degrade to a simpler shape while points are missing. */
-  build(pts: Pt[], style: Style, id: string): T | null;
+  build(pts: Pt[], style: Style, id: string): ShapeItem | null;
 }
 
 /** A vector shape: a polyline outline plus a path that can be stroked. */
@@ -39,5 +39,5 @@ export interface ShapeType<T extends ShapeItem = ShapeItem> extends ItemType<T> 
   /** SVG path data (`d` attribute). */
   pathData(it: T): string;
   /** Present only for shapes that are placed by clicking. */
-  clicks?: ClickSpec<T>;
+  clicks?: ClickSpec;
 }

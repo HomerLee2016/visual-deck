@@ -1,17 +1,21 @@
+import { arcType } from './arc';
+import { brushType } from './brush';
+import { curveType } from './curve';
+import { lineType } from './line';
 import type { ItemType, ShapeType } from './types';
 import type { Item, ItemKind, ShapeItem, ShapeKind } from '../types';
 
-/** One entry per item kind, filled in by the per-kind modules. */
-type Registry = { [K in ItemKind]: ItemType<Extract<Item, { kind: K }>> };
-
-const types: Partial<Registry> = {};
-
-/** Register the behaviour for `kind`. Each kind is registered exactly once. */
-export function register<K extends ItemKind>(kind: K, type: ItemType<Extract<Item, { kind: K }>>): void {
-  if (types[kind]) throw new Error(`Item kind "${kind}" is already registered`);
-  // The map is keyed by kind, so each value matches its key; TS cannot see that across the generic.
-  (types as Record<ItemKind, unknown>)[kind] = type;
-}
+/**
+ * The behaviour of every item kind. Typed as a full map, so adding a kind to
+ * `ItemKind` without registering it here is a compile error.
+ * Image items are not registered yet (still handled in place).
+ */
+const types: Partial<{ [K in ItemKind]: ItemType<Extract<Item, { kind: K }>> }> = {
+  line: lineType,
+  arc: arcType,
+  curve: curveType,
+  brush: brushType,
+};
 
 /** Behaviour for an item's kind. Throws for an unregistered kind (a programming error). */
 export function typeOf(it: Item): ItemType {
@@ -20,8 +24,7 @@ export function typeOf(it: Item): ItemType {
 
 /** Behaviour for a vector shape, which additionally exposes its outline and path. */
 export function shapeTypeOf(it: ShapeItem | ShapeKind): ShapeType {
-  const kind = typeof it === 'string' ? it : it.kind;
-  return lookup(kind) as ShapeType;
+  return lookup(typeof it === 'string' ? it : it.kind) as ShapeType;
 }
 
 function lookup(kind: ItemKind): ItemType {
