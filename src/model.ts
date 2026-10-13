@@ -1,4 +1,5 @@
 import { translateItem } from './geometry';
+import type { Guides } from './snap';
 import type { DocState, HistoryEntry, ImageItem, Item, Layer, Style } from './types';
 import { INITIAL_VIEW, type View } from './view';
 
@@ -12,6 +13,15 @@ export function reserveUid(id: string): void {
 }
 
 export type Thumbnailer = (state: DocState) => string | null;
+
+export interface ViewAids {
+  showGrid: boolean;
+  /** Snap moves to the grid and guides. */
+  snap: boolean;
+  gridSize: number;
+  /** Guide lines in document units: `x` are vertical, `y` horizontal. */
+  guides: Guides;
+}
 
 export const MAX_HISTORY = 100;
 
@@ -92,6 +102,8 @@ export class Workspace {
   history: HistoryEntry[];
   index = 0;
   view: View = INITIAL_VIEW;
+  /** Grid, snapping and guides. Part of the view, so changing them is not a history step. */
+  aids: ViewAids = { showGrid: false, snap: false, gridSize: 16, guides: { x: [], y: [] } };
   /** The state last saved to (or loaded from) a file; `dirty` compares against it. */
   private savedState: DocState;
   private subs = new Set<() => void>();

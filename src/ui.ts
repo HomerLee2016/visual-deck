@@ -8,6 +8,7 @@ import { HistoryPanel } from './panels/history';
 import { LayersPanel } from './panels/layers';
 import { MenuBar } from './panels/menubar';
 import { ArrangePanel } from './panels/arrange';
+import { GridPanel } from './panels/grid';
 import { GeometryPanel } from './panels/geometry';
 import { ScriptsPanel } from './panels/scripts';
 import { TextInput } from './panels/textinput';
@@ -27,6 +28,7 @@ export class App {
   private toolbox = new ToolboxPanel(this.editor, () => this.active);
   private geometry = new GeometryPanel(this.editor, () => this.active);
   private arrange = new ArrangePanel(this.editor, () => this.active);
+  private grid = new GridPanel(() => this.active);
   private menu = new MenuBar(
     () => this.active,
     (f) => void this.openImage(f),
@@ -80,11 +82,13 @@ export class App {
       this.toolbox.render();
       this.geometry.render();
       this.arrange.render();
+      this.grid.render();
     });
     this.editor.setWorkspace(ws);
     this.tabs.render();
     this.history.render();
     this.layers.render();
+    this.grid.render();
   }
 
   private closeWorkspace(ws: Workspace): void {
