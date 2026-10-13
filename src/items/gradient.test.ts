@@ -110,3 +110,25 @@ describe('symbols', () => {
     expect(svg).toContain('<use href="#symbol-s1" transform="matrix(1 0 0 1 2 3)"/>');
   });
 });
+
+
+describe('markers and patterns svg', () => {
+  it('adds an arrow marker at the end and references it', () => {
+    const svg = toSvg(doc([shape({ color: '#fff', width: 2, markerEnd: 'arrow' })]));
+    expect(svg).toContain('<marker id="k1" viewBox="0 0 10 10" refX="10" refY="5"');
+    expect(svg).toContain('marker-end="url(#k1)"');
+    expect(svg).not.toContain('marker-start');
+  });
+
+  it('adds a dot marker at the start', () => {
+    const svg = toSvg(doc([shape({ color: '#fff', width: 2, markerStart: 'dot' })]));
+    expect(svg).toContain('<circle cx="5" cy="5" r="5" fill="#fff"/>');
+    expect(svg).toContain('marker-start="url(#k1)"');
+  });
+
+  it('fills with a striped pattern in the stroke colour', () => {
+    const svg = toSvg(doc([shape({ color: '#abcdef', width: 2, pattern: 'stripes' })]));
+    expect(svg).toContain('<pattern id="p1" width="8" height="8" patternUnits="userSpaceOnUse">');
+    expect(svg).toContain('fill="url(#p1)"');
+  });
+});

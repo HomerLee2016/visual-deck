@@ -3,6 +3,7 @@ import { Editor, type TextRequest } from './editor';
 import { fileToCanvas, fileToProject, download, projectToBlob } from './io';
 import { resizeDocument } from './arrange';
 import { importSvg } from './svgimport';
+import { CodePanel } from './panels/code';
 import { Workspace, imageItem, mapItems, newLayer, removeItems, uid } from './model';
 import { $ } from './panels/dom';
 import { PROJECT_EXT } from './project';
@@ -62,6 +63,7 @@ export class App {
     this.editor.onImageFile = (f) => void this.pasteImage(f);
     this.editor.onText = (req) => this.textInput.open(req, this.editor.textStyle, this.editor.style.color);
     new ScriptsPanel(() => this.active, (m) => this.editor.onStatus(m));
+    new CodePanel(() => this.active);
 
     this.bindFileDrop();
     window.addEventListener('beforeunload', (e) => {

@@ -1,4 +1,5 @@
 import type { Gradient, Style } from '../types';
+import { patternTile } from './markers';
 
 /** Stop colours and offsets are written as SVG and drawn on canvas from one description. */
 export const gradientKey = (g: Gradient) => JSON.stringify(g);
@@ -10,8 +11,9 @@ export function canvasGradient(ctx: CanvasRenderingContext2D, g: Gradient): Canv
   return cg;
 }
 
-/** The paint to fill with: a gradient when the style has one, else its plain colour. */
-export function fillPaint(ctx: CanvasRenderingContext2D, style: Style): string | CanvasGradient | null {
+/** The paint to fill with: a pattern or gradient when the style has one, else its plain colour. */
+export function fillPaint(ctx: CanvasRenderingContext2D, style: Style): string | CanvasGradient | CanvasPattern | null {
+  if (style.pattern) return ctx.createPattern(patternTile(style.pattern, style.color), 'repeat');
   if (style.fillGradient) return canvasGradient(ctx, style.fillGradient);
   return style.fill ?? null;
 }
