@@ -20,12 +20,12 @@ import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
-import type { DocState, Item, Pt, ShapeKind, Style, TextItem } from './types';
+import type { DocState, Item, PathNode, Pt, ShapeKind, Style, TextItem } from './types';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
-export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text';
+export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text' | 'pen';
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -63,12 +63,28 @@ export interface TextRequest {
   item?: TextItem;
 }
 
+/** A path being drawn with the pen: the nodes placed so far, and the pointer hovering after the last one. */
+interface PenDraft {
+  nodes: PathNode[];
+  hover: Pt;
+  /** True between pointerdown and pointerup of the node being placed; dragging bends it into a smooth node. */
+  dragging: boolean;
+  downScreen: Pt;
+}
+
+/** Clicking within this many screen pixels of the first node closes the path. */
+const PEN_CLOSE_PX = 8;
+/** Movement (screen pixels) before a pen press counts as a drag rather than a click. */
+const PEN_DRAG_PX = 3;
+
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
   tool: ToolId = 'select';
   style: Style = { ...DEFAULT_STYLE };
   /** Creation-time settings for click-placed shapes (corner radius, polygon sides, star depth). */
   params: ShapeParams = { ...DEFAULT_SHAPE_PARAMS };
+  /** Path being drawn with the pen tool, if any. */
+  private pen: PenDraft | null = null;
   /** Font settings for new text and the text tool's defaults. */
   textStyle: TextStyle = { ...DEFAULT_TEXT_STYLE };
   clipboard: Item[] = [];
@@ -123,6 +139,7 @@ export class Editor {
   }
 
   setTool(t: ToolId): void {
+    this.finishPen(false);
     this.cancelInteraction();
     this.tool = t;
     this.canvas.style.cursor = t === 'select' ? 'default' : 'crosshair';
@@ -241,6 +258,7 @@ export class Editor {
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
     else if (this.tool === 'brush') this.brushDown(p);
     else if (this.tool === 'text') this.textDown(p, s);
+    else if (this.tool === 'pen') this.penDown(p, s);
     else this.drawDown(this.tool, p, s, e.shiftKey);
   }
 
@@ -341,6 +359,36 @@ export class Editor {
     this.afterSelectionChange();
   }
 
+  /** Pen: a press places a node; dragging bends it into a smooth node with a mirrored handle. */
+  private penDown(p: Pt, s: Pt): void {
+    if (!this.ws.activeLayer.visible) {
+      this.onStatus(HIDDEN_LAYER_MSG);
+      return;
+    }
+    if (!this.pen) this.pen = { nodes: [], hover: p, dragging: false, downScreen: s };
+    const pen = this.pen;
+    const first = pen.nodes[0];
+    if (first && pen.nodes.length >= 2 && dist(p, first.p) * this.ws.view.zoom <= PEN_CLOSE_PX) {
+      this.finishPen(true);
+      return;
+    }
+    pen.nodes.push({ p });
+    pen.dragging = true;
+    pen.downScreen = s;
+    this.onStatus('Drag to make a smooth node. Click the first node to close, Enter to finish.');
+    this.requestRender();
+  }
+
+  /** Commit the pen path (two nodes or more); a path with fewer is discarded. */
+  finishPen(closed: boolean): void {
+    const pen = this.pen;
+    this.pen = null;
+    if (pen && pen.nodes.length >= 2) {
+      this.ws.addItem('Pen', { kind: 'path', id: uid('item'), subs: [{ nodes: pen.nodes, closed }], style: { ...this.style } });
+    }
+    this.requestRender();
+  }
+
   private textDown(p: Pt, s: Pt): void {
     if (!this.ws.activeLayer.visible) {
       this.onStatus(HIDDEN_LAYER_MSG);
@@ -414,6 +462,15 @@ export class Editor {
     if (!this.draft) this.onStatus(`${Math.round(p.x)}, ${Math.round(p.y)}  ·  ${Math.round(this.ws.view.zoom * 100)}%`);
     if (this.pan) {
       this.ws.view = { ...this.ws.view, panX: this.pan.px + (s.x - this.pan.sx), panY: this.pan.py + (s.y - this.pan.sy) };
+    } else if (this.pen) {
+      const pen = this.pen;
+      pen.hover = this.snapPt(p);
+      if (pen.dragging && dist(this.screenPos(e), pen.downScreen) > PEN_DRAG_PX) {
+        // Bend the node just placed: its outgoing handle follows the pointer, the incoming one mirrors it.
+        const i = pen.nodes.length - 1;
+        const anchor = pen.nodes[i].p;
+        pen.nodes[i] = { p: anchor, out: pen.hover, in: { x: 2 * anchor.x - pen.hover.x, y: 2 * anchor.y - pen.hover.y } };
+      }
     } else if (this.draft) {
       this.draft.hover = this.aim(this.draft, this.snapPt(p), e.shiftKey);
     } else if (this.drag?.mode === 'brush') {
@@ -459,6 +516,7 @@ export class Editor {
 
   private onPointerUp(e: PointerEvent): void {
     this.pan = null;
+    if (this.pen) this.pen.dragging = false;
     const d = this.draft;
     if (d?.pressing) {
       d.pressing = false;
@@ -531,8 +589,12 @@ export class Editor {
     } else if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) {
       e.preventDefault();
       this.deleteSelection();
+    } else if (e.key === 'Enter' && this.pen) {
+      e.preventDefault();
+      this.finishPen(false);
     } else if (e.key === 'Escape') {
-      if (this.draft) this.draft = null;
+      if (this.pen) this.finishPen(false);
+      else if (this.draft) this.draft = null;
       else {
         this.ws.selection.clear();
         this.ws.pointSelection.clear();
@@ -630,6 +692,7 @@ export class Editor {
       handles: box && this.tool === 'select' ? handlesFor(box, ws.view.zoom) : null,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
       aids: ws.aids,
+      penDraft: this.pen ? { nodes: this.pen.nodes, hover: this.pen.hover } : null,
       guideDraft: this.drag?.mode === 'guide' ? { axis: this.drag.axis, pos: this.drag.pos } : null,
     });
   }
