@@ -13,6 +13,26 @@ export function itemsIn(s: DocState, ids: ReadonlySet<string>): Item[] {
   return s.layers.flatMap((l) => l.items.filter((it) => ids.has(it.id)));
 }
 
+/**
+ * The selection as a document of its own: its items moved so their bounding
+ * box starts at the origin, on the layers they were on, with that box as the size.
+ */
+export function cropToItems(s: DocState, ids: ReadonlySet<string>): DocState {
+  const picked = itemsIn(s, ids);
+  if (picked.length === 0) return s;
+  const box = unionBox(picked.map(itemBounds));
+  return {
+    width: Math.max(1, Math.ceil(box.w)),
+    height: Math.max(1, Math.ceil(box.h)),
+    layers: s.layers.map((l) => ({
+      ...l,
+      items: l.items.filter((it) => ids.has(it.id)).map((it) => translateItem(it, -box.x, -box.y)),
+    })),
+    ...(s.defs ? { defs: s.defs } : {}),
+    ...(s.symbols ? { symbols: s.symbols } : {}),
+  };
+}
+
 /** The smallest box that holds every rectangle. */
 export function unionBox(boxes: Rect[]): Rect {
   const x0 = Math.min(...boxes.map((b) => b.x));

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { itemBounds } from './geometry';
-import { alignItems, clipItems, distributeItems, flipItems, releaseClip, reorderItems, unionBox } from './arrange';
+import { alignItems, clipItems, cropToItems, distributeItems, flipItems, releaseClip, reorderItems, unionBox } from './arrange';
 import type { DocState, LineItem } from './types';
 
 const style = { color: '#fff', width: 0 };
@@ -118,5 +118,17 @@ describe('clip and mask', () => {
     const released = releaseClip(clipped, ids('a'));
     expect(released.layers[0].items.map((it) => it.id)).toEqual(['a', 'c', 'b']);
     expect(released.layers[0].items[0]).not.toHaveProperty('clip');
+  });
+});
+
+describe('crop to selection', () => {
+  it('makes the selection a document of its own, starting at the origin', () => {
+    const s = doc(seg('a', 10, 20, 20, 20), seg('b', 50, 60, 60, 60), seg('c', 0, 0, 1, 0));
+    const out = cropToItems(s, ids('a', 'b'));
+    expect(out.width).toBe(50);
+    expect(out.height).toBe(40);
+    expect(out.layers[0].items.map((it) => it.id)).toEqual(['a', 'b']);
+    expect(boxOf(out, 'a').x).toBeCloseTo(0);
+    expect(boxOf(out, 'b').y).toBeCloseTo(40);
   });
 });

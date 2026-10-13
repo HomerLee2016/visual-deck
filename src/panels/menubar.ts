@@ -1,3 +1,4 @@
+import { cropToItems } from '../arrange';
 import { download, exportDocument, isImageFile, isProjectFile, type ExportFormat } from '../io';
 import { $, type ActiveWorkspace } from './dom';
 
@@ -46,12 +47,14 @@ export class MenuBar {
     const dlg = $<HTMLDialogElement>('export-dialog');
     $('menu-export').onclick = () => {
       closeMenu();
+      $<HTMLInputElement>('export-selection').disabled = this.active().selectedItems(true).length === 0;
       dlg.showModal();
     };
     $('export-cancel').onclick = () => dlg.close();
     $<HTMLFormElement>('export-form').onsubmit = () => {
       const data = new FormData($<HTMLFormElement>('export-form'));
-      this.export((data.get('format') as ExportFormat | null) ?? 'png');
+      const scale = Number(data.get('scale') ?? 1) || 1;
+      this.export((data.get('format') as ExportFormat | null) ?? 'png', scale, data.get('selection') === 'on');
     };
   }
 
@@ -62,10 +65,13 @@ export class MenuBar {
     else this.status(`${file.name} is not an image or project`);
   }
 
-  private export(format: ExportFormat): void {
+  private export(format: ExportFormat, scale = 1, selectionOnly = false): void {
     const ws = this.active();
-    exportDocument(ws.state, format)
-      .then((blob) => download(blob, `${ws.name}.${format}`))
-      .catch(() => this.status(`Could not export ${ws.name}`));
+    const ids = new Set(ws.selectedItems(true).map((it) => it.id));
+    const state = selectionOnly && ids.size > 0 ? cropToItems(ws.state, ids) : ws.state;
+    const name = selectionOnly && ids.size > 0 ? `${ws.name} selection` : ws.name;
+    exportDocument(state, format, scale)
+      .then((blob) => download(blob, `${name}.${format}`))
+      .catch(() => this.status(`Could not export ${name}`));
   }
 }

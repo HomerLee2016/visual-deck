@@ -23,11 +23,14 @@ export function drawState(ctx: CanvasRenderingContext2D, s: DocState, only?: str
   }
 }
 
-export function renderToCanvas(s: DocState, onlyLayerId?: string): HTMLCanvasElement {
+/** The document as a bitmap, `scale` times its size (1, 2 or 4 for exports). */
+export function renderToCanvas(s: DocState, onlyLayerId?: string, scale = 1): HTMLCanvasElement {
   const c = document.createElement('canvas');
-  c.width = Math.max(1, s.width);
-  c.height = Math.max(1, s.height);
-  drawState(c.getContext('2d', { willReadFrequently: true })!, s, onlyLayerId);
+  c.width = Math.max(1, Math.round(s.width * scale));
+  c.height = Math.max(1, Math.round(s.height * scale));
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.scale(scale, scale);
+  drawState(ctx, s, onlyLayerId);
   return c;
 }
 
