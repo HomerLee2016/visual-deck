@@ -190,6 +190,20 @@ export class ToolboxPanel {
       renderStops();
     };
     renderStops();
+    const blend = $<HTMLSelectElement>('fx-blend');
+    const blur = $<HTMLInputElement>('fx-blur');
+    const shadow = $<HTMLInputElement>('fx-shadow');
+    blend.value = editor.style.blend ?? 'normal';
+    blur.value = String(editor.style.blur ?? 0);
+    shadow.checked = !!editor.style.shadow;
+    blend.onchange = () => editor.setStyle({ blend: blend.value as Style['blend'] }, true);
+    blur.onchange = () => {
+      const b = Math.min(64, Math.max(0, Number(blur.value) || 0));
+      blur.value = String(b);
+      editor.setStyle({ blur: b }, true);
+    };
+    // The shadow starts as a soft, offset black; its values are not yet editable.
+    shadow.onchange = () => editor.setStyle({ shadow: shadow.checked ? { dx: 4, dy: 4, blur: 6, color: '#000000' } : undefined }, true);
     $('node-smooth').onclick = () => editor.setNodesSmooth(true);
     $('node-corner').onclick = () => editor.setNodesSmooth(false);
     $('act-copy').onclick = () => editor.copy();
