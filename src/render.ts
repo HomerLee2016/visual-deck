@@ -3,6 +3,7 @@ import { typeOf } from './items/registry';
 import { apply } from './matrix';
 import type { ClickShapeKind, Rect } from './geometry';
 import type { ShapeParams } from './items/types';
+import type { Handle } from './handles';
 import type { DocState, Item, Pt, Style } from './types';
 import type { Size, View } from './view';
 
@@ -119,6 +120,8 @@ export interface Scene {
   params: ShapeParams;
   /** Selection box in document space, while dragging one. */
   marquee: Rect | null;
+  /** Scale and rotate handles around the selection, or null when nothing is selected. */
+  handles: Handle[] | null;
 }
 
 const checkerPatterns = new WeakMap<CanvasRenderingContext2D, CanvasPattern>();
@@ -177,7 +180,33 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.globalAlpha = 1;
   }
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);
+  if (scene.handles) drawHandles(ctx, scene.handles, zoom);
   ctx.restore();
+}
+
+/** Scale handles as small squares, the rotate handle as a knob on a stalk. */
+function drawHandles(ctx: CanvasRenderingContext2D, handles: Handle[], zoom: number): void {
+  const h = 3.5 / zoom;
+  const top = handles.find((x) => x.id === 'n')!;
+  const rot = handles.find((x) => x.id === 'rot')!;
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = ACCENT;
+  ctx.beginPath();
+  ctx.moveTo(top.x, top.y);
+  ctx.lineTo(rot.x, rot.y);
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  for (const p of handles) {
+    if (p.id === 'rot') {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, h * 1.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.fillRect(p.x - h, p.y - h, h * 2, h * 2);
+      ctx.strokeRect(p.x - h, p.y - h, h * 2, h * 2);
+    }
+  }
 }
 
 function drawDraft(ctx: CanvasRenderingContext2D, draft: DraftPreview, style: Style, params: ShapeParams, zoom: number): void {

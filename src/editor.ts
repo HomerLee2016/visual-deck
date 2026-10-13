@@ -11,6 +11,9 @@ import {
 } from './geometry';
 import { typeOf } from './items/registry';
 import { DEFAULT_TEXT_STYLE, type TextStyle } from './items/text';
+import { angleAt, centerOf, handlesFor, hitHandle, rotateMatrix, scaleMatrix, type HandleId } from './handles';
+import type { Rect } from './math';
+import { transformItem } from './geometry';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
@@ -32,10 +35,14 @@ interface Draft {
 
 type Drag =
   | { mode: 'move'; origin: Pt; base: DocState; moved: boolean }
+  | { mode: 'scale'; handle: HandleId; box: Rect; ids: Set<string>; base: DocState; moved: boolean }
+  | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
   | { mode: 'brush'; pts: Pt[] };
 
 const PICK_TOLERANCE_PX = 6;
+/** How close (screen pixels) the pointer must be to a selection handle to grab it. */
+const HANDLE_TOLERANCE_PX = 6;
 /** Minimum screen distance between recorded brush points; denser samples add nothing visible. */
 const BRUSH_SPACING_PX = 2;
 const HIDDEN_LAYER_MSG = 'The active layer is hidden – show it or pick another layer first.';
@@ -144,7 +151,7 @@ export class Editor {
   }
 
   private cancelInteraction(): void {
-    if (this.drag?.mode === 'move' && this.drag.moved) this.ws.state = this.drag.base;
+    if (this.drag && 'base' in this.drag && this.drag.moved) this.ws.state = this.drag.base;
     this.draft = null;
     this.drag = null;
     this.pan = null;
@@ -211,6 +218,7 @@ export class Editor {
     if (e.button !== 0) return;
     this.canvas.setPointerCapture(e.pointerId);
     const p = toDoc(this.ws.view, s);
+    if (this.tool === 'select' && this.handleDown(p)) return;
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
     else if (this.tool === 'brush') this.brushDown(p);
     else if (this.tool === 'text') this.textDown(p, s);
@@ -242,6 +250,41 @@ export class Editor {
     if (picked.size) ws.pointSelection.set(id, picked);
     else ws.pointSelection.delete(id);
     this.afterSelectionChange();
+  }
+
+  /** The box around the visible selection, in document space. */
+  selectionBox(): Rect | null {
+    const items = this.ws.selectedItems(true);
+    if (items.length === 0) return null;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const it of items) {
+      const b = itemBounds(it);
+      x0 = Math.min(x0, b.x);
+      y0 = Math.min(y0, b.y);
+      x1 = Math.max(x1, b.x + b.w);
+      y1 = Math.max(y1, b.y + b.h);
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  /** Starts a scale or rotate drag if the pointer is on one of the selection's handles. */
+  private handleDown(p: Pt): boolean {
+    const box = this.selectionBox();
+    if (!box) return false;
+    const id = hitHandle(handlesFor(box, this.ws.view.zoom), p, HANDLE_TOLERANCE_PX / this.ws.view.zoom);
+    if (!id) return false;
+    const ids = new Set(this.ws.selectedItems(true).map((it) => it.id));
+    const base = this.ws.state;
+    if (id === 'rot') {
+      const center = centerOf(box);
+      this.drag = { mode: 'rotate', center, start: angleAt(center, p), ids, base, moved: false };
+    } else {
+      this.drag = { mode: 'scale', handle: id, box, ids, base, moved: false };
+    }
+    return true;
   }
 
   /** Double-clicking a text item re-opens it for editing. */
@@ -357,6 +400,16 @@ export class Editor {
         const dy = p.y - d.origin.y;
         this.ws.state = mapItems(d.base, this.ws.selection, (it) => translateItem(it, dx, dy));
       }
+    } else if (this.drag?.mode === 'scale') {
+      const d = this.drag;
+      d.moved = true;
+      const m = scaleMatrix(d.box, d.handle, p, e.shiftKey);
+      this.ws.state = mapItems(d.base, d.ids, (it) => transformItem(it, m));
+    } else if (this.drag?.mode === 'rotate') {
+      const d = this.drag;
+      d.moved = true;
+      const m = rotateMatrix(d.center, angleAt(d.center, p) - d.start);
+      this.ws.state = mapItems(d.base, d.ids, (it) => transformItem(it, m));
     } else if (this.drag?.mode === 'marquee') {
       const d = this.drag;
       d.cur = p;
@@ -384,6 +437,8 @@ export class Editor {
     this.drag = null;
     if (drag?.mode === 'brush') this.commitBrush(drag.pts);
     if (drag?.mode === 'move' && drag.moved) this.ws.commit('Move');
+    if (drag?.mode === 'scale' && drag.moved) this.ws.commit('Scale');
+    if (drag?.mode === 'rotate' && drag.moved) this.ws.commit('Rotate');
     if (drag) this.afterSelectionChange();
     this.showDraftHint();
     this.requestRender();
@@ -490,6 +545,7 @@ export class Editor {
     const ws = this.ws;
     if (!ws || !this.sized) return;
     if (!ws.view.fitted) this.fit();
+    const box = this.selectionBox();
     drawScene(this.ctx, {
       state: ws.state,
       view: ws.view,
@@ -501,6 +557,7 @@ export class Editor {
       stroke: this.drag?.mode === 'brush' ? this.drag.pts : null,
       style: this.style,
       params: this.params,
+      handles: box && this.tool === 'select' ? handlesFor(box, ws.view.zoom) : null,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
     });
   }
