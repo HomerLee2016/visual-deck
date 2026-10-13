@@ -1,6 +1,5 @@
 import { buildShape, clickSpec, type ClickShapeKind } from './geometry';
-import type { Workspace } from './model';
-import { DEFAULT_STYLE, imageItem, uid } from './model';
+import { DEFAULT_STYLE, imageItem, uid, type Workspace } from './model';
 import { renderToCanvas } from './render';
 import type { Item, Style } from './types';
 import traceToSvgCode from './builtin/trace-to-svg.js?raw';
