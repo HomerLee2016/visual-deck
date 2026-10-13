@@ -4,6 +4,7 @@ import type { ShapeItem, Style } from '../types';
 import { typeOf } from '../items/registry';
 import { opacityOf } from '../items/shape';
 import type { TextStyle } from '../items/text';
+import type { Workspace } from '../model';
 import { $, type ActiveWorkspace } from './dom';
 
 const TOOL_HELP: Record<ToolId, string> = {
@@ -14,11 +15,11 @@ const TOOL_HELP: Record<ToolId, string> = {
   brush: 'Press and drag to paint a freehand stroke. Release to finish. A click leaves a dot.',
   rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
   ellipse: 'Drag or click two opposite corners of the bounding box. Shift for a circle.',
-  polygon: 'Click the centre, then a vertex. Sides set below. Shift snaps the angle.',
+  polygon: 'Click the centre, then a vertex. Sides are in Options. Shift snaps the angle.',
   node: 'Click a node or handle to select it; drag to move it. Double-click a segment to add a node. Delete removes selected nodes.',
   pen: 'Click to place corner nodes; drag to make a smooth node. Click the first node or press Enter to finish; Esc finishes an open path.',
   text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
-  star: 'Click the centre, then a point. Points and inner radius set below. Shift snaps the angle.',
+  star: 'Click the centre, then a point. Points and inner radius are in Options. Shift snaps the angle.',
   edge: 'Paint over a cut-out edge with a light fringe. Only painted pixels near transparency change. Apply (Enter) rasterizes the layer; Cancel (Esc) discards.',
 };
 
@@ -34,7 +35,13 @@ function parseRgb(hex: string): { r: number; g: number; b: number } {
   return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
 }
 
-/** Tool buttons, stroke style and the copy / paste / delete actions. */
+/** The style the pickers show: the selected item's when exactly one styled item is selected, else the drawing style. */
+export function pickerStyle(editor: Editor, ws: Workspace): Style {
+  const styled = ws.selectedItems().filter((it): it is ShapeItem => 'style' in it && typeOf(it).withStyle !== undefined);
+  return styled.length === 1 ? styled[0].style : editor.style;
+}
+
+/** Tool buttons, the colour / fill / effect pickers in the Options pop-out, and the copy / paste / delete actions. */
 export class ToolboxPanel {
   constructor(
     private editor: Editor,
@@ -44,8 +51,6 @@ export class ToolboxPanel {
       b.onclick = () => editor.setTool(b.dataset.tool as ToolId);
     });
     const color = $<HTMLInputElement>('stroke-color');
-    const width = $<HTMLInputElement>('stroke-width');
-    const range = $<HTMLInputElement>('stroke-width-range');
     const alpha = $<HTMLInputElement>('stroke-alpha-range');
     const alphaOut = $('stroke-alpha-value');
     // The colour input has no alpha, so colour and opacity are combined here.
@@ -58,18 +63,6 @@ export class ToolboxPanel {
       apply(false);
     };
     alpha.onchange = () => apply(true);
-    // Slider updates live while dragging; the history step is recorded once on release.
-    range.oninput = () => {
-      width.value = range.value;
-      editor.setStyle({ width: Number(range.value) });
-    };
-    range.onchange = () => editor.setStyle({ width: Number(range.value) }, true);
-    width.onchange = () => {
-      const w = Math.min(64, Math.max(1, Number(width.value) || 1));
-      width.value = String(w);
-      range.value = String(w);
-      editor.setStyle({ width: w }, true);
-    };
     const fill = $<HTMLInputElement>('fill-color');
     const fillNone = $<HTMLInputElement>('fill-none');
     const opacity = $<HTMLInputElement>('stroke-opacity');
@@ -134,7 +127,6 @@ export class ToolboxPanel {
     const edgeBg = $<HTMLInputElement>('edge-bg');
     const edgeBand = $<HTMLInputElement>('edge-band');
     const edgeLight = $<HTMLInputElement>('edge-light');
-    const edgeBrush = $<HTMLInputElement>('edge-brush');
     const edgeMode = $<HTMLSelectElement>('edge-mode');
     const edgeInt = (el: HTMLInputElement, min: number, max: number, fallback: number) => {
       const n = Math.min(max, Math.max(min, Math.round(Number(el.value)) || fallback));
@@ -147,7 +139,6 @@ export class ToolboxPanel {
     };
     edgeBand.onchange = () => editor.setEdgeOptions({ band: edgeInt(edgeBand, 1, 32, 2) });
     edgeLight.onchange = () => editor.setEdgeOptions({ lightness: edgeInt(edgeLight, 0, 255, 200) });
-    edgeBrush.onchange = () => editor.setEdgeRadius(edgeInt(edgeBrush, 1, 256, 12) / 2);
     edgeMode.onchange = () => editor.setEdgeOptions({ mode: edgeMode.value as 'fill' | 'remove' });
     $('edge-apply').onclick = () => editor.applyEdge();
     $('edge-cancel').onclick = () => editor.cancelEdge();
@@ -244,8 +235,7 @@ export class ToolboxPanel {
 
   /** The style the pickers show: the selected item's when exactly one styled item is selected, else the drawing style. */
   private pickerStyle(): Style {
-    const styled = this.active().selectedItems().filter((it): it is ShapeItem => 'style' in it && typeOf(it).withStyle !== undefined);
-    return styled.length === 1 ? styled[0].style : this.editor.style;
+    return pickerStyle(this.editor, this.active());
   }
 
   /** Sets the colour, width, fill and opacity pickers from the style being shown. */
@@ -256,8 +246,6 @@ export class ToolboxPanel {
     alpha.value = String(Math.round(parts.alpha * 100));
     $('stroke-alpha-value').textContent = `${alpha.value}%`;
     $<HTMLInputElement>('stroke-color').value = parts.hex;
-    $<HTMLInputElement>('stroke-width').value = String(style.width);
-    $<HTMLInputElement>('stroke-width-range').value = String(style.width);
     const fill = $<HTMLInputElement>('fill-color');
     const fillNone = $<HTMLInputElement>('fill-none');
     fill.value = style.fill ?? fill.value;
@@ -276,8 +264,6 @@ export class ToolboxPanel {
     $<HTMLSelectElement>('fill-paint').value = this.editor.style.fillGradient?.type ?? 'solid';
     $<HTMLSelectElement>('select-mode').value = this.editor.selectMode;
     $('tool-help').textContent = this.editor.tool === 'select' ? SELECT_HELP[this.editor.selectMode] : TOOL_HELP[this.editor.tool];
-    $('node-actions').hidden = this.editor.tool !== 'node';
-    $('edge-panel').hidden = this.editor.tool !== 'edge';
     $<HTMLButtonElement>('edge-apply').disabled = !this.editor.edgePending;
     $<HTMLButtonElement>('edge-cancel').disabled = !this.editor.edgePending;
     const has = this.active().selection.size > 0;

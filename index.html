@@ -54,6 +54,173 @@
 
       <main id="stage">
         <canvas id="view"></canvas>
+        <div id="options" role="group" aria-labelledby="options-title" hidden>
+          <h3 id="options-title">Options</h3>
+          <div data-opt="selectMode">
+            <label class="field">Select mode
+              <select id="select-mode" aria-label="Select mode">
+                <option value="object">Object</option>
+                <option value="layer">Layer</option>
+                <option value="points">Points</option>
+              </select>
+            </label>
+          </div>
+          <div data-opt="size">
+            <label class="field"><span id="opt-size-label">Width</span>
+              <span class="width-controls">
+                <input id="opt-size-range" type="range" min="1" max="64" value="2" aria-label="Size slider" />
+                <input id="opt-size" type="number" min="1" max="64" value="2" aria-label="Size" />
+              </span>
+            </label>
+          </div>
+          <div data-opt="color">
+            <label class="field">Color <input id="stroke-color" type="color" value="#ffcc00" /></label>
+            <label class="field">Color alpha
+              <span class="width-controls">
+                <input id="stroke-alpha-range" type="range" min="0" max="100" value="100" aria-label="Stroke opacity slider" />
+                <span id="stroke-alpha-value">100%</span>
+              </span>
+            </label>
+          </div>
+          <div data-opt="fill">
+            <label class="field">Fill
+              <span class="width-controls">
+                <input id="fill-color" type="color" value="#ffffff" disabled aria-label="Fill colour" />
+                <label class="check"><input id="fill-none" type="checkbox" checked /> None</label>
+              </span>
+            </label>
+            <label class="field">Paint
+              <select id="fill-paint" aria-label="Fill paint">
+                <option value="solid">Solid</option>
+                <option value="linear">Linear gradient</option>
+                <option value="radial">Radial gradient</option>
+              </select>
+            </label>
+            <div id="grad-editor" class="grad-editor" hidden>
+              <div id="grad-stops"></div>
+              <div class="row"><button id="grad-add" type="button">+ Stop</button></div>
+            </div>
+            <label class="field">Pattern
+              <select id="fx-pattern" aria-label="Fill pattern">
+                <option value="">None</option>
+                <option value="stripes">Stripes</option>
+                <option value="dots">Dots</option>
+              </select>
+            </label>
+          </div>
+          <div data-opt="lineStyle">
+            <label class="field">Line end
+              <select id="fx-marker" aria-label="Marker at the end of the line">
+                <option value="">None</option>
+                <option value="arrow">Arrow</option>
+                <option value="dot">Dot</option>
+              </select>
+            </label>
+            <label class="field">Line ends
+              <select id="stroke-cap" aria-label="Line end style">
+                <option value="round">Round</option>
+                <option value="butt">Butt</option>
+                <option value="square">Square</option>
+              </select>
+            </label>
+            <label class="field">Corners
+              <select id="stroke-join" aria-label="Corner style">
+                <option value="round">Round</option>
+                <option value="miter">Miter</option>
+                <option value="bevel">Bevel</option>
+              </select>
+            </label>
+            <label class="field">Miter limit <input id="stroke-miter" type="number" min="1" max="100" value="10" /></label>
+            <label class="field">Dash
+              <select id="stroke-dash" aria-label="Dash pattern">
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
+              </select>
+            </label>
+          </div>
+          <div data-opt="effects">
+            <label class="field">Object opacity
+              <span class="width-controls">
+                <input id="stroke-opacity" type="range" min="0" max="100" value="100" aria-label="Opacity slider" />
+                <output id="stroke-opacity-out">100%</output>
+              </span>
+            </label>
+            <label class="field">Blend
+              <select id="fx-blend" aria-label="Blend mode">
+                <option value="normal">Normal</option>
+                <option value="multiply">Multiply</option>
+                <option value="screen">Screen</option>
+                <option value="overlay">Overlay</option>
+                <option value="darken">Darken</option>
+                <option value="lighten">Lighten</option>
+                <option value="color-dodge">Colour dodge</option>
+                <option value="color-burn">Colour burn</option>
+                <option value="hard-light">Hard light</option>
+                <option value="soft-light">Soft light</option>
+                <option value="difference">Difference</option>
+                <option value="exclusion">Exclusion</option>
+              </select>
+            </label>
+            <label class="field">Blur <input id="fx-blur" type="number" min="0" max="64" step="0.5" value="0" /></label>
+            <label class="check"><input id="fx-shadow" type="checkbox" /> Drop shadow</label>
+          </div>
+          <div data-opt="radius"><label class="field">Corner radius <input id="shape-radius" type="number" min="0" max="512" value="0" /></label></div>
+          <div data-opt="sides"><label class="field">Sides / points <input id="shape-sides" type="number" min="3" max="64" value="6" /></label></div>
+          <div data-opt="inner"><label class="field">Star inner radius <input id="shape-inner" type="number" min="5" max="100" value="50" />%</label></div>
+          <div data-opt="text">
+            <label class="field">Font
+              <select id="text-font" aria-label="Font family">
+                <option value="sans-serif">Sans-serif</option>
+                <option value="serif">Serif</option>
+                <option value="monospace">Monospace</option>
+              </select>
+            </label>
+            <label class="field">Size <input id="text-size" type="number" min="1" max="512" value="24" /></label>
+            <label class="field">Weight
+              <select id="text-weight" aria-label="Font weight">
+                <option value="400">Normal</option>
+                <option value="700">Bold</option>
+              </select>
+            </label>
+            <label class="field">Align
+              <select id="text-align" aria-label="Text alignment">
+                <option value="left">Left</option>
+                <option value="center">Centre</option>
+                <option value="right">Right</option>
+              </select>
+            </label>
+          </div>
+          <div data-opt="nodes" class="row">
+            <button id="node-smooth" title="Make the selected nodes smooth">Smooth</button>
+            <button id="node-corner" title="Make the selected nodes corners">Corner</button>
+          </div>
+          <div data-opt="edge">
+            <label class="field">Background colour <input id="edge-bg" type="color" value="#ffffff" title="The colour the removed background had" /></label>
+            <label class="field">Band (px) <input id="edge-band" type="number" min="1" max="32" value="2" title="How far from transparency a pixel may be and still change" /></label>
+            <label class="field">Light above <input id="edge-light" type="number" min="0" max="255" value="200" title="Luminance above which a pixel counts as light fringe" /></label>
+            <label class="field">Fringe
+              <select id="edge-mode">
+                <option value="fill">Darker fill</option>
+                <option value="remove">Transparent</option>
+              </select>
+            </label>
+            <div class="row">
+              <button id="edge-apply" title="Apply the cleanup to the layer (Enter)" disabled>Apply</button>
+              <button id="edge-cancel" title="Discard the painted area (Esc)" disabled>Cancel</button>
+            </div>
+          </div>
+          <div data-opt="mask">
+            <div class="row mask-ops">
+              <label><input type="radio" name="mask-op" value="add" checked /> Add brush</label>
+              <label><input type="radio" name="mask-op" value="remove" /> Remove brush</label>
+            </div>
+            <div class="row">
+              <button id="mask-confirm" title="Keep this selection as the mask (Enter)">Confirm</button>
+              <button id="mask-cancel" title="Discard changes to the mask (Esc)">Cancel</button>
+            </div>
+          </div>
+        </div>
         <div id="status"></div>
         <div id="loading" role="status" hidden>
           <div class="spinner"></div>
@@ -81,154 +248,7 @@
             <button data-tool="node" title="Node: edit a path's nodes and handles (N)">Node<kbd>N</kbd></button>
             <button data-tool="edge" title="Edge: paint over a cut-out edge to remove its light fringe (F)">Edge<kbd>F</kbd></button>
           </div>
-          <label class="field">Select mode
-            <select id="select-mode" aria-label="Select mode">
-              <option value="object">Object</option>
-              <option value="layer">Layer</option>
-              <option value="points">Points</option>
-            </select>
-          </label>
           <div id="tool-help" class="hint"></div>
-          <div id="edge-panel" hidden>
-            <label class="field">Background colour <input id="edge-bg" type="color" value="#ffffff" title="The colour the removed background had" /></label>
-            <label class="field">Band (px) <input id="edge-band" type="number" min="1" max="32" value="2" title="How far from transparency a pixel may be and still change" /></label>
-            <label class="field">Light above <input id="edge-light" type="number" min="0" max="255" value="200" title="Luminance above which a pixel counts as light fringe" /></label>
-            <label class="field">Brush size <input id="edge-brush" type="number" min="1" max="256" value="12" /></label>
-            <label class="field">Fringe
-              <select id="edge-mode">
-                <option value="fill">Darker fill</option>
-                <option value="remove">Transparent</option>
-              </select>
-            </label>
-            <div class="row">
-              <button id="edge-apply" title="Apply the cleanup to the layer (Enter)" disabled>Apply</button>
-              <button id="edge-cancel" title="Discard the painted area (Esc)" disabled>Cancel</button>
-            </div>
-          </div>
-          <div id="node-actions" class="row" hidden>
-            <button id="node-smooth" title="Make the selected nodes smooth">Smooth</button>
-            <button id="node-corner" title="Make the selected nodes corners">Corner</button>
-          </div>
-          <label class="field">Corner radius <input id="shape-radius" type="number" min="0" max="512" value="0" /></label>
-          <label class="field">Sides / points <input id="shape-sides" type="number" min="3" max="64" value="6" /></label>
-          <label class="field">Star inner radius <input id="shape-inner" type="number" min="5" max="100" value="50" />%</label>
-        </section>
-        <section data-id="stroke">
-          <h2>Stroke</h2>
-          <label class="field">Color <input id="stroke-color" type="color" value="#ffcc00" /></label>
-          <label class="field">Opacity
-            <span class="width-controls">
-              <input id="stroke-alpha-range" type="range" min="0" max="100" value="100" aria-label="Stroke opacity slider" />
-              <span id="stroke-alpha-value">100%</span>
-            </span>
-          </label>
-          <label class="field">Width
-            <span class="width-controls">
-              <input id="stroke-width-range" type="range" min="1" max="64" value="2" aria-label="Stroke width slider" />
-              <input id="stroke-width" type="number" min="1" max="64" value="2" />
-            </span>
-          </label>
-          <label class="field">Fill
-            <span class="width-controls">
-              <input id="fill-color" type="color" value="#ffffff" disabled aria-label="Fill colour" />
-              <label class="check"><input id="fill-none" type="checkbox" checked /> None</label>
-            </span>
-          </label>
-          <label class="field">Paint
-            <select id="fill-paint" aria-label="Fill paint">
-              <option value="solid">Solid</option>
-              <option value="linear">Linear gradient</option>
-              <option value="radial">Radial gradient</option>
-            </select>
-          </label>
-          <div id="grad-editor" class="grad-editor" hidden>
-            <div id="grad-stops"></div>
-            <div class="row"><button id="grad-add" type="button">+ Stop</button></div>
-          </div>
-          <label class="field">Opacity
-            <span class="width-controls">
-              <input id="stroke-opacity" type="range" min="0" max="100" value="100" aria-label="Opacity slider" />
-              <output id="stroke-opacity-out">100%</output>
-            </span>
-          </label>
-          <label class="field">Pattern
-            <select id="fx-pattern" aria-label="Fill pattern">
-              <option value="">None</option>
-              <option value="stripes">Stripes</option>
-              <option value="dots">Dots</option>
-            </select>
-          </label>
-          <label class="field">Line end
-            <select id="fx-marker" aria-label="Marker at the end of the line">
-              <option value="">None</option>
-              <option value="arrow">Arrow</option>
-              <option value="dot">Dot</option>
-            </select>
-          </label>
-          <label class="field">Blend
-            <select id="fx-blend" aria-label="Blend mode">
-              <option value="normal">Normal</option>
-              <option value="multiply">Multiply</option>
-              <option value="screen">Screen</option>
-              <option value="overlay">Overlay</option>
-              <option value="darken">Darken</option>
-              <option value="lighten">Lighten</option>
-              <option value="color-dodge">Colour dodge</option>
-              <option value="color-burn">Colour burn</option>
-              <option value="hard-light">Hard light</option>
-              <option value="soft-light">Soft light</option>
-              <option value="difference">Difference</option>
-              <option value="exclusion">Exclusion</option>
-            </select>
-          </label>
-          <label class="field">Blur <input id="fx-blur" type="number" min="0" max="64" step="0.5" value="0" /></label>
-          <label class="check"><input id="fx-shadow" type="checkbox" /> Drop shadow</label>
-          <label class="field">Line ends
-            <select id="stroke-cap" aria-label="Line end style">
-              <option value="round">Round</option>
-              <option value="butt">Butt</option>
-              <option value="square">Square</option>
-            </select>
-          </label>
-          <label class="field">Corners
-            <select id="stroke-join" aria-label="Corner style">
-              <option value="round">Round</option>
-              <option value="miter">Miter</option>
-              <option value="bevel">Bevel</option>
-            </select>
-          </label>
-          <label class="field">Miter limit <input id="stroke-miter" type="number" min="1" max="100" value="10" /></label>
-          <label class="field">Dash
-            <select id="stroke-dash" aria-label="Dash pattern">
-              <option value="solid">Solid</option>
-              <option value="dashed">Dashed</option>
-              <option value="dotted">Dotted</option>
-            </select>
-          </label>
-        </section>
-        <section data-id="text">
-          <h2>Text</h2>
-          <label class="field">Font
-            <select id="text-font" aria-label="Font family">
-              <option value="sans-serif">Sans-serif</option>
-              <option value="serif">Serif</option>
-              <option value="monospace">Monospace</option>
-            </select>
-          </label>
-          <label class="field">Size <input id="text-size" type="number" min="1" max="512" value="24" /></label>
-          <label class="field">Weight
-            <select id="text-weight" aria-label="Font weight">
-              <option value="400">Normal</option>
-              <option value="700">Bold</option>
-            </select>
-          </label>
-          <label class="field">Align
-            <select id="text-align" aria-label="Text alignment">
-              <option value="left">Left</option>
-              <option value="center">Centre</option>
-              <option value="right">Right</option>
-            </select>
-          </label>
         </section>
         <section data-id="geometry">
           <h2>Geometry</h2>
@@ -306,14 +326,6 @@
             <div class="row">
               <button id="mask-modify" title="Choose where scripts may change pixels. Default: the whole canvas">Modify mask</button>
               <button id="mask-toggle" class="icon" title="Show the mask in yellow"></button>
-            </div>
-            <div id="mask-edit" hidden>
-              <label class="field">Brush size <span><input id="mask-size" type="range" min="2" max="128" value="12" aria-label="Mask brush size" /> <output id="mask-size-out">12px</output></span></label>
-              <div class="row">
-                <label><input type="radio" name="mask-op" value="add" checked /> Add brush</label>
-                <label><input type="radio" name="mask-op" value="remove" /> Remove brush</label>
-              </div>
-              <div class="row"><button id="mask-confirm" title="Keep this selection as the mask (Enter)">Confirm</button></div>
             </div>
             <div id="mask-hint" class="hint"></div>
           </div>

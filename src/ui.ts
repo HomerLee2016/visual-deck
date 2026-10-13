@@ -20,6 +20,7 @@ import { ScriptsPanel } from './panels/scripts';
 import { TextInput } from './panels/textinput';
 import { TabBar } from './panels/tabbar';
 import { ToolboxPanel } from './panels/toolbox';
+import { OptionsPanel } from './panels/options';
 import { thumbnail } from './render';
 import { CollapsibleSections } from './panels/collapsible';
 import { SidebarResizer } from './panels/resizer';
@@ -37,6 +38,7 @@ export class App {
   private history = new HistoryPanel(() => this.active);
   private layers = new LayersPanel(() => this.active);
   private toolbox = new ToolboxPanel(this.editor, () => this.active);
+  private options = new OptionsPanel(this.editor, () => this.active);
   private scripts = new ScriptsPanel(this.editor, () => this.active, (m) => this.editor.onStatus(m));
   private geometry = new GeometryPanel(this.editor, () => this.active);
   private arrange = new ArrangePanel(this.editor, () => this.active);
@@ -64,6 +66,7 @@ export class App {
     this.editor.onStatus = (m) => ($('status').textContent = m);
     this.editor.onUiChange = () => {
       this.toolbox.render();
+      this.options.render();
       this.scripts.renderMask();
       this.geometry.render();
       this.arrange.render();
