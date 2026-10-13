@@ -1,4 +1,4 @@
-import { typeOf } from './items/registry';
+import { svgOf } from './items/registry';
 import type { SvgEnv } from './items/types';
 import type { DocState, Item } from './types';
 
@@ -24,5 +24,5 @@ export function toSvg(s: DocState): string {
 }
 
 function itemToSvg(it: Item, env: SvgEnv): string {
-  return typeOf(it).toSvg(it, env);
+  return svgOf(it, env);
 }

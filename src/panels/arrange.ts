@@ -1,4 +1,4 @@
-import { alignItems, distributeItems, flipItems, reorderItems, type AlignTo, type Axis, type Order } from '../arrange';
+import { alignItems, clipItems, distributeItems, flipItems, releaseClip, reorderItems, type AlignTo, type Axis, type Order } from '../arrange';
 import { reversePath, simplifyBrush, toPath } from '../convert';
 import { offsetPath, outlineItem } from '../outline';
 import type { Editor } from '../editor';
@@ -21,7 +21,7 @@ export class ArrangePanel {
   render(): void {
     const n = this.active().selection.size;
     for (const b of this.buttons) {
-      const min = b.dataset.align || b.dataset.group ? 2 : b.dataset.distribute ? 3 : 1;
+      const min = b.dataset.align || b.dataset.group || b.dataset.clip ? 2 : b.dataset.distribute ? 3 : 1;
       b.disabled = n < min;
     }
   }
@@ -48,6 +48,11 @@ export class ArrangePanel {
       ws.edit('To path', (s) => mapItems(s, ids, (it) => toPath(it, it.id) ?? it));
     } else if (b.dataset.reverse) {
       ws.edit('Reverse path', (s) => mapItems(s, ids, (it) => (it.kind === 'path' ? reversePath(it) : it)));
+    } else if (b.dataset.clip) {
+      const mode = b.dataset.clip as 'clip' | 'mask';
+      ws.edit(mode === 'clip' ? 'Clip' : 'Mask', (s) => clipItems(s, ids, mode));
+    } else if (b.dataset.release) {
+      ws.edit('Release clip', (s) => releaseClip(s, ids));
     } else if (b.dataset.outline) {
       ws.edit('Outline stroke', (s) => mapItems(s, ids, (it) => outlineItem(it) ?? it));
     } else if (b.dataset.offset) {

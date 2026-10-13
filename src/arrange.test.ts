@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { itemBounds } from './geometry';
-import { alignItems, distributeItems, flipItems, reorderItems, unionBox } from './arrange';
+import { alignItems, clipItems, distributeItems, flipItems, releaseClip, reorderItems, unionBox } from './arrange';
 import type { DocState, LineItem } from './types';
 
 const style = { color: '#fff', width: 0 };
@@ -91,5 +91,32 @@ describe('z-order', () => {
 
   it('stays put at the top or bottom', () => {
     expect(order(reorderItems(s, ids('d'), 'forward'))).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('clip and mask', () => {
+  const s0 = doc(seg('a', 0, 0, 10, 0), seg('b', 0, 5, 10, 5), seg('c', 0, 9, 10, 9));
+
+  it('uses the topmost selected shape to clip the others and takes it out of its layer', () => {
+    const out = clipItems(s0, ids('a', 'b', 'c'), 'clip');
+    expect(out.layers[0].items.map((it) => it.id)).toEqual(['a', 'b']);
+    expect(out.layers[0].items[0]).toMatchObject({ clip: { mode: 'clip', shape: { id: 'c' } } });
+    expect(out.layers[0].items[1]).toMatchObject({ clip: { mode: 'clip', shape: { id: 'c' } } });
+  });
+
+  it('masks instead of clipping when asked', () => {
+    const out = clipItems(s0, ids('a', 'c'), 'mask');
+    expect(out.layers[0].items.find((it) => it.id === 'a')).toMatchObject({ clip: { mode: 'mask' } });
+  });
+
+  it('does nothing for a single item', () => {
+    expect(clipItems(s0, ids('a'), 'clip')).toBe(s0);
+  });
+
+  it('releases the shape back into the layer just above its item', () => {
+    const clipped = clipItems(s0, ids('a', 'b', 'c'), 'clip');
+    const released = releaseClip(clipped, ids('a'));
+    expect(released.layers[0].items.map((it) => it.id)).toEqual(['a', 'c', 'b']);
+    expect(released.layers[0].items[0]).not.toHaveProperty('clip');
   });
 });

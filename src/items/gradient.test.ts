@@ -67,3 +67,20 @@ describe('effects svg', () => {
     expect(svg).not.toContain('filter=');
   });
 });
+
+describe('clip and mask svg', () => {
+  const clipper: LineItem = { kind: 'line', id: 'c', a: { x: 0, y: 0 }, b: { x: 10, y: 0 }, style: { color: '#fff', width: 1 } };
+  const target = (mode: 'clip' | 'mask'): LineItem => ({ ...shape({ color: '#fff', width: 2 }), id: 't', clip: { mode, shape: clipper } });
+
+  it('writes a clipPath and wraps the item in a clip-path group', () => {
+    const svg = toSvg(doc([target('clip')]));
+    expect(svg).toContain('<clipPath id="c1"><path d="M0 0 L10 0"/></clipPath>');
+    expect(svg).toContain('<g clip-path="url(#c1)"><path ');
+  });
+
+  it('writes a white mask shape and wraps the item in a mask group', () => {
+    const svg = toSvg(doc([target('mask')]));
+    expect(svg).toContain('<mask id="m1"><path d="M0 0 L10 0" fill="#fff"');
+    expect(svg).toContain('<g mask="url(#m1)">');
+  });
+});
