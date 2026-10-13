@@ -49,6 +49,8 @@ export function optionGroups(tool: ToolId, ctx: OptionContext): OptionGroup[] {
   switch (tool) {
     case 'select':
       return selectGroups(ctx);
+    case 'transform':
+      return transformGroups(ctx);
     case 'line':
     case 'arc':
     case 'curve':
@@ -80,12 +82,16 @@ function selectGroups(ctx: OptionContext): OptionGroup[] {
   const has = ctx.kinds.length > 0;
   if (has || ctx.clipboard) groups.push('selection');
   if (!has) return groups;
-  groups.push('transform');
   if (ctx.styled) groups.push('size', 'color', 'lineStyle', 'effects');
   if (ctx.kinds.some((k) => FILLABLE.has(k))) groups.push('fill');
   if (ctx.kinds.some((k) => OPEN.has(k))) groups.push('marker');
   if (ctx.kinds.includes('text')) groups.push('text');
   return groups;
+}
+
+/** Transform shows the selection's position and size, and nothing for an empty selection. */
+function transformGroups(ctx: OptionContext): OptionGroup[] {
+  return ctx.kinds.length > 0 ? ['transform'] : [];
 }
 
 /** The Arrange actions the selection can use; each button's `data-*` key (align, flip, ...) is one of these. */
