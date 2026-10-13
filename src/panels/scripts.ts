@@ -21,20 +21,10 @@ export class ScriptsPanel {
     this.render();
   }
 
-  /** The Modify mask controls: which are shown depends on whether a mask session is open. */
+  /** The Modify mask buttons. The brush controls live in the Options pop-out. */
   private bindMask(): void {
-    const size = $<HTMLInputElement>('mask-size');
-    const out = $('mask-size-out');
     $('mask-modify').onclick = () => this.editor.beginMaskEdit();
-    $('mask-confirm').onclick = () => this.editor.confirmMaskEdit();
     $('mask-toggle').onclick = () => this.editor.setMaskVisible(!this.editor.maskVisible);
-    size.oninput = () => {
-      out.textContent = `${size.value}px`;
-      this.editor.setMaskBrush({ radius: Number(size.value) / 2 });
-    };
-    document.querySelectorAll<HTMLInputElement>('input[name="mask-op"]').forEach((r) => {
-      r.onchange = () => this.editor.setMaskBrush({ op: r.value as 'add' | 'remove' });
-    });
   }
 
   /** Refresh the mask controls from the editor and the active workspace. */
@@ -42,10 +32,6 @@ export class ScriptsPanel {
     const editing = this.editor.maskEditing;
     const visible = this.editor.maskVisible;
     $<HTMLButtonElement>('mask-modify').disabled = editing;
-    $('mask-edit').hidden = !editing;
-    document.querySelectorAll<HTMLInputElement>('input[name="mask-op"]').forEach((r) => {
-      r.checked = r.value === this.editor.maskOp;
-    });
     const toggle = $<HTMLButtonElement>('mask-toggle');
     // The icon shows the state: eye while the mask is shown, ban while it is hidden.
     toggle.textContent = visible ? '👁' : '🚫';

@@ -709,6 +709,11 @@ export class Editor {
     return this.maskBrush.op;
   }
 
+  /** The mask brush radius in document pixels. */
+  get maskRadius(): number {
+    return this.maskBrush.radius;
+  }
+
   /** Set the mask brush: add or remove, and radius in document pixels. */
   setMaskBrush(patch: Partial<{ op: 'add' | 'remove'; radius: number }>): void {
     this.maskBrush = { ...this.maskBrush, ...patch };

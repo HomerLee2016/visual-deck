@@ -29,7 +29,8 @@
 - `src/editor.ts`: main canvas input only (tools, select/move/copy/paste/delete, zoom/pan, shortcuts). Describes a `Scene`; `render.ts` draws it.
 - `src/scripting.ts`: the `deck` API and script runner. Scripts are JavaScript, saved in `localStorage`.
 - `src/ui.ts`: `App` owns the open workspaces and wires editor to panels.
-- `src/panels/`: one class per DOM panel (menubar, tabbar, history, layers, toolbox, scripts). Each has `render()` and reads the workspace via `ActiveWorkspace`.
+- `src/options.ts`: pure `optionGroups(tool, ctx)`: which Options pop-out groups a tool shows.
+- `src/panels/`: one class per DOM panel (menubar, tabbar, history, layers, toolbox, options, scripts). Each has `render()` and reads the workspace via `ActiveWorkspace`.
 - Edits go through `Workspace.edit(label, fn)`: a label records a history step, `null` does not (scripts record one step per run).
 
 # Working on a big story or epic
