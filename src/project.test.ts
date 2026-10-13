@@ -11,6 +11,13 @@ const codec: ImageCodec = {
 const line = (): LineItem => ({ kind: 'line', id: uid('item'), a: { x: 0, y: 0 }, b: { x: 5, y: 5 }, style: { color: '#fff', width: 1 } });
 
 describe('dirty tracking', () => {
+  it('keeps the palette through save and open', async () => {
+    const ws = new Workspace('art', 64, 32);
+    ws.palette = ['#ff0000', '#00ff00'];
+    const p = await parseProject(serializeProject(ws, codec), codec);
+    expect(p.palette).toEqual(['#ff0000', '#00ff00']);
+  });
+
   it('keeps an image item transform through save and open', async () => {
     const ws = new Workspace('art', 64, 32);
     ws.addLayer('Image layer', 'Pics', [{ kind: 'image', id: uid('item'), x: 3, y: 4, canvas: fakeCanvas('png2'), transform: [2, 0, 0, 2, 5, 6] }]);

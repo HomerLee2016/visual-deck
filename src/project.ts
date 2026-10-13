@@ -25,6 +25,7 @@ interface StoredState {
   width: number;
   height: number;
   layers: StoredLayer[];
+  defs?: DocState['defs'];
 }
 
 /** What a project file holds; also what `Workspace.restore` needs. */
@@ -34,6 +35,8 @@ export interface Project {
   index: number;
   activeLayerId: string;
   view: View;
+  /** Saved swatches (CSS colours). */
+  palette: string[];
 }
 
 interface ProjectFile {
@@ -43,6 +46,7 @@ interface ProjectFile {
   index: number;
   activeLayerId: string;
   view: View;
+  palette?: string[];
   /** Distinct bitmaps as data URLs; items refer to them by position so history does not repeat them. */
   images: string[];
   history: { label: string; state: StoredState }[];
@@ -55,6 +59,7 @@ export interface Saveable {
   index: number;
   activeLayerId: string;
   view: View;
+  palette?: readonly string[];
 }
 
 export function serializeProject(ws: Saveable, codec: ImageCodec): string {
@@ -79,11 +84,17 @@ export function serializeProject(ws: Saveable, codec: ImageCodec): string {
     name: ws.name,
     index: ws.index,
     activeLayerId: ws.activeLayerId,
+    palette: [...(ws.palette ?? [])],
     view: ws.view,
     images,
     history: ws.history.map((h) => ({
       label: h.label,
-      state: { width: h.state.width, height: h.state.height, layers: h.state.layers.map((l) => ({ ...l, items: l.items.map(item) })) },
+      state: {
+        width: h.state.width,
+        height: h.state.height,
+        layers: h.state.layers.map((l) => ({ ...l, items: l.items.map(item) })),
+        ...(h.state.defs ? { defs: h.state.defs } : {}),
+      },
     })),
   };
   return JSON.stringify(file);
@@ -119,6 +130,7 @@ export async function parseProject(text: string, codec: ImageCodec): Promise<Pro
         reserveUid(l.id);
         return { ...l, items: l.items.map(item) };
       }),
+      ...(h.state.defs ? { defs: h.state.defs } : {}),
     } satisfies DocState,
   }));
   const index = Math.min(Math.max(file.index ?? 0, 0), history.length - 1);
@@ -129,5 +141,6 @@ export async function parseProject(text: string, codec: ImageCodec): Promise<Pro
     index,
     activeLayerId: file.activeLayerId ?? layers[layers.length - 1].id,
     view: file.view ?? INITIAL_VIEW,
+    palette: Array.isArray(file.palette) ? file.palette.filter((c): c is string => typeof c === 'string') : [],
   };
 }

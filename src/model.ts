@@ -104,6 +104,8 @@ export class Workspace {
   view: View = INITIAL_VIEW;
   /** Grid, snapping and guides. Part of the view, so changing them is not a history step. */
   aids: ViewAids = { showGrid: false, snap: false, gridSize: 16, guides: { x: [], y: [] } };
+  /** Saved swatches. Part of the workspace, not the document, so changing them is not a history step. */
+  palette: string[] = [];
   /** The state last saved to (or loaded from) a file; `dirty` compares against it. */
   private savedState: DocState;
   private subs = new Set<() => void>();
@@ -134,7 +136,8 @@ export class Workspace {
   }
 
   /** Replace everything with a loaded project's history; the loaded state counts as saved. */
-  restore(history: { label: string; state: DocState }[], index: number, activeLayerId: string, view: View): void {
+  restore(history: { label: string; state: DocState }[], index: number, activeLayerId: string, view: View, palette: string[] = []): void {
+    this.palette = palette;
     this.history = history.map((h) => ({ ...h, thumb: this.thumb(h.state) }));
     this.index = index;
     this.state = this.history[index].state;

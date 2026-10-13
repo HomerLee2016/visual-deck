@@ -1,5 +1,6 @@
 import { buildShape, itemBounds } from './geometry';
 import { drawItem, typeOf } from './items/registry';
+import { resolveDefs, resolveSymbols } from './shared';
 import { apply } from './matrix';
 import type { ClickShapeKind, Rect } from './geometry';
 import type { ShapeParams } from './items/types';
@@ -15,17 +16,21 @@ const ACCENT = '#4da3ff';
 
 /** Draw visible layers bottom to top. `only` renders a single layer regardless of its visibility. */
 export function drawState(ctx: CanvasRenderingContext2D, s: DocState, only?: string): void {
+  s = resolveDefs(resolveSymbols(s));
   for (const layer of s.layers) {
     if (only ? layer.id !== only : !layer.visible) continue;
     for (const it of layer.items) drawItem(ctx, it);
   }
 }
 
-export function renderToCanvas(s: DocState, onlyLayerId?: string): HTMLCanvasElement {
+/** The document as a bitmap, `scale` times its size (1, 2 or 4 for exports). */
+export function renderToCanvas(s: DocState, onlyLayerId?: string, scale = 1): HTMLCanvasElement {
   const c = document.createElement('canvas');
-  c.width = Math.max(1, s.width);
-  c.height = Math.max(1, s.height);
-  drawState(c.getContext('2d', { willReadFrequently: true })!, s, onlyLayerId);
+  c.width = Math.max(1, Math.round(s.width * scale));
+  c.height = Math.max(1, Math.round(s.height * scale));
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  ctx.scale(scale, scale);
+  drawState(ctx, s, onlyLayerId);
   return c;
 }
 
