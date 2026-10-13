@@ -5,6 +5,9 @@ import type { ClickSpec, ShapeType } from './types';
 export const num = (v: number) => String(Math.round(v * 1000) / 1000);
 export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+/** Opacity clamped to 0..1; styles saved before opacity existed are fully opaque. */
+export const opacityOf = (style: Style) => Math.min(1, Math.max(0, style.opacity ?? 1));
+
 /** What a shape kind must say about itself; `defineShape` supplies the stroking, hit-testing and export. */
 export interface ShapeDef<T extends ShapeItem> {
   outline(it: T): Pt[];
@@ -51,9 +54,17 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       return false;
     },
     draw(ctx, it) {
+      const { color, width, fill } = it.style;
       ctx.save();
-      ctx.strokeStyle = it.style.color;
-      ctx.lineWidth = it.style.width;
+      ctx.globalAlpha = opacityOf(it.style);
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.beginPath();
+        def.trace(ctx, it);
+        ctx.fill();
+      }
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -62,8 +73,10 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       ctx.restore();
     },
     toSvg(it) {
-      const { color, width } = it.style;
-      return `<path d="${def.pathData(it)}" fill="none" stroke="${esc(color)}" stroke-width="${num(width)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+      const { color, width, fill } = it.style;
+      const opacity = opacityOf(it.style);
+      const fade = opacity < 1 ? ` opacity="${num(opacity)}"` : '';
+      return `<path d="${def.pathData(it)}" fill="${esc(fill ?? 'none')}" stroke="${esc(color)}" stroke-width="${num(width)}" stroke-linecap="round" stroke-linejoin="round"${fade}/>`;
     },
   };
 }

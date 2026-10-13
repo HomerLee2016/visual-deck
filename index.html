@@ -76,6 +76,18 @@
               <input id="stroke-width" type="number" min="1" max="64" value="2" />
             </span>
           </label>
+          <label class="field">Fill
+            <span class="width-controls">
+              <input id="fill-color" type="color" value="#ffffff" disabled aria-label="Fill colour" />
+              <label class="check"><input id="fill-none" type="checkbox" checked /> None</label>
+            </span>
+          </label>
+          <label class="field">Opacity
+            <span class="width-controls">
+              <input id="stroke-opacity" type="range" min="0" max="100" value="100" aria-label="Opacity slider" />
+              <output id="stroke-opacity-out">100%</output>
+            </span>
+          </label>
         </section>
         <section>
           <h2>Selection</h2>

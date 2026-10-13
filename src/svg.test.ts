@@ -10,6 +10,20 @@ const doc = (items: Item[], visible = true): DocState => ({
 });
 
 describe('toSvg', () => {
+  it('leaves shapes unfilled and opaque unless the style says otherwise', () => {
+    const svg = toSvg(doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style }]));
+    expect(svg).toContain('fill="none"');
+    expect(svg).not.toContain('opacity=');
+  });
+
+  it('writes fill and opacity from the style', () => {
+    const svg = toSvg(
+      doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style: { ...style, fill: '#00ff00', opacity: 0.5 } }]),
+    );
+    expect(svg).toContain('fill="#00ff00"');
+    expect(svg).toContain('stroke-linejoin="round" opacity="0.5"/>');
+  });
+
   it('writes a sized svg root with a viewBox', () => {
     const svg = toSvg(doc([]));
     expect(svg).toContain('width="64" height="32" viewBox="0 0 64 32"');

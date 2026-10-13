@@ -6,6 +6,10 @@ export interface Pt {
 export interface Style {
   color: string;
   width: number;
+  /** Interior colour of closed or open outlines. Missing means no fill. */
+  fill?: string;
+  /** 0 to 1. Missing means fully opaque. */
+  opacity?: number;
 }
 
 export interface LineItem {

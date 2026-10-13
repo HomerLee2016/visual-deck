@@ -1,4 +1,5 @@
 import type { Editor, ToolId } from '../editor';
+import { opacityOf } from '../items/shape';
 import { $, type ActiveWorkspace } from './dom';
 
 const TOOL_HELP: Record<ToolId, string> = {
@@ -38,6 +39,31 @@ export class ToolboxPanel {
       range.value = String(w);
       editor.setStyle({ width: w }, true);
     };
+    const fill = $<HTMLInputElement>('fill-color');
+    const fillNone = $<HTMLInputElement>('fill-none');
+    const opacity = $<HTMLInputElement>('stroke-opacity');
+    const opacityOut = $('stroke-opacity-out');
+    fill.value = editor.style.fill ?? fill.value;
+    fillNone.checked = !editor.style.fill;
+    fill.disabled = fillNone.checked;
+    opacity.value = String(Math.round(opacityOf(editor.style) * 100));
+    opacityOut.textContent = `${opacity.value}%`;
+    // Picking a colour turns "None" off; the fill applies to the selection on release.
+    fill.oninput = () => {
+      fillNone.checked = false;
+      fill.disabled = false;
+      editor.setStyle({ fill: fill.value });
+    };
+    fill.onchange = () => editor.setStyle({ fill: fill.value }, true);
+    fillNone.onchange = () => {
+      fill.disabled = fillNone.checked;
+      editor.setStyle({ fill: fillNone.checked ? undefined : fill.value }, true);
+    };
+    opacity.oninput = () => {
+      opacityOut.textContent = `${opacity.value}%`;
+      editor.setStyle({ opacity: Number(opacity.value) / 100 });
+    };
+    opacity.onchange = () => editor.setStyle({ opacity: Number(opacity.value) / 100 }, true);
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
     $('act-delete').onclick = () => editor.deleteSelection();
