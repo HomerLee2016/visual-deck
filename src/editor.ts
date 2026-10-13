@@ -3,6 +3,7 @@ import type { Rect } from './geometry';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawItem, drawSelection, drawState } from './render';
 import type { DocState, Item, Pt, ShapeKind, Style } from './types';
+import { fitView, toDoc, zoomAround, type Size } from './view';
 
 export type ToolId = 'select' | ShapeKind;
 
@@ -24,8 +25,6 @@ type Drag =
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> };
 
 const PICK_TOLERANCE_PX = 6;
-const MIN_ZOOM = 0.05;
-const MAX_ZOOM = 64;
 
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
@@ -124,39 +123,27 @@ export class Editor {
     this.requestRender();
   }
 
+  /** Canvas size in CSS pixels. */
+  private canvasSize(): Size {
+    return { w: this.canvas.width / this.dpr, h: this.canvas.height / this.dpr };
+  }
+
   fit(): void {
     if (!this.ws) return;
-    const v = this.ws.view;
-    const cw = this.canvas.width / this.dpr;
-    const ch = this.canvas.height / this.dpr;
     const { width, height } = this.ws.state;
-    v.zoom = Math.min(4, Math.max(MIN_ZOOM, Math.min((cw - 48) / width, (ch - 48) / height)));
-    v.panX = (cw - width * v.zoom) / 2;
-    v.panY = (ch - height * v.zoom) / 2;
-    v.fitted = true;
+    this.ws.view = fitView(this.canvasSize(), { w: width, h: height });
     this.requestRender();
   }
 
   zoomTo(zoom: number, around?: Pt): void {
-    const v = this.ws.view;
-    const cw = this.canvas.width / this.dpr;
-    const ch = this.canvas.height / this.dpr;
-    const c = around ?? { x: cw / 2, y: ch / 2 };
-    const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
-    v.panX = c.x - ((c.x - v.panX) / v.zoom) * z;
-    v.panY = c.y - ((c.y - v.panY) / v.zoom) * z;
-    v.zoom = z;
+    const { w, h } = this.canvasSize();
+    this.ws.view = zoomAround(this.ws.view, zoom, around ?? { x: w / 2, y: h / 2 });
     this.requestRender();
   }
 
   private screenPos(e: { clientX: number; clientY: number }): Pt {
     const r = this.canvas.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-
-  private toDoc(s: Pt): Pt {
-    const v = this.ws.view;
-    return { x: (s.x - v.panX) / v.zoom, y: (s.y - v.panY) / v.zoom };
   }
 
   private onWheel(e: WheelEvent): void {
@@ -181,7 +168,7 @@ export class Editor {
     }
     if (e.button !== 0) return;
     this.canvas.setPointerCapture(e.pointerId);
-    const p = this.toDoc(s);
+    const p = toDoc(this.ws.view, s);
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
     else this.drawDown(this.tool, p, s);
   }
@@ -232,12 +219,10 @@ export class Editor {
 
   private onPointerMove(e: PointerEvent): void {
     const s = this.screenPos(e);
-    const p = this.toDoc(s);
+    const p = toDoc(this.ws.view, s);
     this.onStatus(`${Math.round(p.x)}, ${Math.round(p.y)}  ·  ${Math.round(this.ws.view.zoom * 100)}%`);
     if (this.pan) {
-      const v = this.ws.view;
-      v.panX = this.pan.px + (s.x - this.pan.sx);
-      v.panY = this.pan.py + (s.y - this.pan.sy);
+      this.ws.view = { ...this.ws.view, panX: this.pan.px + (s.x - this.pan.sx), panY: this.pan.py + (s.y - this.pan.sy) };
     } else if (this.draft) {
       this.draft.hover = p;
     } else if (this.drag?.mode === 'move') {
@@ -264,7 +249,7 @@ export class Editor {
     const d = this.draft;
     if (d?.pressing) {
       d.pressing = false;
-      const p = this.toDoc(this.screenPos(e));
+      const p = toDoc(this.ws.view, this.screenPos(e));
       // Dragged far enough: treat the release point as the end point.
       if (dist(this.screenPos(e), d.downScreen) > 5) {
         d.pts.push(p);

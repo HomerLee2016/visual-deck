@@ -1,5 +1,6 @@
 import { translateItem } from './geometry';
 import type { DocState, HistoryEntry, ImageItem, Item, Layer, Style } from './types';
+import { INITIAL_VIEW, type View } from './view';
 
 let counter = 0;
 export const uid = (prefix: string) => `${prefix}${++counter}`;
@@ -50,13 +51,6 @@ export function mapItems(s: DocState, ids: ReadonlySet<string>, fn: (it: Item) =
   };
 }
 
-export interface View {
-  zoom: number;
-  panX: number;
-  panY: number;
-  fitted: boolean;
-}
-
 /**
  * One tab: a document, its edit history and its view. `state` is immutable;
  * edits replace it. `edit(label, fn)` records a history step when `label` is
@@ -70,7 +64,7 @@ export class Workspace {
   selection = new Set<string>();
   history: HistoryEntry[];
   index = 0;
-  view: View = { zoom: 1, panX: 0, panY: 0, fitted: false };
+  view: View = INITIAL_VIEW;
   private subs = new Set<() => void>();
   private layerCount = 1;
 
