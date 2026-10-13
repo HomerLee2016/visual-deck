@@ -302,6 +302,21 @@
         <section data-id="scripts" data-fixed>
           <h2>Scripts <button id="script-add" title="New script button">+</button></h2>
           <div id="scripts"></div>
+          <div id="mask-bar">
+            <div class="row">
+              <button id="mask-modify" title="Choose where scripts may change pixels. Default: the whole canvas">Modify mask</button>
+              <button id="mask-toggle" class="icon" title="Show the mask in yellow"></button>
+            </div>
+            <div id="mask-edit" hidden>
+              <label class="field">Brush size <span><input id="mask-size" type="range" min="2" max="128" value="12" aria-label="Mask brush size" /> <output id="mask-size-out">12px</output></span></label>
+              <div class="row">
+                <label><input type="radio" name="mask-op" value="add" checked /> Add brush</label>
+                <label><input type="radio" name="mask-op" value="remove" /> Remove brush</label>
+              </div>
+              <div class="row"><button id="mask-confirm" title="Keep this selection as the mask (Enter)">Confirm</button></div>
+            </div>
+            <div id="mask-hint" class="hint"></div>
+          </div>
         </section>
       </aside>
     </div>

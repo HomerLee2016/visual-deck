@@ -119,6 +119,8 @@ export interface Scene {
   brushCursor: { at: Pt; width: number } | null;
   /** Brushed area of the Edge tool, drawn over the layer in document space. */
   edgeOverlay: HTMLCanvasElement | null;
+  /** The script mask highlight (yellow), in document space. */
+  maskOverlay: HTMLCanvasElement | null;
   /** Scale and rotate handles around the selection, or null when nothing is selected. */
   handles: Handle[] | null;
   aids: ViewAids;
@@ -193,6 +195,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     drawItem(ctx, { kind: 'brush', id: 'preview', pts: scene.stroke, style: scene.style });
     ctx.globalAlpha = 1;
   }
+  if (scene.maskOverlay) ctx.drawImage(scene.maskOverlay, 0, 0);
   if (scene.edgeOverlay) ctx.drawImage(scene.edgeOverlay, 0, 0);
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);
   if (scene.brushCursor) drawBrushCursor(ctx, scene.brushCursor, zoom);

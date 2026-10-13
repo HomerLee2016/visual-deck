@@ -1,6 +1,7 @@
 import { buildShape, clickSpec, type ClickShapeKind } from './geometry';
 import { DEFAULT_STYLE, imageItem, uid, type Workspace } from './model';
 import { renderToCanvas } from './render';
+import { compositeMasked } from './mask';
 import type { Item, PathItem, Style } from './types';
 import traceToSvgCode from './builtin/trace-to-svg.js?raw';
 
@@ -162,10 +163,19 @@ export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
     getImageData: (layerId = ws.activeLayerId) => imageData(renderToCanvas(ws.state, layerId)),
     getComposite: () => imageData(renderToCanvas(ws.state)),
     setImageData(layerId, img) {
+      // With a mask, only the masked pixels take the script's result; the rest keep the layer's pixels.
+      const mask = ws.activeMask();
+      let pixels = img;
+      if (mask) {
+        if (img.width !== mask.width || img.height !== mask.height) {
+          throw new Error(`the mask is ${mask.width}×${mask.height}, but the script produced ${img.width}×${img.height}`);
+        }
+        pixels = new ImageData(compositeMasked(imageData(renderToCanvas(ws.state, layerId)), img, mask.data).data, img.width, img.height);
+      }
       const c = document.createElement('canvas');
-      c.width = img.width;
-      c.height = img.height;
-      c.getContext('2d')!.putImageData(img, 0, 0);
+      c.width = pixels.width;
+      c.height = pixels.height;
+      c.getContext('2d')!.putImageData(pixels, 0, 0);
       ws.replaceLayerItems(null, layerId, [imageItem(c)]);
     },
     addRect: (x1, y1, x2, y2, s, layerId) => shape('rect', [{ x: x1, y: y1 }, { x: x2, y: y2 }], s, layerId),

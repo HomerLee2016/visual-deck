@@ -1,4 +1,5 @@
 import { translateItem } from './geometry';
+import type { Mask } from './mask';
 import type { Guides } from './snap';
 import type { DocState, HistoryEntry, ImageItem, Item, Layer, Style } from './types';
 import { INITIAL_VIEW, type View } from './view';
@@ -121,6 +122,8 @@ export class Workspace {
   aids: ViewAids = { showGrid: false, snap: false, gridSize: 16, guides: { x: [], y: [] } };
   /** Saved swatches. Part of the workspace, not the document, so changing them is not a history step. */
   palette: string[] = [];
+  /** Where scripts may change pixels, or null for the whole canvas. Not part of the document or history. */
+  mask: Mask | null = null;
   /** The state last saved to (or loaded from) a file; `dirty` compares against it. */
   private savedState: DocState;
   private subs = new Set<() => void>();
@@ -168,6 +171,18 @@ export class Workspace {
   subscribe(fn: () => void): () => void {
     this.subs.add(fn);
     return () => this.subs.delete(fn);
+  }
+
+  /** Set the script mask (null for the whole canvas). Panels and the canvas are told to redraw. */
+  setMask(mask: Mask | null): void {
+    this.mask = mask;
+    this.changed();
+  }
+
+  /** The mask, if it still fits the document size; a stale mask after a resize is ignored. */
+  activeMask(): Mask | null {
+    const m = this.mask;
+    return m && m.width === this.state.width && m.height === this.state.height ? m : null;
   }
 
   /** Tell panels the document or history changed. */

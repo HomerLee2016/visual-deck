@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_EDGE_OPTIONS, cleanEdge, emptyMask, paintDisc, paintStroke, type EdgeOptions, type Pixels } from './fringe';
+import { DEFAULT_EDGE_OPTIONS, cleanEdge, type EdgeOptions } from './fringe';
+import { emptyMask, type Pixels } from './mask';
 
 /** A w×h bitmap filled with one RGBA colour per pixel, given by `fn(x, y)`. */
 function bitmap(w: number, h: number, fn: (x: number, y: number) => [number, number, number, number]): Pixels {
@@ -13,23 +14,6 @@ function bitmap(w: number, h: number, fn: (x: number, y: number) => [number, num
 const px = (img: Pixels, x: number, y: number) => Array.from(img.data.slice((y * img.width + x) * 4, (y * img.width + x) * 4 + 4));
 const fullMask = (w: number, h: number) => new Uint8Array(w * h).fill(1);
 const opts = (o: Partial<EdgeOptions> = {}): EdgeOptions => ({ ...DEFAULT_EDGE_OPTIONS, ...o });
-
-describe('mask painting', () => {
-  it('paints a disc around the centre and nothing outside it', () => {
-    const mask = emptyMask(10, 10);
-    paintDisc(mask, 10, 10, { x: 5, y: 5 }, 1.5);
-    expect(mask[5 * 10 + 5]).toBe(1);
-    expect(mask[4 * 10 + 5]).toBe(1);
-    expect(mask[0]).toBe(0);
-    expect(mask[9 * 10 + 9]).toBe(0);
-  });
-
-  it('paints along a stroke without gaps', () => {
-    const mask = emptyMask(20, 3);
-    paintStroke(mask, 20, 3, { x: 1, y: 1 }, { x: 18, y: 1 }, 1);
-    for (let x = 1; x <= 18; x++) expect(mask[20 + x]).toBe(1);
-  });
-});
 
 describe('cleanEdge', () => {
   it('unmixes a semi-transparent white-blended pixel back to its dark colour', () => {

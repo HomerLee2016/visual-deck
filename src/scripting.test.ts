@@ -201,3 +201,21 @@ describe('script storage', () => {
     expect(loadScripts()).toHaveLength(DEFAULT_SCRIPTS.length);
   });
 });
+
+describe('setImageData with a mask', () => {
+  it('refuses a bitmap that does not match the masked document size', () => {
+    const ws = newWs();
+    ws.setMask({ width: 64, height: 64, data: new Uint8Array(64 * 64) });
+    const deck = createDeck(ws, () => {});
+    const small = { width: 8, height: 8, data: new Uint8ClampedArray(8 * 8 * 4) } as ImageData;
+    expect(() => deck.setImageData(ws.activeLayerId, small)).toThrow(/mask is 64×64/);
+  });
+
+  it('ignores a mask that no longer fits the document', () => {
+    const ws = newWs();
+    ws.setMask({ width: 10, height: 10, data: new Uint8Array(100) });
+    expect(ws.activeMask()).toBeNull();
+    ws.setMask({ width: 64, height: 64, data: new Uint8Array(64 * 64) });
+    expect(ws.activeMask()).not.toBeNull();
+  });
+});

@@ -1,11 +1,4 @@
-import type { Pt } from './types';
-
-/** Any RGBA bitmap; `ImageData` fits this shape, so the logic runs without a DOM. */
-export interface Pixels {
-  width: number;
-  height: number;
-  data: Uint8ClampedArray<ArrayBuffer>;
-}
+import { type Pixels } from './mask';
 
 export interface EdgeOptions {
   /** Colour of the background that was removed, as [r, g, b]. */
@@ -19,36 +12,6 @@ export interface EdgeOptions {
 }
 
 export const DEFAULT_EDGE_OPTIONS: EdgeOptions = { background: [255, 255, 255], band: 2, lightness: 200, mode: 'fill' };
-
-/** A mask with nothing brushed: one byte per pixel, 1 where the edge tool may act. */
-export function emptyMask(width: number, height: number): Uint8Array {
-  return new Uint8Array(width * height);
-}
-
-/** Mark a disc of `radius` around `c` in the mask. */
-export function paintDisc(mask: Uint8Array, width: number, height: number, c: Pt, radius: number): void {
-  const r2 = radius * radius;
-  const x0 = Math.max(0, Math.floor(c.x - radius));
-  const x1 = Math.min(width - 1, Math.ceil(c.x + radius));
-  const y0 = Math.max(0, Math.floor(c.y - radius));
-  const y1 = Math.min(height - 1, Math.ceil(c.y + radius));
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const dx = x + 0.5 - c.x;
-      const dy = y + 0.5 - c.y;
-      if (dx * dx + dy * dy <= r2) mask[y * width + x] = 1;
-    }
-  }
-}
-
-/** Mark discs along the segment a→b, so fast pointer moves leave no gaps. */
-export function paintStroke(mask: Uint8Array, width: number, height: number, a: Pt, b: Pt, radius: number): void {
-  const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / Math.max(1, radius / 2)));
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    paintDisc(mask, width, height, { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, radius);
-  }
-}
 
 const lum = (d: Uint8ClampedArray, i: number) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
 
