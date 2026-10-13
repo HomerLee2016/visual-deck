@@ -14,8 +14,8 @@ export interface ItemType<T extends Item = Item> {
   /** `tol` is in document units (screen tolerance divided by zoom). */
   hitTest(it: T, p: Pt, tol: number): boolean;
   translate(it: T, dx: number, dy: number): T;
-  /** SVG markup. `hrefs` caches embedded bitmaps so a shared canvas is encoded once. */
-  toSvg(it: T, hrefs: Map<HTMLCanvasElement, string>): string;
+  /** SVG markup. `env` caches embedded bitmaps and collects shared definitions (gradients). */
+  toSvg(it: T, env: SvgEnv): string;
   /** Points drawn as selection handles. */
   handles(it: T): Pt[];
   /** Copy with a new style, or null if the kind has no style. */
@@ -33,6 +33,12 @@ export interface ShapeParams {
 }
 
 export const DEFAULT_SHAPE_PARAMS: ShapeParams = { radius: 0, sides: 6, inner: 0.5 };
+
+/** Per-export state shared by every item's SVG: embedded bitmaps (encoded once) and <defs> keyed by content. */
+export interface SvgEnv {
+  hrefs: Map<HTMLCanvasElement, string>;
+  defs: Map<string, { id: string; markup: string }>;
+}
 
 /** Click-to-place parameters for a shape tool. */
 export interface ClickSpec {

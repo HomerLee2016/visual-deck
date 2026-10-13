@@ -23,6 +23,6 @@ export const groupType: ItemType<GroupItem> = {
   bounds: childBounds,
   hitTest: (it, p, tol) => it.items.some((c) => hitTest(c, p, tol)),
   translate: (it, dx, dy) => ({ ...it, items: it.items.map((c) => translateItem(c, dx, dy)) }),
-  toSvg: (it, hrefs) => `<g${transformAttr(it.transform)}>${it.items.map((c) => typeOf(c).toSvg(c, hrefs)).join('')}</g>`,
+  toSvg: (it, env) => `<g${transformAttr(it.transform)}>${it.items.map((c) => typeOf(c).toSvg(c, env)).join('')}</g>`,
   handles: () => [],
 };
