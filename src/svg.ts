@@ -37,6 +37,7 @@ function itemToSvg(it: Item, hrefs: Map<HTMLCanvasElement, string>): string {
 }
 
 function pathData(it: ShapeItem): string {
+  if (it.kind === 'brush') return it.pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${num(p.x)} ${num(p.y)}`).join(' ');
   const start = `M${num(it.a.x)} ${num(it.a.y)}`;
   const end = `${num(it.b.x)} ${num(it.b.y)}`;
   if (it.kind === 'line') return `${start} L${end}`;

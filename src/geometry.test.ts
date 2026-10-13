@@ -1,9 +1,41 @@
 import { describe, expect, it } from 'vitest';
 import { buildShape, circle3, flatten, hitTest, itemBounds, translateItem } from './geometry';
-import type { ArcItem, CurveItem, LineItem } from './types';
+import type { ArcItem, BrushItem, CurveItem, LineItem } from './types';
 
 const style = { color: '#fff', width: 2 };
 const line: LineItem = { kind: 'line', id: 'l', a: { x: 0, y: 0 }, b: { x: 10, y: 0 }, style };
+const brush: BrushItem = {
+  kind: 'brush',
+  id: 'b',
+  pts: [
+    { x: 0, y: 0 },
+    { x: 5, y: 5 },
+    { x: 10, y: 5 },
+  ],
+  style,
+};
+
+describe('brush', () => {
+  it('flattens to its recorded points', () => {
+    expect(flatten(brush)).toEqual(brush.pts);
+  });
+
+  it('hit-tests along the stroke, not just at its points', () => {
+    expect(hitTest(brush, { x: 7.5, y: 5.5 }, 0.5)).toBe(true);
+    expect(hitTest(brush, { x: 0, y: 10 }, 0.5)).toBe(false);
+  });
+
+  it('bounds cover the stroke plus half its width', () => {
+    expect(itemBounds(brush)).toEqual({ x: -1, y: -1, w: 12, h: 7 });
+  });
+
+  it('translates every point', () => {
+    const moved = translateItem(brush, 2, 3) as BrushItem;
+    expect(moved.pts[0]).toEqual({ x: 2, y: 3 });
+    expect(moved.pts[2]).toEqual({ x: 12, y: 8 });
+    expect(brush.pts[0]).toEqual({ x: 0, y: 0 });
+  });
+});
 
 describe('circle3', () => {
   it('finds the circle through three points', () => {

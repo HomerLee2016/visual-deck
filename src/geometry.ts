@@ -78,6 +78,8 @@ export function flatten(it: ShapeItem): Pt[] {
       return flattenArc(it);
     case 'curve':
       return flattenCurve(it);
+    case 'brush':
+      return it.pts;
   }
 }
 
@@ -156,18 +158,23 @@ export function translateItem(it: Item, dx: number, dy: number): Item {
         c1: mv(it.c1, dx, dy),
         c2: mv(it.c2, dx, dy),
       };
+    case 'brush':
+      return { ...it, pts: it.pts.map((p) => mv(p, dx, dy)) };
   }
 }
 
+/** Shapes placed by clicking points. The brush is drawn by dragging, so it has no point count. */
+export type ClickShapeKind = Exclude<ShapeKind, 'brush'>;
+
 /** Number of clicks/points each shape tool needs. */
-export const POINTS_NEEDED: Record<ShapeKind, number> = { line: 2, arc: 3, curve: 4 };
+export const POINTS_NEEDED: Record<ClickShapeKind, number> = { line: 2, arc: 3, curve: 4 };
 
 /**
  * Build a shape from the points collected so far. Point order is always
  * start, end, then extras (arc: a point on the arc; curve: two control
  * points). With too few points it degrades to a straight preview line.
  */
-export function buildShape(kind: ShapeKind, pts: Pt[], style: Style, id: string): ShapeItem | null {
+export function buildShape(kind: ClickShapeKind, pts: Pt[], style: Style, id: string): ShapeItem | null {
   if (pts.length < 2) return null;
   const [a, b] = pts;
   if (kind === 'arc' && pts.length >= 3) return { kind: 'arc', id, a, b, m: pts[2], style };

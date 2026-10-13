@@ -6,6 +6,7 @@ const TOOL_HELP: Record<ToolId, string> = {
   line: 'Press-drag-release, or click start then click end.',
   arc: 'Drag start→end (or click twice), then click a point the arc passes through.',
   curve: 'Drag start→end (or click twice), then click two control points.',
+  brush: 'Press and drag to paint a freehand stroke. Release to finish. A click leaves a dot.',
 };
 
 /** Tool buttons, stroke style and the copy / paste / delete actions. */
