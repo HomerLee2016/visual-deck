@@ -68,6 +68,7 @@
             <button data-tool="ellipse" title="Ellipse: drag or click two opposite corners of its box (E)">Ellipse<kbd>E</kbd></button>
             <button data-tool="polygon" title="Polygon: click the centre, then a vertex (G)">Polygon<kbd>G</kbd></button>
             <button data-tool="star" title="Star: click the centre, then a point (S)">Star<kbd>S</kbd></button>
+            <button data-tool="text" title="Text: click, then type (T)">Text<kbd>T</kbd></button>
           </div>
           <div id="tool-help" class="hint"></div>
           <label class="field">Corner radius <input id="shape-radius" type="number" min="0" max="512" value="0" /></label>
@@ -121,6 +122,30 @@
               <option value="solid">Solid</option>
               <option value="dashed">Dashed</option>
               <option value="dotted">Dotted</option>
+            </select>
+          </label>
+        </section>
+        <section>
+          <h2>Text</h2>
+          <label class="field">Font
+            <select id="text-font" aria-label="Font family">
+              <option value="sans-serif">Sans-serif</option>
+              <option value="serif">Serif</option>
+              <option value="monospace">Monospace</option>
+            </select>
+          </label>
+          <label class="field">Size <input id="text-size" type="number" min="1" max="512" value="24" /></label>
+          <label class="field">Weight
+            <select id="text-weight" aria-label="Font weight">
+              <option value="400">Normal</option>
+              <option value="700">Bold</option>
+            </select>
+          </label>
+          <label class="field">Align
+            <select id="text-align" aria-label="Text alignment">
+              <option value="left">Left</option>
+              <option value="center">Centre</option>
+              <option value="right">Right</option>
             </select>
           </label>
         </section>

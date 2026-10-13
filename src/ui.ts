@@ -1,13 +1,14 @@
 import './style.css';
-import { Editor } from './editor';
+import { Editor, type TextRequest } from './editor';
 import { fileToCanvas, fileToProject, download, projectToBlob } from './io';
-import { Workspace, imageItem, newLayer } from './model';
+import { Workspace, imageItem, mapItems, newLayer, removeItems, uid } from './model';
 import { $ } from './panels/dom';
 import { PROJECT_EXT } from './project';
 import { HistoryPanel } from './panels/history';
 import { LayersPanel } from './panels/layers';
 import { MenuBar } from './panels/menubar';
 import { ScriptsPanel } from './panels/scripts';
+import { TextInput } from './panels/textinput';
 import { TabBar } from './panels/tabbar';
 import { ToolboxPanel } from './panels/toolbox';
 import { thumbnail } from './render';
@@ -18,6 +19,7 @@ export class App {
   private active!: Workspace;
   private unsub: (() => void) | null = null;
   private editor = new Editor($<HTMLCanvasElement>('view'));
+  private textInput = new TextInput($<HTMLCanvasElement>('view'), (req, text) => this.commitText(req, text));
   private history = new HistoryPanel(() => this.active);
   private layers = new LayersPanel(() => this.active);
   private toolbox = new ToolboxPanel(this.editor, () => this.active);
@@ -40,6 +42,7 @@ export class App {
     this.editor.onStatus = (m) => ($('status').textContent = m);
     this.editor.onUiChange = () => this.toolbox.render();
     this.editor.onImageFile = (f) => void this.pasteImage(f);
+    this.editor.onText = (req) => this.textInput.open(req, this.editor.textStyle, this.editor.style.color);
     new ScriptsPanel(() => this.active, (m) => this.editor.onStatus(m));
 
     this.bindFileDrop();
@@ -106,6 +109,32 @@ export class App {
     } catch (e) {
       this.editor.onStatus(`Could not open ${file.name}: ${e instanceof Error ? e.message : 'unknown error'}`);
     }
+  }
+
+  /** A typed text block is added to the workspace it was started in; an empty edit removes the text. */
+  private commitText(req: TextRequest, text: string): void {
+    const { ws } = req;
+    const value = text.replace(/\s+$/, '');
+    if (req.item) {
+      const ids = new Set([req.item.id]);
+      if (!value.trim()) {
+        ws.selection.delete(req.item.id);
+        ws.edit('Delete text', (s) => removeItems(s, ids));
+      } else {
+        ws.edit('Edit text', (s) => mapItems(s, ids, (it) => (it.kind === 'text' ? { ...it, text: value } : it)));
+      }
+      return;
+    }
+    if (!value.trim()) return;
+    ws.addItem('Text', {
+      kind: 'text',
+      id: uid('item'),
+      x: req.at.x,
+      y: req.at.y,
+      text: value,
+      ...this.editor.textStyle,
+      style: { ...this.editor.style },
+    });
   }
 
   /** Import: each image file becomes its own workspace tab. */

@@ -131,7 +131,26 @@ export interface StarItem {
 }
 
 export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem | EllipseItem | PolygonItem | StarItem;
-export type Item = ShapeItem | ImageItem;
+/** Text block. (x, y) is the top-left of the first line; lines are separated by `\n`. */
+export interface TextItem {
+  kind: 'text';
+  id: string;
+  x: number;
+  y: number;
+  text: string;
+  /** CSS font family, e.g. `sans-serif`. */
+  font: string;
+  /** Font size in document units. */
+  size: number;
+  /** CSS font weight, 100 to 900. */
+  weight: number;
+  align: 'left' | 'center' | 'right';
+  /** Colour comes from `style.color`; stroke and fill settings do not apply to text. */
+  style: Style;
+  transform?: Matrix;
+}
+
+export type Item = ShapeItem | ImageItem | TextItem;
 export type ShapeKind = ShapeItem['kind'];
 
 export interface Layer {
