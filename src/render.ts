@@ -116,6 +116,8 @@ export interface Scene {
   style: Style;
   /** Selection box in document space, while dragging one. */
   marquee: Rect | null;
+  /** Brush size preview: the stroke width as a circle around the pointer, in document space. */
+  brushCursor: { at: Pt; width: number } | null;
 }
 
 const checkerPatterns = new WeakMap<CanvasRenderingContext2D, CanvasPattern>();
@@ -174,7 +176,20 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
     ctx.globalAlpha = 1;
   }
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);
+  if (scene.brushCursor) drawBrushCursor(ctx, scene.brushCursor, zoom);
   ctx.restore();
+}
+
+/** Brush outline: a dark ring under a white one, so it shows on both light and dark content. */
+function drawBrushCursor(ctx: CanvasRenderingContext2D, c: { at: Pt; width: number }, zoom: number): void {
+  ctx.beginPath();
+  ctx.arc(c.at.x, c.at.y, c.width / 2, 0, Math.PI * 2);
+  ctx.lineWidth = 3 / zoom;
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.stroke();
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = '#fff';
+  ctx.stroke();
 }
 
 function drawDraft(ctx: CanvasRenderingContext2D, draft: DraftPreview, style: Style, zoom: number): void {
