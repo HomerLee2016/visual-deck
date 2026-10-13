@@ -9,19 +9,21 @@ export class LayersPanel {
     $('layer-del').onclick = () => this.active().removeLayer(this.active().activeLayer.id);
     $('layer-toggle-all').onclick = () => {
       const ws = this.active();
-      ws.setAllLayersVisible(!ws.state.layers.every((l) => l.visible));
+      // Any visible layer means "all shown" (eye), so the click hides everything. Only all-hidden shows them again.
+      ws.setAllLayersVisible(!ws.state.layers.some((l) => l.visible));
     };
   }
 
   render(): void {
     const ws = this.active();
     const list = $('layers');
-    // One switch for every layer: shows "hide all" while all are visible, otherwise "show all".
-    const allVisible = ws.state.layers.every((l) => l.visible);
+    // One switch for every layer: the open eye while any layer is shown (click hides all),
+    // the ban icon only when every layer is hidden (click shows all).
+    const anyVisible = ws.state.layers.some((l) => l.visible);
     const toggle = $('layer-toggle-all');
-    toggle.textContent = allVisible ? '👁' : '🚫';
-    toggle.title = allVisible ? 'Hide all layers' : 'Show all layers';
-    toggle.setAttribute('aria-pressed', String(allVisible));
+    toggle.textContent = anyVisible ? '👁' : '🚫';
+    toggle.title = anyVisible ? 'Hide all layers' : 'Show all layers';
+    toggle.setAttribute('aria-pressed', String(anyVisible));
     list.replaceChildren();
     // Top of the stack first.
     for (const layer of [...ws.state.layers].reverse()) {

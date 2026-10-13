@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_HISTORY, Workspace, imageItem, mapItems, uid } from './model';
+import { MAX_HISTORY, Workspace, imageItem, layerOfItem, mapItems, sameLayerItemIds, uid } from './model';
 import type { LineItem } from './types';
 
 const mkLine = (): LineItem => ({
@@ -294,5 +294,25 @@ describe('brush point selection', () => {
     ws.selection = new Set([stroke.id]);
     ws.deleteSelected();
     expect(ws.activeLayer.items).toHaveLength(0);
+  });
+});
+
+describe('layer helpers', () => {
+  it('finds the layer holding an item and every item on those layers', () => {
+    const a = mkLine();
+    const b = mkLine();
+    const c = mkLine();
+    const s = {
+      width: 8,
+      height: 8,
+      layers: [
+        { id: 'l1', name: 'one', visible: true, items: [a, b] },
+        { id: 'l2', name: 'two', visible: false, items: [c] },
+      ],
+    };
+    expect(layerOfItem(s, a.id)?.id).toBe('l1');
+    expect(layerOfItem(s, 'missing')).toBeUndefined();
+    expect([...sameLayerItemIds(s, [a.id])].sort()).toEqual([a.id, b.id].sort());
+    expect([...sameLayerItemIds(s, [c.id])]).toEqual([c.id]);
   });
 });

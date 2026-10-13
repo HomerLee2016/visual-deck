@@ -1,4 +1,4 @@
-import type { Editor, ToolId } from '../editor';
+import type { Editor, SelectMode, ToolId } from '../editor';
 import { parseColor, withAlpha } from '../color';
 import type { Style } from '../types';
 import { opacityOf } from '../items/shape';
@@ -18,6 +18,12 @@ const TOOL_HELP: Record<ToolId, string> = {
   pen: 'Click to place corner nodes; drag to make a smooth node. Click the first node or press Enter to finish; Esc finishes an open path.',
   text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
   star: 'Click the centre, then a point. Points and inner radius set below. Shift snaps the angle.',
+};
+
+const SELECT_HELP: Record<SelectMode, string> = {
+  object: 'Click or drag a box to select items across visible layers. Shift adds. Drag to move. Click a point on a selected brush stroke to pick it. Ctrl+C / Ctrl+V.',
+  layer: 'Click an item to select its whole layer and make it the active layer. A box selects every layer it touches. Shift adds.',
+  points: 'Click a point on a brush stroke to select it. Shift adds points. Delete removes the selected points.',
 };
 
 /** Tool buttons, stroke style and the copy / paste / delete actions. */
@@ -212,6 +218,8 @@ export class ToolboxPanel {
     shadow.onchange = () => editor.setStyle({ shadow: shadow.checked ? { dx: 4, dy: 4, blur: 6, color: '#000000' } : undefined }, true);
     $('node-smooth').onclick = () => editor.setNodesSmooth(true);
     $('node-corner').onclick = () => editor.setNodesSmooth(false);
+    const selectMode = $<HTMLSelectElement>('select-mode');
+    selectMode.onchange = () => editor.setSelectMode(selectMode.value as SelectMode);
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
     $('act-delete').onclick = () => editor.deleteSelection();
@@ -221,8 +229,9 @@ export class ToolboxPanel {
     document.querySelectorAll<HTMLButtonElement>('#tools button').forEach((b) => {
       b.classList.toggle('active', b.dataset.tool === this.editor.tool);
     });
-    $('tool-help').textContent = TOOL_HELP[this.editor.tool];
     $<HTMLSelectElement>('fill-paint').value = this.editor.style.fillGradient?.type ?? 'solid';
+    $<HTMLSelectElement>('select-mode').value = this.editor.selectMode;
+    $('tool-help').textContent = this.editor.tool === 'select' ? SELECT_HELP[this.editor.selectMode] : TOOL_HELP[this.editor.tool];
     $('node-actions').hidden = this.editor.tool !== 'node';
     const has = this.active().selection.size > 0;
     $<HTMLButtonElement>('act-copy').disabled = !has;
