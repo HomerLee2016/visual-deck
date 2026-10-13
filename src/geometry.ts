@@ -1,7 +1,7 @@
 import { shapeTypeOf, typeOf } from './items/registry';
 import type { ClickSpec } from './items/types';
 import type { Rect } from './math';
-import type { ImageItem, Item, Pt, ShapeItem, ShapeKind, Style } from './types';
+import type { Item, Pt, ShapeItem, ShapeKind, Style } from './types';
 
 export { circle3, dist, norm, type Circle, type Rect } from './math';
 
@@ -11,7 +11,6 @@ export function flatten(it: ShapeItem): Pt[] {
 }
 
 export function itemBounds(it: Item): Rect {
-  if (it.kind === 'image') return { x: it.x, y: it.y, w: it.canvas.width, h: it.canvas.height };
   return typeOf(it).bounds(it);
 }
 
@@ -24,26 +23,12 @@ export function rectsIntersect(a: Rect, b: Rect): boolean {
   return a.x <= b.x + b.w && b.x <= a.x + a.w && a.y <= b.y + b.h && b.y <= a.y + a.h;
 }
 
-function imageAlphaAt(it: ImageItem, p: Pt): boolean {
-  const px = Math.floor(p.x - it.x);
-  const py = Math.floor(p.y - it.y);
-  if (px < 0 || py < 0 || px >= it.canvas.width || py >= it.canvas.height) return false;
-  try {
-    const ctx = it.canvas.getContext('2d', { willReadFrequently: true });
-    return !ctx || ctx.getImageData(px, py, 1, 1).data[3] > 0;
-  } catch {
-    return true;
-  }
-}
-
 /** `tol` is in document units (callers pass a screen-pixel tolerance divided by zoom). */
 export function hitTest(it: Item, p: Pt, tol: number): boolean {
-  if (it.kind === 'image') return imageAlphaAt(it, p);
   return typeOf(it).hitTest(it, p, tol);
 }
 
 export function translateItem(it: Item, dx: number, dy: number): Item {
-  if (it.kind === 'image') return { ...it, x: it.x + dx, y: it.y + dy };
   return typeOf(it).translate(it, dx, dy);
 }
 

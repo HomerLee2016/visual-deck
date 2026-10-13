@@ -16,5 +16,5 @@ export const lineType = defineShape<LineItem>({
   pathData: (it) => `M${num(it.a.x)} ${num(it.a.y)} L${num(it.b.x)} ${num(it.b.y)}`,
   mapPoints: (it, fn) => ({ ...it, a: fn(it.a), b: fn(it.b) }),
   handles: (it) => [it.a, it.b],
-  clicks: { needed: 2, build: lineFrom },
+  clicks: { label: 'Line', needed: 2, hint: () => 'Click the end point', build: lineFrom },
 });
