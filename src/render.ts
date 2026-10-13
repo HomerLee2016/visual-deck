@@ -2,6 +2,7 @@ import { buildShape, itemBounds } from './geometry';
 import { typeOf } from './items/registry';
 import { apply } from './matrix';
 import type { ClickShapeKind, Rect } from './geometry';
+import type { ShapeParams } from './items/types';
 import type { DocState, Item, Pt, Style } from './types';
 import type { Size, View } from './view';
 
@@ -114,6 +115,8 @@ export interface Scene {
   stroke: Pt[] | null;
   /** Style of the shape being drawn. */
   style: Style;
+  /** Creation-time settings for the shape being drawn. */
+  params: ShapeParams;
   /** Selection box in document space, while dragging one. */
   marquee: Rect | null;
 }
@@ -167,7 +170,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.strokeRect(0, 0, width, height);
 
   drawSelection(ctx, scene.selected, zoom, scene.selectedPoints);
-  if (scene.draft) drawDraft(ctx, scene.draft, scene.style, zoom);
+  if (scene.draft) drawDraft(ctx, scene.draft, scene.style, scene.params, zoom);
   if (scene.stroke) {
     ctx.globalAlpha = 0.8;
     drawItem(ctx, { kind: 'brush', id: 'preview', pts: scene.stroke, style: scene.style });
@@ -177,9 +180,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.restore();
 }
 
-function drawDraft(ctx: CanvasRenderingContext2D, draft: DraftPreview, style: Style, zoom: number): void {
+function drawDraft(ctx: CanvasRenderingContext2D, draft: DraftPreview, style: Style, params: ShapeParams, zoom: number): void {
   // The hovered position stands in for the next point to be placed.
-  const shape = buildShape(draft.kind, [...draft.pts, draft.hover], style, 'preview');
+  const shape = buildShape(draft.kind, [...draft.pts, draft.hover], style, 'preview', params);
   if (shape) {
     ctx.globalAlpha = 0.8;
     drawItem(ctx, shape);

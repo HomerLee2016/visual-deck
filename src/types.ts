@@ -78,7 +78,20 @@ export interface BrushItem {
   transform?: Matrix;
 }
 
-export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem;
+/** Axis-aligned rectangle; (x, y) is the top-left corner, `r` the corner radius. */
+export interface RectItem {
+  kind: 'rect';
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  r: number;
+  style: Style;
+  transform?: Matrix;
+}
+
+export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem;
 export type Item = ShapeItem | ImageItem;
 export type ShapeKind = ShapeItem['kind'];
 

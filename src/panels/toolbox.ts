@@ -10,6 +10,7 @@ const TOOL_HELP: Record<ToolId, string> = {
   arc: 'Drag start→end (or click twice), then click a point the arc passes through.',
   curve: 'Drag start→end (or click twice), then click two control points.',
   brush: 'Press and drag to paint a freehand stroke. Release to finish. A click leaves a dot.',
+  rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
 };
 
 /** Tool buttons, stroke style and the copy / paste / delete actions. */
@@ -98,6 +99,13 @@ export class ToolboxPanel {
       const w = editor.style.width;
       const dash = { solid: undefined, dashed: [4 * w, 2 * w], dotted: [w, 2 * w] }[dashSel.value as 'solid' | 'dashed' | 'dotted'];
       editor.setStyle({ dash }, true);
+    };
+    const radius = $<HTMLInputElement>('shape-radius');
+    radius.value = String(editor.params.radius);
+    radius.onchange = () => {
+      const r = Math.min(512, Math.max(0, Number(radius.value) || 0));
+      radius.value = String(r);
+      editor.setParams({ radius: r });
     };
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
