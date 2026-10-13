@@ -40,7 +40,8 @@ input[type='text'], input[type='number'], select, textarea {
 input[type='color'] { padding: 0; border: 1px solid var(--border); background: none; width: 40px; height: 24px; }
 .width-controls { display: flex; align-items: center; gap: 6px; }
 .width-controls input[type='range'] { width: 90px; margin: 0; }
-.width-controls input[type='number'] { width: 52px; }
+.width-controls input[type='number'] { width: 58px; }
+.width-controls input.num-slider { width: 80px; min-width: 0; }
 h2 {
   margin: 0;
   padding: 6px 10px;
@@ -302,18 +303,18 @@ pre { white-space: pre-wrap; font: 11px/1.5 ui-monospace, Menlo, Consolas, monos
   transform-origin: top left;
 }
 
-.geo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; padding: 6px 8px; }
+.geo-grid { display: grid; grid-template-columns: 1fr; gap: 2px; padding: 4px 0; }
 .geo-grid .field { font-size: 11px; }
-.geo-grid input[type='number'] { width: 100%; box-sizing: border-box; }
+
 
 .arrange-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px 8px; }
 .arrange-grid button { font-size: 11px; padding: 3px 0; }
-.offset-field input { width: 56px; }
-.arrange-grid .offset-field { grid-column: span 2; }
+.offset-field input[type='number'] { width: 52px; }
+.arrange-grid .offset-field { grid-column: span 3; padding: 0; }
 
 .grad-editor { padding: 0 8px 6px; }
 .grad-stop { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-.grad-stop input[type='number'] { width: 56px; }
+.grad-stop input[type='range'] { width: 90px; }
 
 .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; padding: 6px 8px; }
 .swatch { width: 100%; aspect-ratio: 1; min-height: 0; padding: 0; border: 1px solid var(--border); border-radius: 3px; cursor: pointer; }

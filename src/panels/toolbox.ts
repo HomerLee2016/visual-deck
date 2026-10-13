@@ -170,7 +170,7 @@ export class ToolboxPanel {
         const row = document.createElement('div');
         row.className = 'grad-stop';
         const color = Object.assign(document.createElement('input'), { type: 'color', value: stop.color, title: 'Stop colour' });
-        const offset = Object.assign(document.createElement('input'), { type: 'number', min: 0, max: 100, step: 1, value: String(Math.round(stop.offset * 100)), title: 'Stop position (%)' });
+        const offset = Object.assign(document.createElement('input'), { type: 'range', min: 0, max: 100, step: 1, value: String(Math.round(stop.offset * 100)), title: 'Stop position (%)' });
         const remove = Object.assign(document.createElement('button'), { type: 'button', textContent: '×', title: 'Remove stop', disabled: g.stops.length <= 2 });
         const update = (apply: boolean) => {
           const stops = editor.style.fillGradient!.stops.map((s, j) =>

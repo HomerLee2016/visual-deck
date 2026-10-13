@@ -109,7 +109,7 @@
                 <button data-simplify="1" title="Simplify selected freehand strokes into fewer nodes">Simplify</button>
                 <button data-outline="1" title="Turn each selected stroke into a filled outline">Outline</button>
                 <button data-offset="1" title="Grow (positive) or shrink (negative) the selected paths by this distance">Offset</button>
-                <label class="field offset-field">by <input id="offset-dist" type="number" step="any" value="4" /></label>
+                <label class="field offset-field">by <input id="offset-dist" type="number" min="-64" max="64" step="any" value="4" /></label>
                 <button data-share="fill" title="Share the selection's fill as a definition that can be edited for all users">Share fill</button>
                 <button data-share="stroke" title="Share the selection's stroke as a definition">Share stroke</button>
                 <button data-unshare="1" title="Replace shared fills and strokes with their values">Unshare</button>
