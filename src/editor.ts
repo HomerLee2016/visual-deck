@@ -267,7 +267,9 @@ export class Editor {
     this.canvas.style.width = `${p.clientWidth}px`;
     this.canvas.style.height = `${p.clientHeight}px`;
     if (this.ws && !this.ws.view.fitted) this.fit();
-    this.requestRender();
+    // Draw now, not on the next frame: setting canvas.width just cleared it, and a deferred draw
+    // lets the browser paint a blank canvas while a sidebar is being dragged.
+    this.render();
   }
 
   /** Canvas size in CSS pixels. */
