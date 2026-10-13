@@ -36,10 +36,11 @@ export async function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
   return c;
 }
 
-export function exportDocument(s: DocState, format: ExportFormat): Promise<Blob> {
+/** Export as SVG (vector, `scale` ignored) or PNG at `scale` times the document size. */
+export function exportDocument(s: DocState, format: ExportFormat, scale = 1): Promise<Blob> {
   if (format === 'svg') return Promise.resolve(new Blob([toSvg(s)], { type: 'image/svg+xml' }));
   return new Promise((resolve, reject) =>
-    renderToCanvas(s).toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png'),
+    renderToCanvas(s, undefined, scale).toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png'),
   );
 }
 
