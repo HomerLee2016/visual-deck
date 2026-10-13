@@ -1,12 +1,13 @@
 import './style.css';
 import { Editor, type TextRequest } from './editor';
-import { fileToCanvas, fileToProject, download, projectToBlob } from './io';
+import { fileToCanvas, fileToProject, download, domCodec, projectToBlob } from './io';
+import { AUTOSAVE_KEY, parseSession, serializeSession } from './autosave';
 import { resizeDocument } from './arrange';
 import { importSvg } from './svgimport';
 import { CodePanel } from './panels/code';
 import { Workspace, imageItem, mapItems, newLayer, removeItems, uid } from './model';
 import { $ } from './panels/dom';
-import { PROJECT_EXT } from './project';
+import { PROJECT_EXT, type Project } from './project';
 import { HistoryPanel } from './panels/history';
 import { LayersPanel } from './panels/layers';
 import { MenuBar } from './panels/menubar';
@@ -28,6 +29,9 @@ export class App {
   private workspaces: Workspace[] = [];
   private active!: Workspace;
   private unsub: (() => void) | null = null;
+  /** True until the autosaved session has been read, so the placeholder tab is not written over it. */
+  private restoring = true;
+  private autosaveTimer = 0;
   private editor = new Editor($<HTMLCanvasElement>('view'));
   private textInput = new TextInput($<HTMLCanvasElement>('view'), (req, text) => this.commitText(req, text));
   private history = new HistoryPanel(() => this.active);
@@ -71,10 +75,56 @@ export class App {
 
     this.bindFileDrop();
     window.addEventListener('beforeunload', (e) => {
+      this.writeAutosave();
       if (this.workspaces.some((w) => w.dirty)) e.preventDefault();
     });
 
     this.addWorkspace(this.newWorkspace('Untitled', 512, 512));
+    void this.restoreSession();
+  }
+
+  /** Keep the open tabs in browser storage, a moment after the last change. */
+  private scheduleAutosave(): void {
+    if (this.restoring) return;
+    clearTimeout(this.autosaveTimer);
+    this.autosaveTimer = window.setTimeout(() => this.writeAutosave(), 500);
+  }
+
+  private writeAutosave(): void {
+    if (this.restoring) return;
+    clearTimeout(this.autosaveTimer);
+    try {
+      const text = serializeSession(this.workspaces, this.workspaces.indexOf(this.active), domCodec);
+      localStorage.setItem(AUTOSAVE_KEY, text);
+    } catch {
+      this.editor.onStatus('Autosave failed: browser storage is full or blocked');
+    }
+  }
+
+  /** Reopen the tabs from the last session. Replaces the placeholder tab only if it is untouched. */
+  private async restoreSession(): Promise<void> {
+    try {
+      const text = localStorage.getItem(AUTOSAVE_KEY);
+      if (text) {
+        const { projects, active } = await parseSession(text, domCodec);
+        if (this.workspaces.length === 1 && !this.workspaces[0].dirty) this.workspaces.length = 0;
+        for (const p of projects) this.workspaces.push(this.workspaceFromProject(p));
+        this.activate(this.workspaces[active]);
+        this.editor.onStatus(`Restored ${projects.length} autosaved tab${projects.length === 1 ? '' : 's'}`);
+      }
+    } catch {
+      this.editor.onStatus('Could not restore the autosaved session');
+    } finally {
+      this.restoring = false;
+      this.scheduleAutosave();
+    }
+  }
+
+  private workspaceFromProject(p: Project): Workspace {
+    const { width, height } = p.history[0].state;
+    const ws = this.newWorkspace(p.name, width, height);
+    ws.restore(p.history, p.index, p.activeLayerId, p.view, p.palette);
+    return ws;
   }
 
   private newWorkspace(name: string, w: number, h: number, layers = [newLayer('Layer 1')]): Workspace {
@@ -90,6 +140,7 @@ export class App {
     this.unsub?.();
     this.active = ws;
     this.unsub = ws.subscribe(() => {
+      this.scheduleAutosave();
       this.tabs.render();
       this.history.render();
       this.layers.render();
@@ -107,6 +158,7 @@ export class App {
     this.grid.render();
     this.palette.render();
     this.symbols.render();
+    this.scheduleAutosave();
   }
 
   private closeWorkspace(ws: Workspace): void {
@@ -116,6 +168,7 @@ export class App {
     if (this.workspaces.length === 0) this.addWorkspace(this.newWorkspace('Untitled', 512, 512));
     else if (ws === this.active) this.activate(this.workspaces[Math.max(0, i - 1)]);
     else this.tabs.render();
+    this.scheduleAutosave();
   }
 
   /** Save the active workspace (document, history, view) as a .vdeck file. */
@@ -133,11 +186,7 @@ export class App {
   /** Open a saved project in a new tab, restoring its history and view. */
   private async openProject(file: File): Promise<void> {
     try {
-      const p = await fileToProject(file);
-      const { width, height } = p.history[0].state;
-      const ws = this.newWorkspace(p.name, width, height);
-      ws.restore(p.history, p.index, p.activeLayerId, p.view, p.palette);
-      this.addWorkspace(ws);
+      this.addWorkspace(this.workspaceFromProject(await fileToProject(file)));
     } catch (e) {
       this.editor.onStatus(`Could not open ${file.name}: ${e instanceof Error ? e.message : 'unknown error'}`);
     }

@@ -54,7 +54,7 @@ export function download(blob: Blob, filename: string): void {
 
 export const isProjectFile = (file: File) => file.name.toLowerCase().endsWith(PROJECT_EXT);
 
-const domCodec: ImageCodec = {
+export const domCodec: ImageCodec = {
   encode: (c) => c.toDataURL('image/png'),
   decode: async (data) => {
     const img = new Image();
