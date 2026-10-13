@@ -265,3 +265,7 @@ pre { white-space: pre-wrap; font: 11px/1.5 ui-monospace, Menlo, Consolas, monos
 .arrange-grid button { font-size: 11px; padding: 3px 0; }
 .offset-field input { width: 56px; }
 .arrange-grid .offset-field { grid-column: span 2; }
+
+.grad-editor { padding: 0 8px 6px; }
+.grad-stop { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.grad-stop input[type='number'] { width: 56px; }

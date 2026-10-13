@@ -116,6 +116,8 @@ export interface Scene {
   aids: ViewAids;
   /** The path being edited in the node tool, with its selected node keys. */
   nodeEdit: { item: PathItem; sel: Set<string> } | null;
+  /** Gradient handle pairs of the selection, in document space. */
+  gradientLines: { a: Pt; b: Pt }[];
   /** A path being drawn with the pen: its nodes, and the pointer after the last one. */
   penDraft: { nodes: PathNode[]; hover: Pt } | null;
   /** A guide being dragged out of a ruler. */
@@ -187,6 +189,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   if (scene.handles) drawHandles(ctx, scene.handles, zoom);
   if (scene.penDraft) drawPenDraft(ctx, scene.penDraft, scene.style, zoom);
   if (scene.nodeEdit) drawNodeEdit(ctx, scene.nodeEdit.item, scene.nodeEdit.sel, zoom);
+  drawGradientLines(ctx, scene.gradientLines, zoom);
   ctx.restore();
   drawRulers(ctx, scene.view, scene.size);
 }
@@ -279,6 +282,28 @@ function drawRulers(ctx: CanvasRenderingContext2D, view: View, size: Size): void
     ctx.restore();
   }
   ctx.stroke();
+  ctx.restore();
+}
+
+/** Gradient handles: a line joining the two handles, with a dot on each. */
+function drawGradientLines(ctx: CanvasRenderingContext2D, lines: { a: Pt; b: Pt }[], zoom: number): void {
+  const r = 4 / zoom;
+  ctx.save();
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = GUIDE;
+  ctx.fillStyle = '#fff';
+  for (const { a, b } of lines) {
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+    for (const p of [a, b]) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
   ctx.restore();
 }
 
