@@ -33,11 +33,11 @@
       </header>
 
       <aside id="left">
-        <section id="history-panel">
+        <section id="history-panel" data-id="history">
           <h2>History <span class="hint">Ctrl+Z / Ctrl+Shift+Z</span></h2>
           <ol id="history"></ol>
         </section>
-        <section id="layers-panel">
+        <section id="layers-panel" data-id="layers">
           <h2>Layers</h2>
           <div id="layers-all"><button id="layer-toggle-all" class="eye"></button><span>All layers</span></div>
           <ul id="layers"></ul>
@@ -50,6 +50,7 @@
           </div>
         </section>
       </aside>
+      <div id="resize-left" class="resizer" role="separator" aria-orientation="vertical" aria-label="Resize left sidebar" title="Drag to resize"></div>
 
       <main id="stage">
         <canvas id="view"></canvas>
@@ -60,8 +61,10 @@
         </div>
       </main>
 
+      <div id="resize-right" class="resizer" role="separator" aria-orientation="vertical" aria-label="Resize right sidebar" title="Drag to resize"></div>
+
       <aside id="right">
-        <section>
+        <section data-id="tools" data-fixed>
           <h2>Tools</h2>
           <div id="tools" class="tool-grid">
             <button data-tool="select" title="Select (V)">Select<kbd>V</kbd></button>
@@ -77,6 +80,13 @@
             <button data-tool="pen" title="Pen: click for corners, drag for smooth nodes, Enter to finish (P)">Pen<kbd>P</kbd></button>
             <button data-tool="node" title="Node: edit a path's nodes and handles (N)">Node<kbd>N</kbd></button>
           </div>
+          <label class="field">Select mode
+            <select id="select-mode" aria-label="Select mode">
+              <option value="object">Object</option>
+              <option value="layer">Layer</option>
+              <option value="points">Points</option>
+            </select>
+          </label>
           <div id="tool-help" class="hint"></div>
           <div id="node-actions" class="row" hidden>
             <button id="node-smooth" title="Make the selected nodes smooth">Smooth</button>
@@ -86,7 +96,7 @@
           <label class="field">Sides / points <input id="shape-sides" type="number" min="3" max="64" value="6" /></label>
           <label class="field">Star inner radius <input id="shape-inner" type="number" min="5" max="100" value="50" />%</label>
         </section>
-        <section>
+        <section data-id="stroke">
           <h2>Stroke</h2>
           <label class="field">Color <input id="stroke-color" type="color" value="#ffcc00" /></label>
           <label class="field">Opacity
@@ -179,7 +189,7 @@
             </select>
           </label>
         </section>
-        <section>
+        <section data-id="text">
           <h2>Text</h2>
           <label class="field">Font
             <select id="text-font" aria-label="Font family">
@@ -203,7 +213,7 @@
             </select>
           </label>
         </section>
-        <section>
+        <section data-id="geometry">
           <h2>Geometry</h2>
           <div class="geo-grid">
             <label class="field">X <input id="geo-x" type="number" step="any" disabled /></label>
@@ -213,7 +223,7 @@
             <label class="field">Rotate° <input id="geo-rot" type="number" step="any" disabled /></label>
           </div>
         </section>
-        <section>
+        <section data-id="arrange">
           <h2>Arrange</h2>
           <div id="arrange" class="arrange-grid">
             <button data-align="left" title="Align left edges">Left</button>
@@ -246,17 +256,17 @@
             <button data-release="1" title="Release the clip or mask from the selection">Release</button>
           </div>
         </section>
-        <section>
+        <section data-id="swatches">
           <h2>Swatches <button id="swatch-add" title="Save the current stroke colour as a swatch">+</button></h2>
           <div id="swatches" class="swatches"></div>
           <p class="hint">Click applies the colour to the stroke of the selection. Alt-click sets the fill. Right-click removes a swatch.</p>
         </section>
-        <section>
+        <section data-id="symbols">
           <h2>Symbols <button id="symbol-make" title="Save the selection as a symbol">Make</button></h2>
           <div id="symbol-list" class="symbol-list"></div>
           <p class="hint">Make replaces the selection with an instance. Place adds another instance at the centre; instances follow their symbol.</p>
         </section>
-        <section>
+        <section data-id="grid">
           <h2>Grid &amp; guides</h2>
           <label class="check"><input id="grid-show" type="checkbox" /> Show grid</label>
           <label class="check"><input id="grid-snap" type="checkbox" /> Snap moves to grid and guides</label>
@@ -264,7 +274,7 @@
           <div class="row"><button id="guides-clear">Clear guides</button></div>
           <p class="hint">Drag from the top or left ruler to make a guide.</p>
         </section>
-        <section>
+        <section data-id="selection">
           <h2>Selection</h2>
           <div class="row">
             <button id="act-copy">Copy</button>
@@ -272,7 +282,7 @@
             <button id="act-delete">Delete</button>
           </div>
         </section>
-        <section>
+        <section data-id="scripts" data-fixed>
           <h2>Scripts <button id="script-add" title="New script button">+</button></h2>
           <div id="scripts"></div>
         </section>

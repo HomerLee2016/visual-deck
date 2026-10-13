@@ -7,6 +7,9 @@
   --muted: #8d8d99;
   --accent: #4da3ff;
   --danger: #ff6b6b;
+  /* Sidebar widths; set from the saved layout by panels/resizer.ts. */
+  --left-w: 240px;
+  --right-w: 210px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -47,10 +50,17 @@ h2 {
   color: var(--muted);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
   background: var(--panel-2);
+  user-select: none;
 }
-h2 button { padding: 0 8px; }
+h2 button { padding: 0 8px; margin-left: auto; }
+h2 .hint { margin-left: auto; }
+/* Collapsible sections: the caret sits before the title; Tools and Scripts have none. */
+section[data-id]:not([data-fixed]) > h2 { cursor: pointer; }
+section[data-id]:not([data-fixed]) > h2::before { content: '▾'; color: var(--muted); width: 8px; }
+section[data-id].collapsed > h2::before { content: '▸'; }
+section[data-id].collapsed > :not(h2) { display: none; }
 .hint { color: var(--muted); font-size: 11px; font-weight: normal; text-transform: none; letter-spacing: 0; }
 .spacer { flex: 1; }
 .row { display: flex; gap: 6px; padding: 6px 8px; align-items: center; }
@@ -60,10 +70,18 @@ h2 button { padding: 0 8px; }
 #app {
   display: grid;
   height: 100%;
-  grid-template-columns: 240px 1fr 210px;
+  grid-template-columns: var(--left-w) 6px 1fr 6px var(--right-w);
   grid-template-rows: 28px 36px 1fr;
-  grid-template-areas: 'menubar menubar menubar' 'tabbar tabbar tabbar' 'left stage right';
+  grid-template-areas:
+    'menubar menubar menubar menubar menubar'
+    'tabbar tabbar tabbar tabbar tabbar'
+    'left rl stage rr right';
 }
+/* Drag handles between the sidebars and the stage. */
+.resizer { background: var(--border); cursor: col-resize; touch-action: none; transition: background 0.1s; }
+.resizer:hover, .resizer.active { background: var(--accent); }
+#resize-left { grid-area: rl; }
+#resize-right { grid-area: rr; }
 [hidden] { display: none !important; }
 #menubar {
   grid-area: menubar;
@@ -128,11 +146,13 @@ aside {
   flex-direction: column;
   min-height: 0;
 }
-#left { grid-area: left; border-right: 1px solid var(--border); }
-#right { grid-area: right; border-left: 1px solid var(--border); overflow-y: auto; }
+#left { grid-area: left; }
+#right { grid-area: right; overflow-y: auto; }
 #left section { display: flex; flex-direction: column; min-height: 0; }
 #history-panel { flex: 1 1 50%; border-bottom: 1px solid var(--border); }
 #layers-panel { flex: 1 1 50%; }
+/* A collapsed left section keeps only its heading; the other one takes the space. */
+#left section.collapsed { flex: 0 0 auto; }
 #layers-panel .row { flex-wrap: wrap; }
 #history, #layers { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
 

@@ -20,6 +20,8 @@ import { TextInput } from './panels/textinput';
 import { TabBar } from './panels/tabbar';
 import { ToolboxPanel } from './panels/toolbox';
 import { thumbnail } from './render';
+import { initCollapsible } from './panels/collapsible';
+import { SidebarResizer } from './panels/resizer';
 
 /** Owns the open workspaces and wires the editor to the panels. */
 export class App {
@@ -64,6 +66,8 @@ export class App {
     this.editor.onText = (req) => this.textInput.open(req, this.editor.textStyle, this.editor.style.color);
     new ScriptsPanel(() => this.active, (m) => this.editor.onStatus(m));
     new CodePanel(() => this.active);
+    new SidebarResizer();
+    initCollapsible();
 
     this.bindFileDrop();
     window.addEventListener('beforeunload', (e) => {

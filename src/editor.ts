@@ -18,7 +18,7 @@ import { groupItems, ungroupItems } from './arrange';
 import { RULER_PX } from './render';
 import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
-import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
+import { DEFAULT_STYLE, Workspace, layerOfItem, mapItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
 import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeKind, Style, TextItem } from './types';
 import { deleteNodes, insertNode, moveHandle, moveNodes, nearestSegment, nodeKey, setSmooth } from './nodes';
@@ -28,6 +28,9 @@ import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
 export type ToolId = 'select' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node';
+
+/** What the Select tool picks: whole items, every item on a layer, or brush-stroke points. */
+export type SelectMode = 'object' | 'layer' | 'points';
 
 export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node' };
 
@@ -90,6 +93,7 @@ const styleOf = (it: Item) => ('style' in it ? it.style : undefined);
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
   tool: ToolId = 'select';
+  selectMode: SelectMode = 'object';
   style: Style = { ...DEFAULT_STYLE };
   /** Creation-time settings for click-placed shapes (corner radius, polygon sides, star depth). */
   params: ShapeParams = { ...DEFAULT_SHAPE_PARAMS };
@@ -163,6 +167,12 @@ export class Editor {
     this.cancelInteraction();
     this.tool = t;
     this.canvas.style.cursor = t === 'select' ? 'default' : 'crosshair';
+    this.onUiChange();
+  }
+
+  setSelectMode(mode: SelectMode): void {
+    this.cancelInteraction();
+    this.selectMode = mode;
     this.onUiChange();
   }
 
@@ -433,6 +443,54 @@ export class Editor {
   }
 
   private selectDown(p: Pt, shift: boolean): void {
+    if (this.selectMode === 'points') this.selectPointsDown(p, shift);
+    else if (this.selectMode === 'layer') this.selectLayerDown(p, shift);
+    else this.selectObjectDown(p, shift);
+  }
+
+  /** Points mode: click picks one point on any visible brush stroke. Empty space clears the selection. */
+  private selectPointsDown(p: Pt, shift: boolean): void {
+    const tol = PICK_TOLERANCE_PX / this.ws.view.zoom;
+    for (const it of visibleItemsTopFirst(this.ws.state)) {
+      if (it.kind !== 'brush') continue;
+      const index = it.pts.findIndex((q) => dist(p, q) <= tol);
+      if (index >= 0) {
+        this.selectPoint(it.id, index, shift);
+        return;
+      }
+    }
+    if (!shift) {
+      this.ws.selection.clear();
+      this.ws.pointSelection.clear();
+    }
+    this.afterSelectionChange();
+  }
+
+  /** Layer mode: click selects every item on the clicked item's layer and makes that layer active. */
+  private selectLayerDown(p: Pt, shift: boolean): void {
+    const sel = this.ws.selection;
+    this.ws.pointSelection.clear();
+    const hit = this.pick(p);
+    const layer = hit && layerOfItem(this.ws.state, hit.id);
+    if (layer) {
+      this.ws.activeLayerId = layer.id;
+      const ids = sameLayerItemIds(this.ws.state, [hit.id]);
+      // Shift-click on a layer that is fully selected deselects it.
+      if (shift && [...ids].every((id) => sel.has(id))) {
+        for (const id of ids) sel.delete(id);
+      } else {
+        if (!shift) sel.clear();
+        for (const id of ids) sel.add(id);
+        this.drag = { mode: 'move', origin: p, base: this.ws.state, moved: false, box: this.selectionBox() };
+      }
+    } else {
+      if (!shift) sel.clear();
+      this.drag = { mode: 'marquee', origin: p, cur: p, additive: shift, baseSel: new Set(sel) };
+    }
+    this.afterSelectionChange();
+  }
+
+  private selectObjectDown(p: Pt, shift: boolean): void {
     const point = this.pickPoint(p);
     if (point) {
       this.selectPoint(point.id, point.index, shift);
@@ -699,7 +757,10 @@ export class Editor {
       d.cur = p;
       const r = rectFromPoints(d.origin, p);
       const next = new Set(d.baseSel);
-      for (const it of visibleItemsTopFirst(this.ws.state)) if (rectsIntersect(itemBounds(it), r)) next.add(it.id);
+      const hits = visibleItemsTopFirst(this.ws.state).filter((it) => rectsIntersect(itemBounds(it), r)).map((it) => it.id);
+      // Layer mode: a box that touches an item selects that item's whole layer.
+      const picked = this.selectMode === 'layer' ? sameLayerItemIds(this.ws.state, hits) : hits;
+      for (const id of picked) next.add(id);
       this.ws.selection = next;
     }
     this.requestRender();

@@ -56,6 +56,21 @@ export function visibleItemsTopFirst(s: DocState): Item[] {
   return out;
 }
 
+/** The layer that holds the item with this id, if any. */
+export function layerOfItem(s: DocState, id: string): Layer | undefined {
+  return s.layers.find((l) => l.items.some((it) => it.id === id));
+}
+
+/** Ids of every item on the layers that hold any of `ids` (used by layer-mode selection). */
+export function sameLayerItemIds(s: DocState, ids: Iterable<string>): Set<string> {
+  const out = new Set<string>();
+  for (const id of ids) {
+    const layer = layerOfItem(s, id);
+    if (layer) for (const it of layer.items) out.add(it.id);
+  }
+  return out;
+}
+
 export function removeItems(s: DocState, ids: ReadonlySet<string>): DocState {
   return { ...s, layers: s.layers.map((l) => ({ ...l, items: l.items.filter((it) => !ids.has(it.id)) })) };
 }
