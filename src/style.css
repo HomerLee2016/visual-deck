@@ -275,3 +275,6 @@ pre { white-space: pre-wrap; font: 11px/1.5 ui-monospace, Menlo, Consolas, monos
 .symbol-list { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; }
 .anchor-grid { display: grid; grid-template-columns: repeat(3, 28px); gap: 4px; width: max-content; margin: 6px 0; }
 .anchor-grid label { display: flex; justify-content: center; }
+
+.code-dialog { width: min(720px, 92vw); }
+#code-text { width: 100%; box-sizing: border-box; font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; background: var(--bg); color: inherit; border: 1px solid var(--border); border-radius: 4px; padding: 6px; resize: vertical; }

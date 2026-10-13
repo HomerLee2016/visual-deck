@@ -20,6 +20,7 @@
             <button id="menu-export">Export…</button>
             <hr />
             <button id="menu-size">Document size…</button>
+            <button id="menu-code">SVG code…</button>
           </div>
         </div>
         <input id="file-input" type="file" accept="image/*,.svg" multiple hidden />
@@ -300,6 +301,18 @@
         <div class="row end">
           <button type="button" id="export-cancel">Cancel</button>
           <button type="submit">Export</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="code-dialog" class="code-dialog">
+      <form method="dialog" id="code-form">
+        <h3>SVG code</h3>
+        <textarea id="code-text" spellcheck="false" rows="20" aria-label="SVG source"></textarea>
+        <p id="code-note" class="hint"></p>
+        <div class="row end">
+          <button type="button" id="code-close">Close</button>
+          <button type="button" id="code-apply">Apply</button>
         </div>
       </form>
     </dialog>
