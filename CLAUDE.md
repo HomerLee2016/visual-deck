@@ -3,30 +3,30 @@
 - Start every answer with a 1–2 sentence summary that directly answers the question.
 - Put details, steps, and explanations after it.
 
-# Unit tests
+# About this project
 
-After any change under `game/`, run the tests before reporting done:
+- Visual Deck: a lightweight browser image tool for making mobile-game art/assets (used alongside another game repo).
+- Stack: TypeScript + Vite, no UI framework, plain DOM + Canvas 2D. Keep dependencies minimal.
+- Run: `npm install`, `npm run dev`.
 
-- Working directory: `game/`
-- Command (PowerShell): `godot --headless -s unit_tests/test_runner.gd`
-- Report the result. If tests fail, show the failing test classes.
+# Checks (run before reporting done)
 
-# Replay regression
+- Typecheck: `npm run typecheck`
+- Unit tests: `npm test`
+- Production build: `npm run build`
+- For UI changes, also drive the app in a browser (Playwright/Chromium) and look at a screenshot.
+- Report each result; show the failures if any check fails.
 
-- Recorded battles in `game/unit_tests/fixtures/replay_regression/` re-simulate and must match their `.expected.json`.
-- After any change under `game/`, also run from `game/`: `godot --headless -s unit_tests/replay_regression_runner.gd`
-- Add a case: copy a replay from `game/mock_server/battle_replay/`, then run `godot --headless -s scripts/tools/write_replay_regression.gd`.
-- Intended simulation change: rewrite with `-- --all`, review the diff, and say why in the PR.
+# Architecture
 
-# Battle data validation
-
-After any change to battle JSON (`game/data/`), `tool/`, or the manifest, run these from the repo root (same as `.github/workflows/validate-battles.yaml`):
-
-- Validator: `python tool/validate_battles.py`
-- Manifest up to date: `python tool/generate_rules_manifest.py rules_v1 --check`
-- Manifest and validator tests: `python -m unittest discover -s tool/tests -t tool/tests`
-- If the change also touches `game/`, run the unit tests too.
-- Report each result; show the errors if any check fails.
+- `src/types.ts`: item/layer/document types. `DocState` is **immutable**: never mutate it, build a new one.
+- `src/model.ts`: `Workspace` (one tab): state, selection, history snapshots (with thumbnails), layer/item operations. No DOM here, so it is unit-testable.
+- `src/geometry.ts`: arc/curve math, hit-testing, bounds. Pure functions.
+- `src/render.ts`: canvas drawing, thumbnails, selection overlay.
+- `src/editor.ts`: main canvas input (tools, select/move/copy/paste/delete, zoom/pan, shortcuts).
+- `src/scripting.ts`: the `deck` API and script runner. Scripts are JavaScript, saved in `localStorage`.
+- `src/ui.ts`: DOM panels (tabs, history, layers, toolbox, script dialog).
+- Edits go through `Workspace.edit(label, fn)`: a label records a history step, `null` does not (scripts record one step per run).
 
 # Working on a big story or epic
 
@@ -42,19 +42,13 @@ When a story/epic has several sub-issues:
 
 - Before pushing or QA-ing a PR, check it against the latest main: `git fetch origin main`, then `git merge-tree --write-tree origin/main HEAD`.
 - If it conflicts (or is behind main), rebase onto main: `git rebase origin/main`, resolve, then `git push --force-with-lease`.
-- Re-run the tests after the rebase.
+- Re-run the checks after the rebase.
 
 # Branch naming
 
 - Use a type prefix: `feature/`, `bug/`, `refactor/`.
-- Then the issue number (if any) and a short kebab-case description, e.g. `feature/65-account-level-exp-curve`.
+- Then the issue number (if any) and a short kebab-case description, e.g. `feature/12-arc-tool`.
 - Never use auto-generated names like `claude/modest-fayman-ahuz4`.
-
-# Building visuals in Godot
-
-- Build the node tree and default properties in a scene (`.tscn`), so it is visible and editable in the editor.
-- Use the script only to find those nodes and set values at runtime (text, colors, visibility, data-driven values).
-- Create nodes in code only when truly dynamic (e.g. a variable number of items), and prefer instancing a small `.tscn`.
 
 # Code structure
 
