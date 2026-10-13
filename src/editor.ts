@@ -53,6 +53,8 @@ export class Editor {
   private ctx: CanvasRenderingContext2D;
   private draft: Draft | null = null;
   private drag: Drag | null = null;
+  /** Last document point under the pointer; null when it has left the canvas. */
+  private hover: Pt | null = null;
   private pan: { sx: number; sy: number; px: number; py: number } | null = null;
   private spaceDown = false;
   private pasteCount = 0;
@@ -69,6 +71,10 @@ export class Editor {
     canvas.addEventListener('pointermove', (e) => this.onPointerMove(e));
     canvas.addEventListener('pointerup', (e) => this.onPointerUp(e));
     canvas.addEventListener('pointercancel', () => this.cancelInteraction());
+    canvas.addEventListener('pointerleave', () => {
+      this.hover = null;
+      this.requestRender();
+    });
     canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
@@ -284,6 +290,7 @@ export class Editor {
   private onPointerMove(e: PointerEvent): void {
     const s = this.screenPos(e);
     const p = toDoc(this.ws.view, s);
+    this.hover = p;
     if (!this.draft) this.onStatus(`${Math.round(p.x)}, ${Math.round(p.y)}  ·  ${Math.round(this.ws.view.zoom * 100)}%`);
     if (this.pan) {
       this.ws.view = { ...this.ws.view, panX: this.pan.px + (s.x - this.pan.sx), panY: this.pan.py + (s.y - this.pan.sy) };
@@ -444,6 +451,7 @@ export class Editor {
       stroke: this.drag?.mode === 'brush' ? this.drag.pts : null,
       style: this.style,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
+      brushCursor: this.tool === 'brush' && this.hover ? { at: this.hover, width: this.style.width } : null,
     });
   }
 }
