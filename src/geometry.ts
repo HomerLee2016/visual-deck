@@ -1,7 +1,7 @@
 import type { ArcItem, CurveItem, Item, Pt, ShapeItem, ShapeKind, Style } from './types';
 
 const TAU = Math.PI * 2;
-const norm = (a: number) => ((a % TAU) + TAU) % TAU;
+export const norm = (a: number) => ((a % TAU) + TAU) % TAU;
 
 export const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 

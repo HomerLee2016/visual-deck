@@ -28,7 +28,7 @@ npm run build      # static site in dist/
 
 ## Layout
 
-- **Top**: workspace tabs (`+` new, double-click to rename). *Open image…* / *Export PNG*; you can also drop or paste an image.
+- **Top**: a menu bar with **File**: *Import…* opens each chosen image as a new tab; *Export…* saves the workspace as SVG or PNG. Below it are the workspace tabs (`+` new, double-click to rename). You can also drop an image onto the window (opens as a new tab) or paste one.
 - **Left, top**: edit history with a thumbnail per step. Click a step to jump to it (Ctrl+Z / Ctrl+Shift+Z).
 - **Left, bottom**: layers (checkbox = visible, double-click = rename, click = make active).
 - **Centre**: the canvas. Wheel = zoom, middle-drag or Space+drag = pan, `0` = fit, `1` = 100%.

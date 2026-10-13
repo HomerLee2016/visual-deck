@@ -58,9 +58,37 @@ h2 button { padding: 0 8px; }
   display: grid;
   height: 100%;
   grid-template-columns: 240px 1fr 210px;
-  grid-template-rows: 36px 1fr;
-  grid-template-areas: 'tabbar tabbar tabbar' 'left stage right';
+  grid-template-rows: 28px 36px 1fr;
+  grid-template-areas: 'menubar menubar menubar' 'tabbar tabbar tabbar' 'left stage right';
 }
+[hidden] { display: none !important; }
+#menubar {
+  grid-area: menubar;
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+#menubar .menu { position: relative; }
+#menubar .menu-title { border: none; background: none; padding: 3px 10px; }
+#menubar .menu-title:hover { background: var(--panel-2); }
+.menu-items {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.menu-items button { border: none; background: none; text-align: left; padding: 6px 10px; }
+.menu-items button:hover { background: #29405c; }
 #tabbar {
   grid-area: tabbar;
   display: flex;
@@ -136,6 +164,20 @@ aside {
 
 #stage { grid-area: stage; position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #view { position: absolute; inset: 0; touch-action: none; }
+#stage::after {
+  content: 'Drop image to import as a new tab';
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(77, 163, 255, 0.12);
+  outline: 2px dashed var(--accent);
+  outline-offset: -8px;
+  font-size: 15px;
+  pointer-events: none;
+}
+body.dropping #stage::after { display: flex; }
 #status {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -177,4 +219,6 @@ dialog .field { padding: 4px 0; }
 }
 details { margin-top: 8px; color: var(--muted); }
 pre { white-space: pre-wrap; font: 11px/1.5 ui-monospace, Menlo, Consolas, monospace; margin: 6px 0 0; }
-#new-dialog { width: 320px; }
+#new-dialog, #export-dialog { width: 320px; }
+.formats { border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.formats label { display: flex; align-items: baseline; gap: 6px; padding: 4px 0; }

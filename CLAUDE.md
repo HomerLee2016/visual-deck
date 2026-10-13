@@ -23,6 +23,8 @@
 - `src/model.ts`: `Workspace` (one tab): state, selection, history snapshots (with thumbnails), layer/item operations. No DOM here, so it is unit-testable.
 - `src/geometry.ts`: arc/curve math, hit-testing, bounds. Pure functions.
 - `src/render.ts`: canvas drawing, thumbnails, selection overlay.
+- `src/svg.ts`: SVG export (pure string output, shapes as paths).
+- `src/io.ts`: file import (image decode), export and download helpers.
 - `src/editor.ts`: main canvas input (tools, select/move/copy/paste/delete, zoom/pan, shortcuts).
 - `src/scripting.ts`: the `deck` API and script runner. Scripts are JavaScript, saved in `localStorage`.
 - `src/ui.ts`: DOM panels (tabs, history, layers, toolbox, script dialog).
