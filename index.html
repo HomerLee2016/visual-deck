@@ -102,6 +102,17 @@
               <label class="check"><input id="fill-none" type="checkbox" checked /> None</label>
             </span>
           </label>
+          <label class="field">Paint
+            <select id="fill-paint" aria-label="Fill paint">
+              <option value="solid">Solid</option>
+              <option value="linear">Linear gradient</option>
+              <option value="radial">Radial gradient</option>
+            </select>
+          </label>
+          <div id="grad-editor" class="grad-editor" hidden>
+            <div id="grad-stops"></div>
+            <div class="row"><button id="grad-add" type="button">+ Stop</button></div>
+          </div>
           <label class="field">Opacity
             <span class="width-controls">
               <input id="stroke-opacity" type="range" min="0" max="100" value="100" aria-label="Opacity slider" />
