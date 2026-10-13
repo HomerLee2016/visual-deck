@@ -5,7 +5,7 @@ import type { ClickShapeKind, Rect } from './geometry';
 import type { ShapeParams } from './items/types';
 import type { Handle } from './handles';
 import type { ViewAids } from './model';
-import type { DocState, Item, Pt, Style } from './types';
+import type { DocState, Item, PathNode, Pt, Style } from './types';
 import type { Size, View } from './view';
 import type { Guides } from './snap';
 
@@ -116,6 +116,8 @@ export interface Scene {
   /** Scale and rotate handles around the selection, or null when nothing is selected. */
   handles: Handle[] | null;
   aids: ViewAids;
+  /** A path being drawn with the pen: its nodes, and the pointer after the last one. */
+  penDraft: { nodes: PathNode[]; hover: Pt } | null;
   /** A guide being dragged out of a ruler. */
   guideDraft: { axis: 'x' | 'y'; pos: number } | null;
 }
@@ -184,6 +186,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);
   if (scene.brushCursor) drawBrushCursor(ctx, scene.brushCursor, zoom);
   if (scene.handles) drawHandles(ctx, scene.handles, zoom);
+  if (scene.penDraft) drawPenDraft(ctx, scene.penDraft, scene.style, zoom);
   ctx.restore();
   drawRulers(ctx, scene.view, scene.size);
 }
@@ -277,6 +280,21 @@ function drawRulers(ctx: CanvasRenderingContext2D, view: View, size: Size): void
   }
   ctx.stroke();
   ctx.restore();
+}
+
+/** The pen path in progress: the placed nodes, the segment to the pointer, and a dot on each node. */
+function drawPenDraft(ctx: CanvasRenderingContext2D, d: { nodes: PathNode[]; hover: Pt }, style: Style, zoom: number): void {
+  const preview = { kind: 'path' as const, id: 'preview', subs: [{ nodes: [...d.nodes, { p: d.hover }], closed: false }], style };
+  ctx.globalAlpha = 0.8;
+  drawItem(ctx, preview);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = ACCENT;
+  const r = 3.5 / zoom;
+  for (const n of d.nodes) {
+    ctx.beginPath();
+    ctx.arc(n.p.x, n.p.y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 /** Scale handles as small squares, the rotate handle as a knob on a stalk. */

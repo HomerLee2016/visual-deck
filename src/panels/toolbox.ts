@@ -14,6 +14,7 @@ const TOOL_HELP: Record<ToolId, string> = {
   rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
   ellipse: 'Drag or click two opposite corners of the bounding box. Shift for a circle.',
   polygon: 'Click the centre, then a vertex. Sides set below. Shift snaps the angle.',
+  pen: 'Click to place corner nodes; drag to make a smooth node. Click the first node or press Enter to finish; Esc finishes an open path.',
   text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
   star: 'Click the centre, then a point. Points and inner radius set below. Shift snaps the angle.',
 };
