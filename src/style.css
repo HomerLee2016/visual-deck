@@ -28,7 +28,7 @@ button {
 button:hover:not(:disabled) { border-color: var(--accent); }
 button:disabled { opacity: 0.4; cursor: default; }
 button.danger { color: var(--danger); }
-input[type='text'], input[type='number'], textarea {
+input[type='text'], input[type='number'], select, textarea {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
