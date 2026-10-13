@@ -104,6 +104,25 @@ describe('layers', () => {
     expect(ws.state.layers).toHaveLength(1);
   });
 
+  it('notifies once per layer edit, after the selection and active layer are reconciled', () => {
+    const ws = new Workspace('t', 8, 8);
+    const first = ws.activeLayer.id;
+    const second = ws.addLayer('Add', 'Second');
+    const line = mkLine();
+    ws.addItem('Line', line);
+    ws.selection = new Set([line.id]);
+
+    const seen: { selection: number; active: string }[] = [];
+    ws.subscribe(() => seen.push({ selection: ws.selection.size, active: ws.activeLayer.id }));
+
+    ws.setLayerVisible(second, false);
+    expect(seen).toEqual([{ selection: 0, active: second }]);
+
+    seen.length = 0;
+    ws.removeLayer(second);
+    expect(seen).toEqual([{ selection: 0, active: first }]);
+  });
+
   it('reorders layers', () => {
     const ws = new Workspace('t', 8, 8);
     const second = ws.addLayer('Add', 'Second');

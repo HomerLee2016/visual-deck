@@ -103,7 +103,13 @@ export class Workspace {
   }
 
   edit(label: string | null, fn: (s: DocState) => DocState): void {
+    this.apply(label, fn, false);
+  }
+
+  /** Replace the state, optionally dropping references the edit invalidated, then notify once. */
+  private apply(label: string | null, fn: (s: DocState) => DocState, reconcile: boolean): void {
     this.state = fn(this.state);
+    if (reconcile) this.reconcile();
     if (label) this.commit(label);
     else this.changed();
   }
@@ -156,12 +162,8 @@ export class Workspace {
 
   removeLayer(id: string): void {
     if (this.state.layers.length <= 1) return;
-    this.edit(`Delete ${this.state.layers.find((l) => l.id === id)?.name ?? 'layer'}`, (s) => ({
-      ...s,
-      layers: s.layers.filter((l) => l.id !== id),
-    }));
-    this.reconcile();
-    this.changed();
+    const label = `Delete ${this.state.layers.find((l) => l.id === id)?.name ?? 'layer'}`;
+    this.apply(label, (s) => ({ ...s, layers: s.layers.filter((l) => l.id !== id) }), true);
   }
 
   /** dir +1 moves the layer up (towards the top of the stack). */
@@ -179,9 +181,7 @@ export class Workspace {
   setLayerVisible(id: string, visible: boolean): void {
     const l = this.state.layers.find((x) => x.id === id);
     if (!l || l.visible === visible) return;
-    this.edit(`${visible ? 'Show' : 'Hide'} ${l.name}`, (s) => mapLayer(s, id, (x) => ({ ...x, visible })));
-    this.reconcile();
-    this.changed();
+    this.apply(`${visible ? 'Show' : 'Hide'} ${l.name}`, (s) => mapLayer(s, id, (x) => ({ ...x, visible })), true);
   }
 
   renameLayer(id: string, name: string): void {
