@@ -361,18 +361,20 @@ if (!opaque.some((v) => v)) {
     if (d) layers.unshift({ area: Infinity, colour: palette[base], d });
   }
 
-  // Fill the paths at the original size: the transform maps upscaled coordinates back down.
-  const canvas = document.createElement('canvas');
-  canvas.width = w0;
-  canvas.height = h0;
-  const ctx = canvas.getContext('2d');
-  ctx.setTransform(1 / s, 0, 0, 1 / s, 0, 0);
+  // One layer per colour, added bottom-up in draw order. Each layer is filled at
+  // the original size: the transform maps upscaled coordinates back down.
   for (const layer of layers) {
-    ctx.fillStyle = toHex(layer.colour);
+    const hex = toHex(layer.colour);
+    const canvas = document.createElement('canvas');
+    canvas.width = w0;
+    canvas.height = h0;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(1 / s, 0, 0, 1 / s, 0, 0);
+    ctx.fillStyle = hex;
     ctx.fill(new Path2D(layer.d), 'evenodd');
-  }
 
-  const layerId = deck.addLayer('Trace');
-  deck.setImageData(layerId, ctx.getImageData(0, 0, w0, h0));
+    const layerId = deck.addLayer(layer.area === Infinity ? `Trace silhouette ${hex}` : `Trace ${hex}`);
+    deck.setImageData(layerId, ctx.getImageData(0, 0, w0, h0));
+  }
   deck.log(`Trace: ${palette.length} colours, ${layers.length} layers`);
 }

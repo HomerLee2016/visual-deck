@@ -107,19 +107,25 @@ describe('builtin Trace to SVG', () => {
         data.set(left ? [230, 20, 20, 255] : [20, 20, 230, 255], i);
       }
     }
+    const addedNames: string[] = [];
     const setCalls: [string, unknown][] = [];
     const logs: string[] = [];
+    let n = 0;
     const deck = {
       getImageData: () => ({ width: size, height: size, data }),
-      addLayer: () => 'trace-layer',
+      addLayer: (name: string) => {
+        addedNames.push(name);
+        return `layer-${++n}`;
+      },
       setImageData: (id: string, img: unknown) => setCalls.push([id, img]),
       log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
     };
 
     await new AsyncFunction('deck', code)(deck);
 
-    expect(setCalls).toHaveLength(1);
-    expect(setCalls[0][0]).toBe('trace-layer');
+    expect(addedNames.length).toBeGreaterThanOrEqual(2);
+    expect(setCalls.map(([id]) => id)).toEqual(addedNames.map((_, i) => `layer-${i + 1}`));
+    expect(addedNames.every((name) => /^Trace (silhouette )?#[0-9a-f]{6}$/.test(name))).toBe(true);
     expect(logs[0]).toMatch(/^Trace: \d+ colours/);
     const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
     const colours = fills.map(rgb);
