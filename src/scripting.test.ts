@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Workspace } from './model';
-import { createDeck, DEFAULT_SCRIPTS, loadScripts, runScript, saveScripts, type ScriptDef } from './scripting';
+import type { Style } from './types';
+import { createDeck, DEFAULT_SCRIPTS, loadScripts, runScript, saveScripts, type PathSub, type ScriptDef } from './scripting';
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => (...a: unknown[]) => Promise<unknown>;
 
@@ -19,6 +20,23 @@ describe('createDeck', () => {
     expect(ws.activeLayer.items.map((it) => it.kind)).toEqual(['line', 'arc', 'curve']);
     expect(ws.activeLayer.items[0]).toMatchObject({ style: { color: '#ffcc00', width: 2 } });
     expect(ws.activeLayer.items[2]).toMatchObject({ style: { color: '#fff', width: 2 } });
+  });
+
+  it('adds one path item with its subpaths, nodes and handles kept as given', () => {
+    const ws = newWs();
+    const deck = createDeck(ws, () => {});
+    deck.addPath(
+      [{ nodes: [{ x: 0, y: 0, out: { x: 1, y: 0 } }, { x: 4, y: 0, in: { x: 3, y: 1 } }, { x: 4, y: 4 }], closed: true }],
+      { color: '#123456', width: 0, fill: '#123456' },
+    );
+    const item = ws.activeLayer.items[0];
+    expect(item).toMatchObject({ kind: 'path', style: { color: '#123456', width: 0, fill: '#123456' } });
+    expect(item).toMatchObject({ subs: [{ closed: true, nodes: [
+      { p: { x: 0, y: 0 }, out: { x: 1, y: 0 } },
+      { p: { x: 4, y: 0 }, in: { x: 3, y: 1 } },
+      { p: { x: 4, y: 4 } },
+    ] }] });
+    expect(item).not.toHaveProperty('subs.0.nodes.2.in');
   });
 
   it('targets the layer id it is given', () => {
@@ -85,18 +103,7 @@ describe('builtin Trace to SVG', () => {
     vi.unstubAllGlobals();
   });
 
-  it('traces a two-colour image into a new layer, filling each region', async () => {
-    const fills: string[] = [];
-    const stubCtx = {
-      fillStyle: '',
-      setTransform: () => {},
-      fill: () => fills.push(stubCtx.fillStyle),
-      getImageData: (_x: number, _y: number, w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
-    };
-    vi.stubGlobal('document', { createElement: () => ({ width: 0, height: 0, getContext: () => stubCtx }) });
-    vi.stubGlobal('Path2D', class {
-      constructor(public d: string) {}
-    });
+  it('traces a two-colour image into one editable path per colour', async () => {
 
     const size = 8;
     const data = new Uint8ClampedArray(size * size * 4);
@@ -108,7 +115,7 @@ describe('builtin Trace to SVG', () => {
       }
     }
     const addedNames: string[] = [];
-    const setCalls: [string, unknown][] = [];
+    const paths: { layerId: string; subs: PathSub[]; style: Partial<Style> }[] = [];
     const logs: string[] = [];
     let n = 0;
     const deck = {
@@ -117,18 +124,21 @@ describe('builtin Trace to SVG', () => {
         addedNames.push(name);
         return `layer-${++n}`;
       },
-      setImageData: (id: string, img: unknown) => setCalls.push([id, img]),
+      addPath: (subs: PathSub[], style: Partial<Style>, layerId: string) => paths.push({ layerId, subs, style }),
       log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
     };
 
     await new AsyncFunction('deck', code)(deck);
 
     expect(addedNames.length).toBeGreaterThanOrEqual(2);
-    expect(setCalls.map(([id]) => id)).toEqual(addedNames.map((_, i) => `layer-${i + 1}`));
+    expect(paths.map((p) => p.layerId)).toEqual(addedNames.map((_, i) => `layer-${i + 1}`));
     expect(addedNames.every((name) => /^Trace (silhouette )?#[0-9a-f]{6}$/.test(name))).toBe(true);
     expect(logs[0]).toMatch(/^Trace: \d+ colours/);
+    // Fill-only: no stroke, and the fill is the colour of the layer.
+    expect(paths.every((p) => p.style.width === 0 && p.style.color === p.style.fill)).toBe(true);
+    expect(paths.every((p) => p.subs.length > 0 && p.subs.every((s) => s.closed && s.nodes.length >= 3))).toBe(true);
     const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-    const colours = fills.map(rgb);
+    const colours = paths.map((p) => rgb(p.style.fill!));
     expect(colours.some(([r, g, b]) => r > 180 && g < 80 && b < 80)).toBe(true);
     expect(colours.some(([r, g, b]) => b > 180 && r < 80 && g < 80)).toBe(true);
   });

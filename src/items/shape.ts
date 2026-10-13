@@ -93,15 +93,18 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
         def.trace(ctx, it);
         ctx.fill();
       }
-      ctx.strokeStyle = strokePaint(ctx, it.style);
-      ctx.lineWidth = width;
-      ctx.lineCap = cap;
-      ctx.lineJoin = join;
-      ctx.miterLimit = miterLimit ?? 10;
-      ctx.setLineDash(dashOf(it.style));
-      ctx.beginPath();
-      def.trace(ctx, it);
-      ctx.stroke();
+      // Canvas ignores a zero line width, so a fill-only item must skip the stroke.
+      if (width > 0) {
+        ctx.strokeStyle = strokePaint(ctx, it.style);
+        ctx.lineWidth = width;
+        ctx.lineCap = cap;
+        ctx.lineJoin = join;
+        ctx.miterLimit = miterLimit ?? 10;
+        ctx.setLineDash(dashOf(it.style));
+        ctx.beginPath();
+        def.trace(ctx, it);
+        ctx.stroke();
+      }
       if (it.style.markerStart || it.style.markerEnd) {
         ctx.setLineDash([]);
         drawMarkers(ctx, def.outline(it), it.style);

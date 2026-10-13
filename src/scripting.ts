@@ -1,13 +1,27 @@
 import { buildShape, clickSpec, type ClickShapeKind } from './geometry';
 import { DEFAULT_STYLE, imageItem, uid, type Workspace } from './model';
 import { renderToCanvas } from './render';
-import type { Item, Style } from './types';
+import type { Item, PathItem, Style } from './types';
 import traceToSvgCode from './builtin/trace-to-svg.js?raw';
 
 export interface ScriptDef {
   id: string;
   name: string;
   code: string;
+}
+
+/** A path node for `deck.addPath`: a point, with optional incoming and outgoing handles. */
+export interface PathPoint {
+  x: number;
+  y: number;
+  in?: { x: number; y: number };
+  out?: { x: number; y: number };
+}
+
+/** One subpath for `deck.addPath`. A closed subpath also joins its last node back to its first. */
+export interface PathSub {
+  nodes: PathPoint[];
+  closed: boolean;
 }
 
 const STORAGE_KEY = 'visual-deck.scripts.v1';
@@ -92,7 +106,8 @@ deck.addRect(x1,y1,x2,y2, style?, layerId?)           opposite corners
 deck.addEllipse(x1,y1,x2,y2, style?, layerId?)        ellipse inside the box
 deck.addArc(x1,y1,x2,y2, mx,my, style?, layerId?)        arc through (mx,my)
 deck.addCurve(x1,y1,x2,y2, c1x,c1y,c2x,c2y, style?, layerId?)
-deck.selection                     [{ id, kind }] of the current selection
+deck.addPath(subs, style?, layerId?)   one editable path; subs = [{ nodes: [{ x, y, in?, out? }], closed }]
+deck.selection                    [{ id, kind }] of the current selection
 deck.clearLayer(layerId?)          remove everything on a layer
 deck.log(...args)                  show a message in the status bar
 style = { color: '#rrggbb' or 'rgba(r, g, b, a)', width: 2, fill?: '#rrggbb', opacity?: 0..1,
@@ -120,6 +135,7 @@ export interface Deck {
     c1x: number, c1y: number, c2x: number, c2y: number,
     style?: Partial<Style>, layerId?: string,
   ): void;
+  addPath(subs: PathSub[], style?: Partial<Style>, layerId?: string): void;
   clearLayer(layerId?: string): void;
   log(...args: unknown[]): void;
 }
@@ -159,6 +175,22 @@ export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
       shape('arc', [{ x: x1, y: y1 }, { x: x2, y: y2 }, { x: mx, y: my }], s, layerId),
     addCurve: (x1, y1, x2, y2, c1x, c1y, c2x, c2y, s, layerId) =>
       shape('curve', [{ x: x1, y: y1 }, { x: x2, y: y2 }, { x: c1x, y: c1y }, { x: c2x, y: c2y }], s, layerId),
+    addPath(subs, s, layerId) {
+      const item: PathItem = {
+        kind: 'path',
+        id: uid('item'),
+        style: style(s),
+        subs: subs.map((sub) => ({
+          closed: sub.closed,
+          nodes: sub.nodes.map((n) => ({
+            p: { x: n.x, y: n.y },
+            ...(n.in ? { in: { ...n.in } } : {}),
+            ...(n.out ? { out: { ...n.out } } : {}),
+          })),
+        })),
+      };
+      ws.addItem(null, item, layerId ?? ws.activeLayerId);
+    },
     clearLayer: (layerId = ws.activeLayerId) => ws.replaceLayerItems(null, layerId, []),
     log: (...args) => log(args.map(String).join(' ')),
   };
