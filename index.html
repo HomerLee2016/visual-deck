@@ -16,10 +16,14 @@
             <button id="menu-save">Save project</button>
             <hr />
             <button id="menu-import">Import…</button>
+            <button id="menu-import-svg">Open SVG as shapes…</button>
             <button id="menu-export">Export…</button>
+            <hr />
+            <button id="menu-size">Document size…</button>
           </div>
         </div>
         <input id="file-input" type="file" accept="image/*,.svg" multiple hidden />
+        <input id="svg-input" type="file" accept=".svg,image/svg+xml" hidden />
         <input id="project-input" type="file" accept=".vdeck" hidden />
       </header>
       <header id="tabbar">
@@ -219,10 +223,23 @@
             <button data-outline="1" title="Turn each selected stroke into a filled outline">Outline</button>
             <button data-offset="1" title="Grow (positive) or shrink (negative) the selected paths by this distance">Offset</button>
             <label class="field offset-field">by <input id="offset-dist" type="number" step="any" value="4" /></label>
+            <button data-share="fill" title="Share the selection's fill as a definition that can be edited for all users">Share fill</button>
+            <button data-share="stroke" title="Share the selection's stroke as a definition">Share stroke</button>
+            <button data-unshare="1" title="Replace shared fills and strokes with their values">Unshare</button>
             <button data-clip="clip" title="Clip the other selected items to the topmost shape">Clip</button>
             <button data-clip="mask" title="Mask the other selected items with the topmost shape">Mask</button>
             <button data-release="1" title="Release the clip or mask from the selection">Release</button>
           </div>
+        </section>
+        <section>
+          <h2>Swatches <button id="swatch-add" title="Save the current stroke colour as a swatch">+</button></h2>
+          <div id="swatches" class="swatches"></div>
+          <p class="hint">Click applies the colour to the stroke of the selection. Alt-click sets the fill. Right-click removes a swatch.</p>
+        </section>
+        <section>
+          <h2>Symbols <button id="symbol-make" title="Save the selection as a symbol">Make</button></h2>
+          <div id="symbol-list" class="symbol-list"></div>
+          <p class="hint">Make replaces the selection with an instance. Place adds another instance at the centre; instances follow their symbol.</p>
         </section>
         <section>
           <h2>Grid &amp; guides</h2>
@@ -273,9 +290,37 @@
           <label><input type="radio" name="format" value="svg" /> SVG <span class="hint">vector shapes, images embedded</span></label>
           <label><input type="radio" name="format" value="png" checked /> PNG <span class="hint">flattened image</span></label>
         </fieldset>
+        <fieldset class="formats">
+          <legend>PNG scale</legend>
+          <label><input type="radio" name="scale" value="1" checked /> 1x</label>
+          <label><input type="radio" name="scale" value="2" /> 2x</label>
+          <label><input type="radio" name="scale" value="4" /> 4x</label>
+        </fieldset>
+        <label class="check"><input id="export-selection" type="checkbox" name="selection" /> Selection only <span class="hint">cropped to the selected items</span></label>
         <div class="row end">
           <button type="button" id="export-cancel">Cancel</button>
           <button type="submit">Export</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="size-dialog">
+      <form method="dialog" id="size-form">
+        <h3>Document size</h3>
+        <label class="field">Width <input id="size-w" type="number" min="1" max="8192" value="512" /></label>
+        <label class="field">Height <input id="size-h" type="number" min="1" max="8192" value="512" /></label>
+        <fieldset class="anchor">
+          <legend>Anchor</legend>
+          <div class="anchor-grid">
+            <label><input type="radio" name="anchor" value="0,0" /></label><label><input type="radio" name="anchor" value="1,0" /></label><label><input type="radio" name="anchor" value="2,0" /></label>
+            <label><input type="radio" name="anchor" value="0,1" /></label><label><input type="radio" name="anchor" value="1,1" checked /></label><label><input type="radio" name="anchor" value="2,1" /></label>
+            <label><input type="radio" name="anchor" value="0,2" /></label><label><input type="radio" name="anchor" value="1,2" /></label><label><input type="radio" name="anchor" value="2,2" /></label>
+          </div>
+          <span class="hint">Content stays at this point of the canvas when it grows or shrinks.</span>
+        </fieldset>
+        <div class="row end">
+          <button type="button" id="size-cancel">Cancel</button>
+          <button type="submit">Apply</button>
         </div>
       </form>
     </dialog>

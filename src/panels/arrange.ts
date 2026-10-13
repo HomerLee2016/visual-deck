@@ -1,6 +1,7 @@
 import { alignItems, clipItems, distributeItems, flipItems, releaseClip, reorderItems, type AlignTo, type Axis, type Order } from '../arrange';
 import { reversePath, simplifyBrush, toPath } from '../convert';
 import { offsetPath, outlineItem } from '../outline';
+import { shareStyle, unshareStyle } from '../shared';
 import type { Editor } from '../editor';
 import { mapItems, type Workspace } from '../model';
 import { $, type ActiveWorkspace } from './dom';
@@ -48,6 +49,11 @@ export class ArrangePanel {
       ws.edit('To path', (s) => mapItems(s, ids, (it) => toPath(it, it.id) ?? it));
     } else if (b.dataset.reverse) {
       ws.edit('Reverse path', (s) => mapItems(s, ids, (it) => (it.kind === 'path' ? reversePath(it) : it)));
+    } else if (b.dataset.share) {
+      const which = b.dataset.share as 'fill' | 'stroke';
+      ws.edit(`Share ${which}`, (s) => shareStyle(s, ids, which));
+    } else if (b.dataset.unshare) {
+      ws.edit('Unshare', (s) => unshareStyle(s, ids));
     } else if (b.dataset.clip) {
       const mode = b.dataset.clip as 'clip' | 'mask';
       ws.edit(mode === 'clip' ? 'Clip' : 'Mask', (s) => clipItems(s, ids, mode));

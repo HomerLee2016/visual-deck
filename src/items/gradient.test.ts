@@ -84,3 +84,29 @@ describe('clip and mask svg', () => {
     expect(svg).toContain('<g mask="url(#m1)">');
   });
 });
+
+describe('symbols', () => {
+  it('writes a symbol once and each instance as a use reference', () => {
+    const content: LineItem = { kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 0 }, style: { color: '#fff', width: 1 } };
+    const d: DocState = {
+      width: 10,
+      height: 10,
+      layers: [
+        {
+          id: 'l',
+          name: 'L',
+          visible: true,
+          items: [
+            { kind: 'group', id: 'i1', items: [content], symbolId: 's1', transform: [1, 0, 0, 1, 2, 3] },
+            { kind: 'group', id: 'i2', items: [content], symbolId: 's1', transform: [1, 0, 0, 1, 5, 5] },
+          ],
+        },
+      ],
+      symbols: { s1: [content] },
+    };
+    const svg = toSvg(d);
+    expect(svg.match(/<symbol id="symbol-s1">/g)).toHaveLength(1);
+    expect(svg.match(/<use href="#symbol-s1"/g)).toHaveLength(2);
+    expect(svg).toContain('<use href="#symbol-s1" transform="matrix(1 0 0 1 2 3)"/>');
+  });
+});
