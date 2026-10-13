@@ -263,3 +263,5 @@ pre { white-space: pre-wrap; font: 11px/1.5 ui-monospace, Menlo, Consolas, monos
 
 .arrange-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 6px 8px; }
 .arrange-grid button { font-size: 11px; padding: 3px 0; }
+.offset-field input { width: 56px; }
+.arrange-grid .offset-field { grid-column: span 2; }
