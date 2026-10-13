@@ -41,7 +41,25 @@ export interface ShapeDef<T extends ShapeItem> {
   /** Apply `fn` to every point the shape stores (its anchors and control points). */
   mapPoints(it: T, fn: (p: Pt) => Pt): T;
   handles(it: T): Pt[];
+  /** Closed polygons whose interior counts as a hit when the item is filled. Only shapes that opt in are hit inside. */
+  fillPolygons?(it: T): Pt[][];
   clicks?: ClickSpec;
+}
+
+/** Nonzero winding number of `p` against the polygons, the same rule the canvas uses to fill them. */
+function windingOf(polys: Pt[][], p: Pt): number {
+  let w = 0;
+  for (const poly of polys) {
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i];
+      const b = poly[(i + 1) % poly.length];
+      const side = (b.x - a.x) * (p.y - a.y) - (p.x - a.x) * (b.y - a.y);
+      if (a.y <= p.y) {
+        if (b.y > p.y && side > 0) w++;
+      } else if (b.y <= p.y && side < 0) w--;
+    }
+  }
+  return w;
 }
 
 /** Build a full ShapeType from a shape's geometry: stroked drawing, outline hit-testing and SVG export. */
@@ -72,6 +90,8 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
     },
     hitTest(it, p, tol) {
       // `tol` is in document units (callers pass a screen-pixel tolerance divided by zoom).
+      const filled = !!(it.style.fill || it.style.fillGradient || it.style.pattern);
+      if (filled && def.fillPolygons && windingOf(def.fillPolygons(it), p) !== 0) return true;
       const pts = def.outline(it);
       const reach = tol + it.style.width / 2;
       for (let i = 0; i + 1 < pts.length; i++) {

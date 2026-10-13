@@ -62,6 +62,8 @@ const mapNode = (n: PathNode, fn: (p: Pt) => Pt): PathNode => ({
 
 export const pathType = defineShape<PathItem>({
   outline: outlineOf,
+  // Each subpath is closed for filling, so its interior (not just its edge) is a hit.
+  fillPolygons: (it) => it.subs.map(flattenSub),
   trace(ctx, it) {
     for (const sub of it.subs) {
       if (sub.nodes.length === 0) continue;
