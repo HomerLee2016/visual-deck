@@ -1,9 +1,12 @@
 import { loadPrefs, savePrefs } from '../prefs';
 
+/** Sections that start expanded when the user has not changed the layout yet. */
+const OPEN_BY_DEFAULT = new Set(['history', 'layers']);
+
 /**
  * Makes each sidebar section collapsible by clicking its heading. Sections marked
  * `data-fixed` (Tools, Scripts) always stay expanded. Every other section starts
- * collapsed until the user changes it; after that the choice is remembered.
+ * collapsed (except OPEN_BY_DEFAULT) until the user changes it; after that the choice is remembered.
  */
 export class CollapsibleSections {
   private collapsed: Set<string>;
@@ -12,7 +15,7 @@ export class CollapsibleSections {
     const saved = loadPrefs().collapsed;
     this.collapsed = new Set(saved ?? []);
     document.querySelectorAll<HTMLElement>('aside section[data-id]:not([data-fixed])').forEach((sec) => {
-      if (saved === undefined) this.collapsed.add(sec.dataset.id!);
+      if (saved === undefined && !OPEN_BY_DEFAULT.has(sec.dataset.id!)) this.collapsed.add(sec.dataset.id!);
       this.bind(sec);
     });
     this.render();
