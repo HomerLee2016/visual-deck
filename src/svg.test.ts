@@ -23,6 +23,11 @@ describe('toSvg', () => {
     );
   });
 
+  it('exports partial opacity as stroke-opacity', () => {
+    const svg = toSvg(doc([{ kind: 'line', id: 'a', a: { x: 1, y: 2 }, b: { x: 3, y: 4 }, style: { color: 'rgba(255, 0, 0, 0.5)', width: 2 } }]));
+    expect(svg).toContain('stroke="#ff0000" stroke-opacity="0.5"');
+  });
+
   it('exports a brush stroke as one polyline path', () => {
     const svg = toSvg(
       doc([
@@ -79,10 +84,11 @@ describe('toSvg', () => {
     expect(svg).not.toContain('<path');
   });
 
-  it('escapes the stroke colour', () => {
+  it('never writes an unparsed stroke colour into the markup', () => {
     const svg = toSvg(
       doc([{ kind: 'line', id: 'a', a: { x: 0, y: 0 }, b: { x: 1, y: 1 }, style: { color: '"><x', width: 1 } }]),
     );
-    expect(svg).toContain('stroke="&#34;&#62;&#60;x"');
+    expect(svg).toContain('stroke="#000000"');
+    expect(svg).not.toContain('"><x');
   });
 });

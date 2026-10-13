@@ -74,7 +74,12 @@ export function thumbnail(s: DocState, max = 72): string | null {
 }
 
 /** Selection outlines, in document space (line widths are divided by zoom to stay crisp). */
-export function drawSelection(ctx: CanvasRenderingContext2D, items: Item[], zoom: number): void {
+export function drawSelection(
+  ctx: CanvasRenderingContext2D,
+  items: Item[],
+  zoom: number,
+  points: ReadonlyMap<string, ReadonlySet<number>>,
+): void {
   ctx.save();
   ctx.lineWidth = 1 / zoom;
   ctx.setLineDash([4 / zoom, 3 / zoom]);
@@ -84,18 +89,25 @@ export function drawSelection(ctx: CanvasRenderingContext2D, items: Item[], zoom
     ctx.strokeRect(b.x, b.y, b.w, b.h);
   }
   ctx.setLineDash([]);
-  ctx.fillStyle = '#fff';
   const h = 3 / zoom;
   for (const it of items) {
-    // Brush strokes have too many points for handles; only the bounding box is shown.
-    if (it.kind === 'image' || it.kind === 'brush') continue;
-    const pts = it.kind === 'line' ? [it.a, it.b] : it.kind === 'arc' ? [it.a, it.b, it.m] : [it.a, it.b, it.c1, it.c2];
-    for (const p of pts) {
-      ctx.fillRect(p.x - h, p.y - h, h * 2, h * 2);
-      ctx.strokeRect(p.x - h, p.y - h, h * 2, h * 2);
+    if (it.kind === 'image') continue;
+    if (it.kind === 'brush') {
+      // A brush stroke gets a handle on every point; selected points are filled.
+      const picked = points.get(it.id);
+      it.pts.forEach((p, i) => drawHandle(ctx, p, h, !!picked?.has(i)));
+      continue;
     }
+    const pts = it.kind === 'line' ? [it.a, it.b] : it.kind === 'arc' ? [it.a, it.b, it.m] : [it.a, it.b, it.c1, it.c2];
+    for (const p of pts) drawHandle(ctx, p, h, false);
   }
   ctx.restore();
+}
+
+function drawHandle(ctx: CanvasRenderingContext2D, p: Pt, h: number, selected: boolean): void {
+  ctx.fillStyle = selected ? ACCENT : '#fff';
+  ctx.fillRect(p.x - h, p.y - h, h * 2, h * 2);
+  ctx.strokeRect(p.x - h, p.y - h, h * 2, h * 2);
 }
 
 /** A shape being drawn: the points placed so far, plus the pointer standing in for the next one. */
@@ -114,6 +126,8 @@ export interface Scene {
   dpr: number;
   /** Selected items on visible layers. */
   selected: Item[];
+  /** Selected points of brush strokes, by item id. */
+  selectedPoints: ReadonlyMap<string, ReadonlySet<number>>;
   draft: DraftPreview | null;
   /** Points of the brush stroke being drawn, if any. */
   stroke: Pt[] | null;
@@ -171,7 +185,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.strokeStyle = DOC_BORDER;
   ctx.strokeRect(0, 0, width, height);
 
-  drawSelection(ctx, scene.selected, zoom);
+  drawSelection(ctx, scene.selected, zoom, scene.selectedPoints);
   if (scene.draft) drawDraft(ctx, scene.draft, scene.style, zoom);
   if (scene.stroke) {
     ctx.globalAlpha = 0.8;

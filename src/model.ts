@@ -50,6 +50,25 @@ export function removeItems(s: DocState, ids: ReadonlySet<string>): DocState {
   return { ...s, layers: s.layers.map((l) => ({ ...l, items: l.items.filter((it) => !ids.has(it.id)) })) };
 }
 
+/**
+ * Remove points from brush strokes, keyed by item id then point index. A stroke
+ * left with fewer than two points is removed, since it can no longer be drawn.
+ */
+export function removePoints(s: DocState, points: ReadonlyMap<string, ReadonlySet<number>>): DocState {
+  return {
+    ...s,
+    layers: s.layers.map((l) => ({
+      ...l,
+      items: l.items.flatMap((it): Item[] => {
+        const drop = points.get(it.id);
+        if (it.kind !== 'brush' || !drop) return [it];
+        const pts = it.pts.filter((_, i) => !drop.has(i));
+        return pts.length < 2 ? [] : [{ ...it, pts }];
+      }),
+    })),
+  };
+}
+
 export function mapItems(s: DocState, ids: ReadonlySet<string>, fn: (it: Item) => Item): DocState {
   return {
     ...s,
@@ -68,6 +87,8 @@ export class Workspace {
   state: DocState;
   activeLayerId: string;
   selection = new Set<string>();
+  /** Selected points of brush strokes: item id -> point indices. Only used for items that are also selected. */
+  pointSelection = new Map<string, Set<number>>();
   history: HistoryEntry[];
   index = 0;
   view: View = INITIAL_VIEW;
@@ -179,6 +200,7 @@ export class Workspace {
   private reconcile(): void {
     const live = new Set(visibleItemsTopFirst(this.state).map((it) => it.id));
     for (const id of this.selection) if (!live.has(id)) this.selection.delete(id);
+    for (const id of this.pointSelection.keys()) if (!this.selection.has(id)) this.pointSelection.delete(id);
     if (!this.state.layers.some((l) => l.id === this.activeLayerId)) {
       this.activeLayerId = this.state.layers[this.state.layers.length - 1].id;
     }
@@ -265,10 +287,25 @@ export class Workspace {
     return out;
   }
 
+  /** Selected points of selected brush strokes, in the same shape as `pointSelection`. */
+  selectedPoints(): Map<string, Set<number>> {
+    const out = new Map<string, Set<number>>();
+    for (const [id, idx] of this.pointSelection) if (this.selection.has(id) && idx.size) out.set(id, idx);
+    return out;
+  }
+
+  /** Delete the selected points if there are any, otherwise the selected items. */
   deleteSelected(): boolean {
+    const points = this.selectedPoints();
+    if (points.size) {
+      this.pointSelection.clear();
+      this.apply('Delete points', (s) => removePoints(s, points), true);
+      return true;
+    }
     const ids = new Set(this.selection);
     if (ids.size === 0) return false;
     this.selection.clear();
+    this.pointSelection.clear();
     this.edit('Delete', (s) => removeItems(s, ids));
     return true;
   }
@@ -279,6 +316,7 @@ export class Workspace {
     const copies = items.map((it) => translateItem(cloneItem(it), dx, dy));
     const target = this.activeLayer;
     this.selection = new Set(copies.map((c) => c.id));
+    this.pointSelection.clear();
     this.edit('Paste', (s) => mapLayer(s, target.id, (l) => ({ ...l, items: [...l.items, ...copies] })));
   }
 }
