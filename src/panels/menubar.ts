@@ -1,0 +1,54 @@
+import { download, exportDocument, isImageFile, type ExportFormat } from '../io';
+import { $, type ActiveWorkspace } from './dom';
+
+/** File menu: Import (each image becomes a workspace) and the Export dialog. */
+export class MenuBar {
+  constructor(
+    private active: ActiveWorkspace,
+    private importFile: (file: File) => void,
+    private status: (msg: string) => void,
+  ) {
+    const menu = document.querySelector<HTMLElement>('#menubar .menu')!;
+    const items = menu.querySelector<HTMLElement>('.menu-items')!;
+    const title = menu.querySelector<HTMLElement>('.menu-title')!;
+    const closeMenu = () => (items.hidden = true);
+    title.onclick = () => (items.hidden = !items.hidden);
+    document.addEventListener('pointerdown', (e) => {
+      if (!menu.contains(e.target as Node)) closeMenu();
+    });
+
+    const input = $<HTMLInputElement>('file-input');
+    $('menu-import').onclick = () => {
+      closeMenu();
+      input.click();
+    };
+    input.onchange = () => {
+      for (const f of Array.from(input.files ?? [])) this.import(f);
+      input.value = '';
+    };
+
+    const dlg = $<HTMLDialogElement>('export-dialog');
+    $('menu-export').onclick = () => {
+      closeMenu();
+      dlg.showModal();
+    };
+    $('export-cancel').onclick = () => dlg.close();
+    $<HTMLFormElement>('export-form').onsubmit = () => {
+      const data = new FormData($<HTMLFormElement>('export-form'));
+      this.export((data.get('format') as ExportFormat | null) ?? 'png');
+    };
+  }
+
+  /** Also used for dropped files. */
+  import(file: File): void {
+    if (isImageFile(file)) this.importFile(file);
+    else this.status(`${file.name} is not an image`);
+  }
+
+  private export(format: ExportFormat): void {
+    const ws = this.active();
+    exportDocument(ws.state, format)
+      .then((blob) => download(blob, `${ws.name}.${format}`))
+      .catch(() => this.status(`Could not export ${ws.name}`));
+  }
+}

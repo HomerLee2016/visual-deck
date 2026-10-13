@@ -1,12 +1,14 @@
-import { POINTS_NEEDED, buildShape, dist, hitTest, itemBounds, rectsIntersect, translateItem } from './geometry';
-import type { Rect } from './geometry';
-import { Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
-import { drawItem, drawSelection, drawState } from './render';
+import { POINTS_NEEDED, buildShape, dist, hitTest, itemBounds, rectFromPoints, rectsIntersect, translateItem } from './geometry';
+import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
+import { drawScene } from './render';
 import type { DocState, Item, Pt, ShapeKind, Style } from './types';
+import { fitView, toDoc, zoomAround, type Size } from './view';
 
 export type ToolId = 'select' | ShapeKind;
 
 export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve' };
+
+const SHAPE_LABELS: Record<ShapeKind, string> = { line: 'Line', arc: 'Arc', curve: 'Curve' };
 
 interface Draft {
   kind: ShapeKind;
@@ -22,13 +24,11 @@ type Drag =
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> };
 
 const PICK_TOLERANCE_PX = 6;
-const MIN_ZOOM = 0.05;
-const MAX_ZOOM = 64;
 
 /** Owns the main canvas: view transform, tools and all pointer/keyboard input for the active workspace. */
 export class Editor {
   tool: ToolId = 'select';
-  style: Style = { color: '#ffcc00', width: 2 };
+  style: Style = { ...DEFAULT_STYLE };
   clipboard: Item[] = [];
   ws!: Workspace;
   /** Called when tool/selection state changes so the toolbox can refresh. */
@@ -44,7 +44,6 @@ export class Editor {
   private spaceDown = false;
   private pasteCount = 0;
   private raf = 0;
-  private checker: CanvasPattern | null = null;
   private dpr = 1;
   /** False until the ResizeObserver has measured the canvas (fitting earlier would use a bogus size). */
   private sized = false;
@@ -122,39 +121,27 @@ export class Editor {
     this.requestRender();
   }
 
+  /** Canvas size in CSS pixels. */
+  private canvasSize(): Size {
+    return { w: this.canvas.width / this.dpr, h: this.canvas.height / this.dpr };
+  }
+
   fit(): void {
     if (!this.ws) return;
-    const v = this.ws.view;
-    const cw = this.canvas.width / this.dpr;
-    const ch = this.canvas.height / this.dpr;
     const { width, height } = this.ws.state;
-    v.zoom = Math.min(4, Math.max(MIN_ZOOM, Math.min((cw - 48) / width, (ch - 48) / height)));
-    v.panX = (cw - width * v.zoom) / 2;
-    v.panY = (ch - height * v.zoom) / 2;
-    v.fitted = true;
+    this.ws.view = fitView(this.canvasSize(), { w: width, h: height });
     this.requestRender();
   }
 
   zoomTo(zoom: number, around?: Pt): void {
-    const v = this.ws.view;
-    const cw = this.canvas.width / this.dpr;
-    const ch = this.canvas.height / this.dpr;
-    const c = around ?? { x: cw / 2, y: ch / 2 };
-    const z = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
-    v.panX = c.x - ((c.x - v.panX) / v.zoom) * z;
-    v.panY = c.y - ((c.y - v.panY) / v.zoom) * z;
-    v.zoom = z;
+    const { w, h } = this.canvasSize();
+    this.ws.view = zoomAround(this.ws.view, zoom, around ?? { x: w / 2, y: h / 2 });
     this.requestRender();
   }
 
   private screenPos(e: { clientX: number; clientY: number }): Pt {
     const r = this.canvas.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
-  }
-
-  private toDoc(s: Pt): Pt {
-    const v = this.ws.view;
-    return { x: (s.x - v.panX) / v.zoom, y: (s.y - v.panY) / v.zoom };
   }
 
   private onWheel(e: WheelEvent): void {
@@ -179,7 +166,7 @@ export class Editor {
     }
     if (e.button !== 0) return;
     this.canvas.setPointerCapture(e.pointerId);
-    const p = this.toDoc(s);
+    const p = toDoc(this.ws.view, s);
     if (this.tool === 'select') this.selectDown(p, e.shiftKey);
     else this.drawDown(this.tool, p, s);
   }
@@ -216,7 +203,13 @@ export class Editor {
       this.draft.pts.push(p);
       this.finishDraftIfComplete();
     }
+    this.showDraftHint();
     this.requestRender();
+  }
+
+  /** While a shape is being drawn the status bar tells the user what to click next. */
+  private showDraftHint(): void {
+    if (this.draft) this.onStatus(hint(this.draft));
   }
 
   private finishDraftIfComplete(): void {
@@ -225,18 +218,15 @@ export class Editor {
     const shape = buildShape(d.kind, d.pts, { ...this.style }, uid('item'));
     this.draft = null;
     if (!shape) return;
-    const label = d.kind === 'line' ? 'Line' : d.kind === 'arc' ? 'Arc' : 'Curve';
-    this.ws.addItem(label, shape);
+    this.ws.addItem(SHAPE_LABELS[d.kind], shape);
   }
 
   private onPointerMove(e: PointerEvent): void {
     const s = this.screenPos(e);
-    const p = this.toDoc(s);
-    this.onStatus(`${Math.round(p.x)}, ${Math.round(p.y)}  ·  ${Math.round(this.ws.view.zoom * 100)}%`);
+    const p = toDoc(this.ws.view, s);
+    if (!this.draft) this.onStatus(`${Math.round(p.x)}, ${Math.round(p.y)}  ·  ${Math.round(this.ws.view.zoom * 100)}%`);
     if (this.pan) {
-      const v = this.ws.view;
-      v.panX = this.pan.px + (s.x - this.pan.sx);
-      v.panY = this.pan.py + (s.y - this.pan.sy);
+      this.ws.view = { ...this.ws.view, panX: this.pan.px + (s.x - this.pan.sx), panY: this.pan.py + (s.y - this.pan.sy) };
     } else if (this.draft) {
       this.draft.hover = p;
     } else if (this.drag?.mode === 'move') {
@@ -250,7 +240,7 @@ export class Editor {
     } else if (this.drag?.mode === 'marquee') {
       const d = this.drag;
       d.cur = p;
-      const r = rectOf(d.origin, p);
+      const r = rectFromPoints(d.origin, p);
       const next = new Set(d.baseSel);
       for (const it of visibleItemsTopFirst(this.ws.state)) if (rectsIntersect(itemBounds(it), r)) next.add(it.id);
       this.ws.selection = next;
@@ -263,7 +253,7 @@ export class Editor {
     const d = this.draft;
     if (d?.pressing) {
       d.pressing = false;
-      const p = this.toDoc(this.screenPos(e));
+      const p = toDoc(this.ws.view, this.screenPos(e));
       // Dragged far enough: treat the release point as the end point.
       if (dist(this.screenPos(e), d.downScreen) > 5) {
         d.pts.push(p);
@@ -274,6 +264,7 @@ export class Editor {
     this.drag = null;
     if (drag?.mode === 'move' && drag.moved) this.ws.commit('Move');
     if (drag) this.afterSelectionChange();
+    this.showDraftHint();
     this.requestRender();
   }
 
@@ -370,98 +361,21 @@ export class Editor {
     });
   }
 
-  private checkerPattern(): CanvasPattern {
-    if (!this.checker) {
-      const c = document.createElement('canvas');
-      c.width = c.height = 16;
-      const g = c.getContext('2d')!;
-      g.fillStyle = '#4a4a52';
-      g.fillRect(0, 0, 16, 16);
-      g.fillStyle = '#585862';
-      g.fillRect(0, 0, 8, 8);
-      g.fillRect(8, 8, 8, 8);
-      this.checker = this.ctx.createPattern(c, 'repeat')!;
-    }
-    return this.checker;
-  }
-
   private render(): void {
     const ws = this.ws;
-    if (!ws) return;
-    if (!this.sized) return;
+    if (!ws || !this.sized) return;
     if (!ws.view.fitted) this.fit();
-    const { zoom, panX, panY } = ws.view;
-    const { width, height } = ws.state;
-    const ctx = this.ctx;
-
-    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    ctx.fillStyle = '#26262b';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(panX, panY, width * zoom, height * zoom);
-    ctx.clip();
-    ctx.fillStyle = this.checkerPattern();
-    ctx.fillRect(panX, panY, width * zoom, height * zoom);
-    ctx.restore();
-
-    ctx.save();
-    ctx.translate(panX, panY);
-    ctx.scale(zoom, zoom);
-    ctx.imageSmoothingEnabled = zoom < 2;
-    drawState(ctx, ws.state);
-
-    ctx.lineWidth = 1 / zoom;
-    ctx.strokeStyle = '#8a8a96';
-    ctx.strokeRect(0, 0, width, height);
-
-    drawSelection(ctx, ws.selectedItems().filter((it) => this.isVisibleItem(it)), zoom);
-    this.drawDraft(ctx, zoom);
-    this.drawMarquee(ctx, zoom);
-    ctx.restore();
+    drawScene(this.ctx, {
+      state: ws.state,
+      view: ws.view,
+      size: this.canvasSize(),
+      dpr: this.dpr,
+      selected: ws.selectedItems(true),
+      draft: this.draft,
+      style: this.style,
+      marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
+    });
   }
-
-  private isVisibleItem(it: Item): boolean {
-    return this.ws.state.layers.some((l) => l.visible && l.items.includes(it));
-  }
-
-  private drawDraft(ctx: CanvasRenderingContext2D, zoom: number): void {
-    const d = this.draft;
-    if (!d) return;
-    const pts = [...d.pts];
-    // The hovered position stands in for the next point to be placed.
-    pts.push(d.hover);
-    const shape = buildShape(d.kind, pts, { ...this.style }, 'preview');
-    if (shape) {
-      ctx.globalAlpha = 0.8;
-      drawItem(ctx, shape);
-      ctx.globalAlpha = 1;
-    }
-    ctx.fillStyle = '#4da3ff';
-    const r = 3.5 / zoom;
-    for (const p of d.pts) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    this.onStatus(hint(d));
-  }
-
-  private drawMarquee(ctx: CanvasRenderingContext2D, zoom: number): void {
-    const d = this.drag;
-    if (d?.mode !== 'marquee') return;
-    const r = rectOf(d.origin, d.cur);
-    ctx.fillStyle = 'rgba(77,163,255,0.12)';
-    ctx.fillRect(r.x, r.y, r.w, r.h);
-    ctx.lineWidth = 1 / zoom;
-    ctx.strokeStyle = '#4da3ff';
-    ctx.strokeRect(r.x, r.y, r.w, r.h);
-  }
-}
-
-function rectOf(a: Pt, b: Pt): Rect {
-  return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
 }
 
 function hint(d: Draft): string {

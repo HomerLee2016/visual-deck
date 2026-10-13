@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_HISTORY, Workspace, uid } from './model';
+import { MAX_HISTORY, Workspace, imageItem, uid } from './model';
 import type { LineItem } from './types';
 
 const mkLine = (): LineItem => ({
@@ -82,6 +82,19 @@ describe('selection and clipboard', () => {
     expect([...ws.selection]).toEqual([items[1].id]);
   });
 
+  it('lists selected items, optionally only those on visible layers', () => {
+    const ws = new Workspace('t', 64, 64);
+    const a = mkLine();
+    ws.addItem('A', a);
+    const hiddenLayer = ws.addLayer('Add');
+    const b = mkLine();
+    ws.addItem('B', b);
+    ws.selection = new Set([a.id, b.id]);
+    ws.edit(null, (s) => ({ ...s, layers: s.layers.map((l) => (l.id === hiddenLayer ? { ...l, visible: false } : l)) }));
+    expect(ws.selectedItems().map((it) => it.id)).toEqual([a.id, b.id]);
+    expect(ws.selectedItems(true).map((it) => it.id)).toEqual([a.id]);
+  });
+
   it('prunes selection when jumping to a state without the item', () => {
     const ws = new Workspace('t', 64, 64);
     const a = mkLine();
@@ -104,10 +117,40 @@ describe('layers', () => {
     expect(ws.state.layers).toHaveLength(1);
   });
 
+  it('notifies once per layer edit, after the selection and active layer are reconciled', () => {
+    const ws = new Workspace('t', 8, 8);
+    const first = ws.activeLayer.id;
+    const second = ws.addLayer('Add', 'Second');
+    const line = mkLine();
+    ws.addItem('Line', line);
+    ws.selection = new Set([line.id]);
+
+    const seen: { selection: number; active: string }[] = [];
+    ws.subscribe(() => seen.push({ selection: ws.selection.size, active: ws.activeLayer.id }));
+
+    ws.setLayerVisible(second, false);
+    expect(seen).toEqual([{ selection: 0, active: second }]);
+
+    seen.length = 0;
+    ws.removeLayer(second);
+    expect(seen).toEqual([{ selection: 0, active: first }]);
+  });
+
   it('reorders layers', () => {
     const ws = new Workspace('t', 8, 8);
     const second = ws.addLayer('Add', 'Second');
     ws.moveLayer(second, -1);
     expect(ws.state.layers[0].id).toBe(second);
+  });
+});
+
+describe('imageItem', () => {
+  it('places a bitmap at the origin with a fresh id', () => {
+    const canvas = { width: 4, height: 4 } as HTMLCanvasElement;
+    const a = imageItem(canvas);
+    const b = imageItem(canvas, 3, 5);
+    expect(a).toMatchObject({ kind: 'image', x: 0, y: 0, canvas });
+    expect(b).toMatchObject({ x: 3, y: 5 });
+    expect(a.id).not.toBe(b.id);
   });
 });

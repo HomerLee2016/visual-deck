@@ -98,6 +98,11 @@ export function itemBounds(it: Item): Rect {
   return { x: x0 - pad, y: y0 - pad, w: x1 - x0 + pad * 2, h: y1 - y0 + pad * 2 };
 }
 
+/** The axis-aligned rectangle spanned by two corner points. */
+export function rectFromPoints(a: Pt, b: Pt): Rect {
+  return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
+}
+
 export function rectsIntersect(a: Rect, b: Rect): boolean {
   return a.x <= b.x + b.w && b.x <= a.x + a.w && a.y <= b.y + b.h && b.y <= a.y + a.h;
 }
