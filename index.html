@@ -66,9 +66,13 @@
             <button data-tool="brush" title="Brush: press and drag to draw freehand (B)">Brush<kbd>B</kbd></button>
             <button data-tool="rect" title="Rectangle: drag or click two opposite corners (R)">Rect<kbd>R</kbd></button>
             <button data-tool="ellipse" title="Ellipse: drag or click two opposite corners of its box (E)">Ellipse<kbd>E</kbd></button>
+            <button data-tool="polygon" title="Polygon: click the centre, then a vertex (G)">Polygon<kbd>G</kbd></button>
+            <button data-tool="star" title="Star: click the centre, then a point (S)">Star<kbd>S</kbd></button>
           </div>
           <div id="tool-help" class="hint"></div>
           <label class="field">Corner radius <input id="shape-radius" type="number" min="0" max="512" value="0" /></label>
+          <label class="field">Sides / points <input id="shape-sides" type="number" min="3" max="64" value="6" /></label>
+          <label class="field">Star inner radius <input id="shape-inner" type="number" min="5" max="100" value="50" />%</label>
         </section>
         <section>
           <h2>Stroke</h2>

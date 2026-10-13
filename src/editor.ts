@@ -18,7 +18,7 @@ import { fitView, toDoc, zoomAround, type Size } from './view';
 
 export type ToolId = 'select' | ShapeKind;
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star' };
 
 interface Draft {
   kind: ClickShapeKind;
