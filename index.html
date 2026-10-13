@@ -60,7 +60,12 @@
         <section>
           <h2>Stroke</h2>
           <label class="field">Color <input id="stroke-color" type="color" value="#ffcc00" /></label>
-          <label class="field">Width <input id="stroke-width" type="number" min="1" max="64" value="2" /></label>
+          <label class="field">Width
+            <span class="width-controls">
+              <input id="stroke-width-range" type="range" min="1" max="64" value="2" aria-label="Stroke width slider" />
+              <input id="stroke-width" type="number" min="1" max="64" value="2" />
+            </span>
+          </label>
         </section>
         <section>
           <h2>Selection</h2>

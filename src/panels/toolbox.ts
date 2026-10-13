@@ -20,13 +20,22 @@ export class ToolboxPanel {
     });
     const color = $<HTMLInputElement>('stroke-color');
     const width = $<HTMLInputElement>('stroke-width');
+    const range = $<HTMLInputElement>('stroke-width-range');
     color.value = editor.style.color;
     width.value = String(editor.style.width);
+    range.value = String(editor.style.width);
     color.oninput = () => editor.setStyle({ color: color.value });
     color.onchange = () => editor.setStyle({ color: color.value }, true);
+    // Slider updates live while dragging; the history step is recorded once on release.
+    range.oninput = () => {
+      width.value = range.value;
+      editor.setStyle({ width: Number(range.value) });
+    };
+    range.onchange = () => editor.setStyle({ width: Number(range.value) }, true);
     width.onchange = () => {
       const w = Math.min(64, Math.max(1, Number(width.value) || 1));
       width.value = String(w);
+      range.value = String(w);
       editor.setStyle({ width: w }, true);
     };
     $('act-copy').onclick = () => editor.copy();

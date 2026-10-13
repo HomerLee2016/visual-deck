@@ -35,6 +35,9 @@ input[type='text'], input[type='number'], textarea {
   padding: 3px 6px;
 }
 input[type='color'] { padding: 0; border: 1px solid var(--border); background: none; width: 40px; height: 24px; }
+.width-controls { display: flex; align-items: center; gap: 6px; }
+.width-controls input[type='range'] { width: 90px; margin: 0; }
+.width-controls input[type='number'] { width: 52px; }
 h2 {
   margin: 0;
   padding: 6px 10px;
