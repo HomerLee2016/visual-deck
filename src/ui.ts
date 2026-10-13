@@ -1,8 +1,9 @@
 import './style.css';
 import { Editor } from './editor';
-import { fileToCanvas } from './io';
+import { fileToCanvas, fileToProject, download, projectToBlob } from './io';
 import { Workspace, imageItem, newLayer } from './model';
 import { $ } from './panels/dom';
+import { PROJECT_EXT } from './project';
 import { HistoryPanel } from './panels/history';
 import { LayersPanel } from './panels/layers';
 import { MenuBar } from './panels/menubar';
@@ -23,6 +24,8 @@ export class App {
   private menu = new MenuBar(
     () => this.active,
     (f) => void this.openImage(f),
+    (f) => void this.openProject(f),
+    () => this.saveProject(),
     (m) => this.editor.onStatus(m),
   );
   private tabs = new TabBar({
@@ -41,7 +44,7 @@ export class App {
 
     this.bindFileDrop();
     window.addEventListener('beforeunload', (e) => {
-      if (this.workspaces.some((w) => w.index > 0)) e.preventDefault();
+      if (this.workspaces.some((w) => w.dirty)) e.preventDefault();
     });
 
     this.addWorkspace(this.newWorkspace('Untitled', 512, 512));
@@ -60,6 +63,7 @@ export class App {
     this.unsub?.();
     this.active = ws;
     this.unsub = ws.subscribe(() => {
+      this.tabs.render();
       this.history.render();
       this.layers.render();
       this.toolbox.render();
@@ -71,12 +75,37 @@ export class App {
   }
 
   private closeWorkspace(ws: Workspace): void {
-    if (ws.index > 0 && !confirm(`Close "${ws.name}"? Its edit history will be lost.`)) return;
+    if (ws.dirty && !confirm(`"${ws.name}" has unsaved changes. Close it anyway?`)) return;
     const i = this.workspaces.indexOf(ws);
     this.workspaces.splice(i, 1);
     if (this.workspaces.length === 0) this.addWorkspace(this.newWorkspace('Untitled', 512, 512));
     else if (ws === this.active) this.activate(this.workspaces[Math.max(0, i - 1)]);
     else this.tabs.render();
+  }
+
+  /** Save the active workspace (document, history, view) as a .vdeck file. */
+  private saveProject(): void {
+    const ws = this.active;
+    try {
+      download(projectToBlob(ws), `${ws.name}${PROJECT_EXT}`);
+      ws.markSaved();
+      this.editor.onStatus(`Saved ${ws.name}${PROJECT_EXT}`);
+    } catch {
+      this.editor.onStatus(`Could not save ${ws.name}`);
+    }
+  }
+
+  /** Open a saved project in a new tab, restoring its history and view. */
+  private async openProject(file: File): Promise<void> {
+    try {
+      const p = await fileToProject(file);
+      const { width, height } = p.history[0].state;
+      const ws = this.newWorkspace(p.name, width, height);
+      ws.restore(p.history, p.index, p.activeLayerId, p.view);
+      this.addWorkspace(ws);
+    } catch (e) {
+      this.editor.onStatus(`Could not open ${file.name}: ${e instanceof Error ? e.message : 'unknown error'}`);
+    }
   }
 
   /** Import: each image file becomes its own workspace tab. */

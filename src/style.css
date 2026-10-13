@@ -92,6 +92,7 @@ h2 button { padding: 0 8px; }
 }
 .menu-items button { border: none; background: none; text-align: left; padding: 6px 10px; }
 .menu-items button:hover { background: #29405c; }
+.menu-items hr { margin: 2px 0; border: none; border-top: 1px solid var(--border, #3a4a60); width: 100%; }
 #tabbar {
   grid-area: tabbar;
   display: flex;

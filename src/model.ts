@@ -5,6 +5,12 @@ import { INITIAL_VIEW, type View } from './view';
 let counter = 0;
 export const uid = (prefix: string) => `${prefix}${++counter}`;
 
+/** Make sure future `uid`s never collide with an id that came from a loaded file. */
+export function reserveUid(id: string): void {
+  const n = Number(/(\d+)$/.exec(id)?.[1]);
+  if (Number.isFinite(n) && n > counter) counter = n;
+}
+
 export type Thumbnailer = (state: DocState) => string | null;
 
 export const MAX_HISTORY = 100;
@@ -65,6 +71,8 @@ export class Workspace {
   history: HistoryEntry[];
   index = 0;
   view: View = INITIAL_VIEW;
+  /** The state last saved to (or loaded from) a file; `dirty` compares against it. */
+  private savedState: DocState;
   private subs = new Set<() => void>();
   private layerCount = 1;
 
@@ -79,6 +87,31 @@ export class Workspace {
     this.activeLayerId = layers[layers.length - 1].id;
     this.layerCount = layers.length;
     this.history = [{ label: 'Initial', state: this.state, thumb: this.thumb(this.state) }];
+    this.savedState = this.state;
+  }
+
+  /** True when the document differs from what was last saved or loaded. */
+  get dirty(): boolean {
+    return this.state !== this.savedState;
+  }
+
+  markSaved(): void {
+    this.savedState = this.state;
+    this.changed();
+  }
+
+  /** Replace everything with a loaded project's history; the loaded state counts as saved. */
+  restore(history: { label: string; state: DocState }[], index: number, activeLayerId: string, view: View): void {
+    this.history = history.map((h) => ({ ...h, thumb: this.thumb(h.state) }));
+    this.index = index;
+    this.state = this.history[index].state;
+    this.savedState = this.state;
+    this.activeLayerId = activeLayerId;
+    this.layerCount = Math.max(this.layerCount, this.state.layers.length);
+    this.view = view;
+    this.selection.clear();
+    this.reconcile();
+    this.changed();
   }
 
   subscribe(fn: () => void): () => void {

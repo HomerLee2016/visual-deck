@@ -12,11 +12,15 @@
         <div class="menu">
           <button class="menu-title">File</button>
           <div class="menu-items" hidden>
+            <button id="menu-open">Open project…</button>
+            <button id="menu-save">Save project</button>
+            <hr />
             <button id="menu-import">Import…</button>
             <button id="menu-export">Export…</button>
           </div>
         </div>
         <input id="file-input" type="file" accept="image/*,.svg" multiple hidden />
+        <input id="project-input" type="file" accept=".vdeck" hidden />
       </header>
       <header id="tabbar">
         <div id="tabs"></div>

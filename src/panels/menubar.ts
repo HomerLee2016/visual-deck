@@ -1,11 +1,13 @@
-import { download, exportDocument, isImageFile, type ExportFormat } from '../io';
+import { download, exportDocument, isImageFile, isProjectFile, type ExportFormat } from '../io';
 import { $, type ActiveWorkspace } from './dom';
 
-/** File menu: Import (each image becomes a workspace) and the Export dialog. */
+/** File menu: Open/Save project, Import (each image becomes a workspace) and the Export dialog. */
 export class MenuBar {
   constructor(
     private active: ActiveWorkspace,
     private importFile: (file: File) => void,
+    private openProject: (file: File) => void,
+    private saveProject: () => void,
     private status: (msg: string) => void,
   ) {
     const menu = document.querySelector<HTMLElement>('#menubar .menu')!;
@@ -27,6 +29,20 @@ export class MenuBar {
       input.value = '';
     };
 
+    const projectInput = $<HTMLInputElement>('project-input');
+    $('menu-open').onclick = () => {
+      closeMenu();
+      projectInput.click();
+    };
+    projectInput.onchange = () => {
+      for (const f of Array.from(projectInput.files ?? [])) this.openProject(f);
+      projectInput.value = '';
+    };
+    $('menu-save').onclick = () => {
+      closeMenu();
+      this.saveProject();
+    };
+
     const dlg = $<HTMLDialogElement>('export-dialog');
     $('menu-export').onclick = () => {
       closeMenu();
@@ -39,10 +55,11 @@ export class MenuBar {
     };
   }
 
-  /** Also used for dropped files. */
+  /** Also used for dropped files (images and projects). */
   import(file: File): void {
-    if (isImageFile(file)) this.importFile(file);
-    else this.status(`${file.name} is not an image`);
+    if (isProjectFile(file)) this.openProject(file);
+    else if (isImageFile(file)) this.importFile(file);
+    else this.status(`${file.name} is not an image or project`);
   }
 
   private export(format: ExportFormat): void {
