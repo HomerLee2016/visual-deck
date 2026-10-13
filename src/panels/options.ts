@@ -1,5 +1,6 @@
 import type { Editor } from '../editor';
-import { optionGroups, optionsTitle, type OptionGroup } from '../options';
+import { optionGroups, optionsTitle, type OptionContext, type OptionGroup } from '../options';
+import type { Workspace } from '../model';
 import { typeOf } from '../items/registry';
 import { $, type ActiveWorkspace } from './dom';
 import { pickerStyle } from './toolbox';
@@ -12,6 +13,17 @@ interface SizeBinding {
   value: number;
   /** `final` is false while a slider is being dragged, true once the value is committed. */
   set(v: number, final: boolean): void;
+}
+
+/** What the pop-out needs to know about the selection and clipboard. */
+export function selectionContext(ws: Workspace, clipboard: number): Omit<OptionContext, 'maskEditing'> {
+  const items = ws.selectedItems(true);
+  return {
+    kinds: items.map((it) => it.kind),
+    styled: items.some((it) => typeOf(it).withStyle !== undefined),
+    clipboard: clipboard > 0,
+    clipped: items.some((it) => 'clip' in it && it.clip !== undefined),
+  };
 }
 
 /**
@@ -64,8 +76,8 @@ export class OptionsPanel {
 
   render(): void {
     const e = this.editor;
-    const hasStyled = this.active().selectedItems().some((it) => typeOf(it).withStyle !== undefined);
-    const groups = new Set<OptionGroup>(optionGroups(e.tool, { maskEditing: e.maskEditing, hasStyled }));
+    const ctx = { maskEditing: e.maskEditing, ...selectionContext(this.active(), e.clipboard.length) };
+    const groups = new Set<OptionGroup>(optionGroups(e.tool, ctx));
     $('options').hidden = groups.size === 0;
     $('options-title').textContent = `${optionsTitle(e.tool, e.maskEditing)} options`;
     document.querySelectorAll<HTMLElement>('#options [data-opt]').forEach((el) => {

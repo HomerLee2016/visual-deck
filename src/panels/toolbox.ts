@@ -72,11 +72,13 @@ export class ToolboxPanel {
       fillNone.checked = false;
       fill.disabled = false;
       editor.setStyle({ fill: fill.value });
+      this.render();
     };
     fill.onchange = () => editor.setStyle({ fill: fill.value }, true);
     fillNone.onchange = () => {
       fill.disabled = fillNone.checked;
       editor.setStyle({ fill: fillNone.checked ? undefined : fill.value }, true);
+      this.render();
     };
     opacity.oninput = () => {
       opacityOut.textContent = `${opacity.value}%`;
@@ -91,7 +93,10 @@ export class ToolboxPanel {
     join.value = editor.style.join ?? 'round';
     miter.value = String(editor.style.miterLimit ?? 10);
     cap.onchange = () => editor.setStyle({ cap: cap.value as Style['cap'] }, true);
-    join.onchange = () => editor.setStyle({ join: join.value as Style['join'] }, true);
+    join.onchange = () => {
+      editor.setStyle({ join: join.value as Style['join'] }, true);
+      this.render();
+    };
     miter.onchange = () => {
       const m = Math.min(100, Math.max(1, Number(miter.value) || 10));
       miter.value = String(m);
@@ -192,6 +197,7 @@ export class ToolboxPanel {
     paint.onchange = () => {
       editor.setFillPaint(paint.value as 'solid' | 'linear' | 'radial');
       renderStops();
+      this.render();
     };
     $('grad-add').onclick = () => {
       const g = editor.style.fillGradient;
@@ -254,6 +260,14 @@ export class ToolboxPanel {
     const opacity = $<HTMLInputElement>('stroke-opacity');
     opacity.value = String(Math.round(opacityOf(style) * 100));
     $('stroke-opacity-out').textContent = `${opacity.value}%`;
+    this.syncVisibility(style);
+  }
+
+  /** Hide rows that do nothing for the current style: miter limit without mitred corners, paint and pattern without a fill. */
+  private syncVisibility(style: Style): void {
+    $('row-miter').hidden = (style.join ?? 'round') !== 'miter';
+    $('row-paint').hidden = !style.fill && !style.fillGradient;
+    $('row-pattern').hidden = !style.fill && !style.fillGradient;
   }
 
   render(): void {
@@ -267,8 +281,9 @@ export class ToolboxPanel {
     $<HTMLButtonElement>('edge-apply').disabled = !this.editor.edgePending;
     $<HTMLButtonElement>('edge-cancel').disabled = !this.editor.edgePending;
     const has = this.active().selection.size > 0;
-    $<HTMLButtonElement>('act-copy').disabled = !has;
-    $<HTMLButtonElement>('act-delete').disabled = !has;
-    $<HTMLButtonElement>('act-paste').disabled = this.editor.clipboard.length === 0;
+    // Actions that cannot apply right now are hidden, not greyed out.
+    $<HTMLButtonElement>('act-copy').hidden = !has;
+    $<HTMLButtonElement>('act-delete').hidden = !has;
+    $<HTMLButtonElement>('act-paste').hidden = this.editor.clipboard.length === 0;
   }
 }

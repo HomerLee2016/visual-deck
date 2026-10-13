@@ -75,8 +75,7 @@
           </div>
           <div data-opt="transform">
             <h4>Transform</h4>
-            <details open>
-              <summary>Geometry</summary>
+            <h5>Geometry</h5>
               <div class="geo-grid">
                 <label class="field">X <input id="geo-x" type="number" step="any" disabled /></label>
                 <label class="field">Y <input id="geo-y" type="number" step="any" disabled /></label>
@@ -84,9 +83,7 @@
                 <label class="field">H <input id="geo-h" type="number" step="any" min="0.1" disabled /></label>
                 <label class="field">Rotate° <input id="geo-rot" type="number" step="any" disabled /></label>
               </div>
-            </details>
-            <details>
-              <summary>Arrange</summary>
+            <h5>Arrange</h5>
               <div id="arrange" class="arrange-grid">
                 <button data-align="left" title="Align left edges">Left</button>
                 <button data-align="hcenter" title="Align horizontal centres">Centre</button>
@@ -109,7 +106,7 @@
                 <button data-simplify="1" title="Simplify selected freehand strokes into fewer nodes">Simplify</button>
                 <button data-outline="1" title="Turn each selected stroke into a filled outline">Outline</button>
                 <button data-offset="1" title="Grow (positive) or shrink (negative) the selected paths by this distance">Offset</button>
-                <label class="field offset-field">by <input id="offset-dist" type="number" min="-64" max="64" step="any" value="4" /></label>
+                <label id="offset-field" class="field offset-field">by <input id="offset-dist" type="number" min="-64" max="64" step="any" value="4" /></label>
                 <button data-share="fill" title="Share the selection's fill as a definition that can be edited for all users">Share fill</button>
                 <button data-share="stroke" title="Share the selection's stroke as a definition">Share stroke</button>
                 <button data-unshare="1" title="Replace shared fills and strokes with their values">Unshare</button>
@@ -117,7 +114,6 @@
                 <button data-clip="mask" title="Mask the other selected items with the topmost shape">Mask</button>
                 <button data-release="1" title="Release the clip or mask from the selection">Release</button>
               </div>
-            </details>
           </div>
           <div data-opt="size">
             <label class="field"><span id="opt-size-label">Width</span>
@@ -143,7 +139,7 @@
                 <label class="check"><input id="fill-none" type="checkbox" checked /> None</label>
               </span>
             </label>
-            <label class="field">Paint
+            <label id="row-paint" class="field">Paint
               <select id="fill-paint" aria-label="Fill paint">
                 <option value="solid">Solid</option>
                 <option value="linear">Linear gradient</option>
@@ -154,7 +150,7 @@
               <div id="grad-stops"></div>
               <div class="row"><button id="grad-add" type="button">+ Stop</button></div>
             </div>
-            <label class="field">Pattern
+            <label id="row-pattern" class="field">Pattern
               <select id="fx-pattern" aria-label="Fill pattern">
                 <option value="">None</option>
                 <option value="stripes">Stripes</option>
@@ -163,13 +159,6 @@
             </label>
           </div>
           <div data-opt="lineStyle">
-            <label class="field">Line end
-              <select id="fx-marker" aria-label="Marker at the end of the line">
-                <option value="">None</option>
-                <option value="arrow">Arrow</option>
-                <option value="dot">Dot</option>
-              </select>
-            </label>
             <label class="field">Line ends
               <select id="stroke-cap" aria-label="Line end style">
                 <option value="round">Round</option>
@@ -184,12 +173,21 @@
                 <option value="bevel">Bevel</option>
               </select>
             </label>
-            <label class="field">Miter limit <input id="stroke-miter" type="number" min="1" max="100" value="10" /></label>
+            <label id="row-miter" class="field">Miter limit <input id="stroke-miter" type="number" min="1" max="100" value="10" /></label>
             <label class="field">Dash
               <select id="stroke-dash" aria-label="Dash pattern">
                 <option value="solid">Solid</option>
                 <option value="dashed">Dashed</option>
                 <option value="dotted">Dotted</option>
+              </select>
+            </label>
+          </div>
+          <div data-opt="marker">
+            <label class="field">Line end marker
+              <select id="fx-marker" aria-label="Marker at the end of the line">
+                <option value="">None</option>
+                <option value="arrow">Arrow</option>
+                <option value="dot">Dot</option>
               </select>
             </label>
           </div>
