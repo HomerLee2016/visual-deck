@@ -4,8 +4,9 @@ import type { Matrix } from '../matrix';
 import type { Pt, ShapeItem, Style } from '../types';
 import type { ClickSpec, ShapeType, SvgEnv } from './types';
 import { fillPaint, strokePaint } from './paint';
-import { filterRef, gradientRef } from './defs';
+import { filterRef, gradientRef, markerRef, patternRef } from './defs';
 import { canvasFilter, compositeOf, hasFilter } from './effects';
+import { drawMarkers } from './markers';
 
 import { esc, num } from './format';
 
@@ -101,15 +102,24 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       ctx.beginPath();
       def.trace(ctx, it);
       ctx.stroke();
+      if (it.style.markerStart || it.style.markerEnd) {
+        ctx.setLineDash([]);
+        drawMarkers(ctx, def.outline(it), it.style);
+      }
       ctx.restore();
     },
     toSvg(it, env) {
       const opacity = opacityOf(it.style);
       const fade = opacity < 1 ? ` opacity="${num(opacity)}"` : '';
-      const fill = it.style.fillGradient ? gradientRef(it.style.fillGradient, env) : esc(it.style.fill ?? 'none');
+      const fill = it.style.pattern
+        ? patternRef(it.style.pattern, it.style.color, env)
+        : it.style.fillGradient
+          ? gradientRef(it.style.fillGradient, env)
+          : esc(it.style.fill ?? 'none');
       const filter = hasFilter(it.style) ? ` filter="${filterRef(it.style, env)}"` : '';
       const blend = it.style.blend && it.style.blend !== 'normal' ? ` style="mix-blend-mode:${it.style.blend}"` : '';
-      return `<path d="${def.pathData(it)}" fill="${fill}" ${strokeAttrs(it.style, env)}${fade}${filter}${blend}${transformAttr(it.transform)}/>`;
+      const markers = `${it.style.markerStart ? ` marker-start="${markerRef(it.style.markerStart, it.style.color, env)}"` : ''}${it.style.markerEnd ? ` marker-end="${markerRef(it.style.markerEnd, it.style.color, env)}"` : ''}`;
+      return `<path d="${def.pathData(it)}" fill="${fill}" ${strokeAttrs(it.style, env)}${fade}${filter}${blend}${markers}${transformAttr(it.transform)}/>`;
     },
   };
 }

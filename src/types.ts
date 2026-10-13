@@ -60,6 +60,9 @@ export type BlendMode =
 /** A shared colour or gradient, referenced by id from item styles (`fillRef`, `strokeRef`). */
 export type Definition = { kind: 'color'; color: string } | { kind: 'gradient'; gradient: Gradient };
 
+export type MarkerKind = 'arrow' | 'dot';
+export type PatternKind = 'stripes' | 'dots';
+
 export interface Style {
   color: string;
   width: number;
@@ -79,6 +82,11 @@ export interface Style {
   shadow?: Shadow;
   /** How the item mixes with what is below it. Missing means normal. */
   blend?: BlendMode;
+  /** Marker at the start and end of an open outline: an arrowhead or a dot. */
+  markerStart?: MarkerKind;
+  markerEnd?: MarkerKind;
+  /** Repeating pattern drawn in the stroke colour over the fill area. Replaces the fill when set. */
+  pattern?: PatternKind;
   /** 0 to 1. Missing means fully opaque. */
   opacity?: number;
   /** Line end shape. Missing means round. */

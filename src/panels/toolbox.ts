@@ -190,6 +190,12 @@ export class ToolboxPanel {
       renderStops();
     };
     renderStops();
+    const pattern = $<HTMLSelectElement>('fx-pattern');
+    const marker = $<HTMLSelectElement>('fx-marker');
+    pattern.value = editor.style.pattern ?? '';
+    marker.value = editor.style.markerEnd ?? '';
+    pattern.onchange = () => editor.setStyle({ pattern: (pattern.value || undefined) as Style['pattern'] }, true);
+    marker.onchange = () => editor.setStyle({ markerEnd: (marker.value || undefined) as Style['markerEnd'] }, true);
     const blend = $<HTMLSelectElement>('fx-blend');
     const blur = $<HTMLInputElement>('fx-blur');
     const shadow = $<HTMLInputElement>('fx-shadow');

@@ -1,5 +1,6 @@
 import { esc, num } from './format';
 import { gradientKey } from './paint';
+import { markerMarkup, patternMarkup } from './markers';
 import type { ClipSpec, Gradient, Style } from '../types';
 import { shapeTypeOf } from './registry';
 import { transformAttr } from './shape';
@@ -50,6 +51,30 @@ export function clipRef(clip: ClipSpec, env: SvgEnv): string {
     const shape = `<path d="${shapeTypeOf(clip.shape).pathData(clip.shape)}"${clip.mode === 'mask' ? ' fill="#fff"' : ''}${transformAttr(clip.shape.transform)}/>`;
     const markup = clip.mode === 'clip' ? `<clipPath id="${id}">${shape}</clipPath>` : `<mask id="${id}">${shape}</mask>`;
     entry = { id, markup };
+    env.defs.set(key, entry);
+  }
+  return `url(#${entry.id})`;
+}
+
+/** The `url(#id)` reference for a marker of a kind and colour, registering it once. */
+export function markerRef(kind: 'arrow' | 'dot', color: string, env: SvgEnv): string {
+  const key = `marker:${kind}:${color}`;
+  let entry = env.defs.get(key);
+  if (!entry) {
+    const id = `k${env.defs.size + 1}`;
+    entry = { id, markup: markerMarkup(id, kind, color) };
+    env.defs.set(key, entry);
+  }
+  return `url(#${entry.id})`;
+}
+
+/** The `url(#id)` reference for a pattern in a colour, registering it once. */
+export function patternRef(kind: 'stripes' | 'dots', color: string, env: SvgEnv): string {
+  const key = `pattern:${kind}:${color}`;
+  let entry = env.defs.get(key);
+  if (!entry) {
+    const id = `p${env.defs.size + 1}`;
+    entry = { id, markup: patternMarkup(id, kind, color) };
     env.defs.set(key, entry);
   }
   return `url(#${entry.id})`;
