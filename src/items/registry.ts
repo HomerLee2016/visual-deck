@@ -2,6 +2,7 @@ import { arcType } from './arc';
 import { brushType } from './brush';
 import { curveType } from './curve';
 import { ellipseType } from './ellipse';
+import { pathType } from './path';
 import { polygonType } from './polygon';
 import { starType } from './star';
 import { textType } from './text';
@@ -28,6 +29,7 @@ const types: { [K in ItemKind]: ItemType<Extract<Item, { kind: K }>> } = {
   star: starType,
   text: textType,
   group: groupType,
+  path: pathType,
 };
 
 export function drawItem(ctx: CanvasRenderingContext2D, it: Item): void {
