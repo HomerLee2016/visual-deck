@@ -1,9 +1,6 @@
-import { parseColor } from './color';
-import { circle3, norm } from './geometry';
-import type { DocState, Item, ShapeItem } from './types';
-
-const num = (v: number) => String(Math.round(v * 1000) / 1000);
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+import { num } from './items/shape';
+import { typeOf } from './items/registry';
+import type { DocState, Item } from './types';
 
 /**
  * Serialise a document as SVG. Shapes stay vector paths, image items are
@@ -25,32 +22,11 @@ export function toSvg(s: DocState): string {
 }
 
 function itemToSvg(it: Item, hrefs: Map<HTMLCanvasElement, string>): string {
-  if (it.kind === 'image') {
-    let href = hrefs.get(it.canvas);
-    if (!href) {
-      href = it.canvas.toDataURL('image/png');
-      hrefs.set(it.canvas, href);
-    }
-    return `<image x="${num(it.x)}" y="${num(it.y)}" width="${it.canvas.width}" height="${it.canvas.height}" href="${href}"/>`;
+  if (it.kind !== 'image') return typeOf(it).toSvg(it, hrefs);
+  let href = hrefs.get(it.canvas);
+  if (!href) {
+    href = it.canvas.toDataURL('image/png');
+    hrefs.set(it.canvas, href);
   }
-  const { hex, alpha } = parseColor(it.style.color);
-  const opacity = alpha < 1 ? ` stroke-opacity="${num(alpha)}"` : '';
-  return `<path d="${pathData(it)}" fill="none" stroke="${esc(hex)}"${opacity} stroke-width="${num(it.style.width)}" stroke-linecap="round" stroke-linejoin="round"/>`;
-}
-
-function pathData(it: ShapeItem): string {
-  if (it.kind === 'brush') return it.pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${num(p.x)} ${num(p.y)}`).join(' ');
-  const start = `M${num(it.a.x)} ${num(it.a.y)}`;
-  const end = `${num(it.b.x)} ${num(it.b.y)}`;
-  if (it.kind === 'line') return `${start} L${end}`;
-  if (it.kind === 'curve') {
-    return `${start} C${num(it.c1.x)} ${num(it.c1.y)} ${num(it.c2.x)} ${num(it.c2.y)} ${end}`;
-  }
-  const c = circle3(it.a, it.b, it.m);
-  if (!c) return `${start} L${end}`;
-  // Same direction rules as the canvas arc in render.ts: sweep-flag 1 = increasing angle.
-  const span = c.anticlockwise ? norm(c.ta - c.tb) : norm(c.tb - c.ta);
-  const largeArc = span > Math.PI ? 1 : 0;
-  const sweep = c.anticlockwise ? 0 : 1;
-  return `${start} A${num(c.r)} ${num(c.r)} 0 ${largeArc} ${sweep} ${end}`;
+  return `<image x="${num(it.x)}" y="${num(it.y)}" width="${it.canvas.width}" height="${it.canvas.height}" href="${href}"/>`;
 }
