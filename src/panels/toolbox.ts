@@ -2,7 +2,7 @@ import type { Editor, ToolId } from '../editor';
 import { $, type ActiveWorkspace } from './dom';
 
 const TOOL_HELP: Record<ToolId, string> = {
-  select: 'Click or drag a box to select across all visible layers. Shift adds. Drag to move. Delete / Ctrl+C / Ctrl+V.',
+  select: 'Click or drag a box to select across all visible layers. Shift adds. Drag to move. Click a point on a selected brush stroke to pick it; Delete removes picked points. Ctrl+C / Ctrl+V.',
   line: 'Press-drag-release, or click start then click end.',
   arc: 'Drag start→end (or click twice), then click a point the arc passes through.',
   curve: 'Drag start→end (or click twice), then click two control points.',

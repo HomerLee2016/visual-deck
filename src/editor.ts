@@ -186,8 +186,41 @@ export class Editor {
     else this.drawDown(this.tool, p, s);
   }
 
+  /** A point handle of a selected brush stroke under `p`, if any. */
+  private pickPoint(p: Pt): { id: string; index: number } | null {
+    const tol = PICK_TOLERANCE_PX / this.ws.view.zoom;
+    for (const it of this.ws.selectedItems(true)) {
+      if (it.kind !== 'brush') continue;
+      const index = it.pts.findIndex((q) => dist(p, q) <= tol);
+      if (index >= 0) return { id: it.id, index };
+    }
+    return null;
+  }
+
+  /** Click selects one point of a brush stroke; Shift toggles it and keeps other selections. */
+  private selectPoint(id: string, index: number, shift: boolean): void {
+    const ws = this.ws;
+    if (!shift) {
+      ws.selection = new Set([id]);
+      ws.pointSelection.clear();
+    }
+    ws.selection.add(id);
+    const picked = new Set(ws.pointSelection.get(id));
+    if (picked.has(index)) picked.delete(index);
+    else picked.add(index);
+    if (picked.size) ws.pointSelection.set(id, picked);
+    else ws.pointSelection.delete(id);
+    this.afterSelectionChange();
+  }
+
   private selectDown(p: Pt, shift: boolean): void {
+    const point = this.pickPoint(p);
+    if (point) {
+      this.selectPoint(point.id, point.index, shift);
+      return;
+    }
     const sel = this.ws.selection;
+    this.ws.pointSelection.clear();
     const hit = this.pick(p);
     if (hit) {
       if (shift && sel.has(hit.id)) {
@@ -332,6 +365,7 @@ export class Editor {
     } else if (mod && key === 'a') {
       e.preventDefault();
       this.ws.selection = new Set(visibleItemsTopFirst(this.ws.state).map((it) => it.id));
+      this.ws.pointSelection.clear();
       this.afterSelectionChange();
     } else if (mod && (key === 'c' || key === 'x')) {
       e.preventDefault();
@@ -342,7 +376,10 @@ export class Editor {
       this.deleteSelection();
     } else if (e.key === 'Escape') {
       if (this.draft) this.draft = null;
-      else this.ws.selection.clear();
+      else {
+        this.ws.selection.clear();
+        this.ws.pointSelection.clear();
+      }
       this.afterSelectionChange();
     } else if (!mod && key === '0') {
       this.fit();
@@ -406,6 +443,7 @@ export class Editor {
       size: this.canvasSize(),
       dpr: this.dpr,
       selected: ws.selectedItems(true),
+      selectedPoints: ws.selectedPoints(),
       draft: this.draft,
       stroke: this.drag?.mode === 'brush' ? this.drag.pts : null,
       style: this.style,

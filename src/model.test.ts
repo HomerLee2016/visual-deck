@@ -242,3 +242,57 @@ describe('item helpers', () => {
     expect(n).toBe(1);
   });
 });
+
+describe('brush point selection', () => {
+  const mkBrush = (n: number) => ({
+    kind: 'brush' as const,
+    id: uid('item'),
+    pts: Array.from({ length: n }, (_, i) => ({ x: i, y: i })),
+    style: { color: '#fff', width: 1 },
+  });
+
+  it('deletes only the picked points of a selected stroke, as one undo step', () => {
+    const ws = new Workspace('t', 64, 64);
+    const stroke = mkBrush(5);
+    ws.addItem('Brush', stroke);
+    ws.selection = new Set([stroke.id]);
+    ws.pointSelection = new Map([[stroke.id, new Set([1, 3])]]);
+    expect(ws.deleteSelected()).toBe(true);
+    const [left] = ws.activeLayer.items as (typeof stroke)[];
+    expect(left.pts.map((p) => p.x)).toEqual([0, 2, 4]);
+    expect(ws.selection.has(stroke.id)).toBe(true);
+    expect(ws.pointSelection.size).toBe(0);
+    ws.undo();
+    expect((ws.activeLayer.items[0] as typeof stroke).pts).toHaveLength(5);
+  });
+
+  it('removes the stroke when fewer than two points would remain', () => {
+    const ws = new Workspace('t', 64, 64);
+    const stroke = mkBrush(2);
+    ws.addItem('Brush', stroke);
+    ws.selection = new Set([stroke.id]);
+    ws.pointSelection = new Map([[stroke.id, new Set([0])]]);
+    ws.deleteSelected();
+    expect(ws.activeLayer.items).toHaveLength(0);
+    expect(ws.selection.size).toBe(0);
+  });
+
+  it('ignores point picks on items that are no longer selected', () => {
+    const ws = new Workspace('t', 64, 64);
+    const stroke = mkBrush(4);
+    ws.addItem('Brush', stroke);
+    ws.pointSelection = new Map([[stroke.id, new Set([0])]]);
+    expect(ws.selectedPoints().size).toBe(0);
+    expect(ws.deleteSelected()).toBe(false);
+    expect(ws.activeLayer.items).toHaveLength(1);
+  });
+
+  it('deletes whole items when no points are picked', () => {
+    const ws = new Workspace('t', 64, 64);
+    const stroke = mkBrush(4);
+    ws.addItem('Brush', stroke);
+    ws.selection = new Set([stroke.id]);
+    ws.deleteSelected();
+    expect(ws.activeLayer.items).toHaveLength(0);
+  });
+});
