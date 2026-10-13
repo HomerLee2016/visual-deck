@@ -49,7 +49,6 @@ When a story/epic has several sub-issues:
 - Use a type prefix: `feature/`, `bug/`, `refactor/`.
 - Then the issue number (if any) and a short kebab-case description, e.g. `feature/12-arc-tool`.
 - Never use auto-generated names like `claude/modest-fayman-ahuz4`.
-- Exception: when a session explicitly assigns a branch, use that one.
 
 # Code structure
 
