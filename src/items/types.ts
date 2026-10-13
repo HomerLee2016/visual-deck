@@ -24,8 +24,12 @@ export interface ItemType<T extends Item = Item> {
 
 /** Click-to-place parameters for a shape tool. */
 export interface ClickSpec {
+  /** Name used in history steps, e.g. "Arc". */
+  label: string;
   /** Points needed before the shape is complete. */
   needed: number;
+  /** Status-bar prompt for the next point, given how many are placed (at least 2). */
+  hint(placed: number): string;
   /** Build from the points so far; may degrade to a simpler shape while points are missing. */
   build(pts: Pt[], style: Style, id: string): ShapeItem | null;
 }

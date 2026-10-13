@@ -30,7 +30,9 @@ export const curveType = defineShape<CurveItem>({
   mapPoints: (it, fn) => ({ ...it, a: fn(it.a), b: fn(it.b), c1: fn(it.c1), c2: fn(it.c2) }),
   handles: (it) => [it.a, it.b, it.c1, it.c2],
   clicks: {
+    label: 'Curve',
     needed: 4,
+    hint: (placed) => (placed === 2 ? 'Click control point 1' : 'Click control point 2'),
     build: (pts: Pt[], style: Style, id: string) =>
       pts.length >= 3
         ? { kind: 'curve', id, a: pts[0], b: pts[1], c1: pts[2], c2: pts[3] ?? pts[2], style }

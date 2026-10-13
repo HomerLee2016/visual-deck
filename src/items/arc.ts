@@ -40,7 +40,9 @@ export const arcType = defineShape<ArcItem>({
   mapPoints: (it, fn) => ({ ...it, a: fn(it.a), b: fn(it.b), m: fn(it.m) }),
   handles: (it) => [it.a, it.b, it.m],
   clicks: {
+    label: 'Arc',
     needed: 3,
+    hint: () => 'Click a point the arc passes through',
     build: (pts, style, id) =>
       pts.length >= 3 ? { kind: 'arc', id, a: pts[0], b: pts[1], m: pts[2], style } : lineFrom(pts, style, id),
   },

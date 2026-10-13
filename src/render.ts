@@ -9,8 +9,7 @@ const DOC_BORDER = '#8a8a96';
 const ACCENT = '#4da3ff';
 
 export function drawItem(ctx: CanvasRenderingContext2D, it: Item): void {
-  if (it.kind === 'image') ctx.drawImage(it.canvas, it.x, it.y);
-  else typeOf(it).draw(ctx, it);
+  typeOf(it).draw(ctx, it);
 }
 
 /** Draw visible layers bottom to top. `only` renders a single layer regardless of its visibility. */

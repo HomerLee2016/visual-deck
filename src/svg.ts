@@ -1,4 +1,3 @@
-import { num } from './items/shape';
 import { typeOf } from './items/registry';
 import type { DocState, Item } from './types';
 
@@ -22,11 +21,5 @@ export function toSvg(s: DocState): string {
 }
 
 function itemToSvg(it: Item, hrefs: Map<HTMLCanvasElement, string>): string {
-  if (it.kind !== 'image') return typeOf(it).toSvg(it, hrefs);
-  let href = hrefs.get(it.canvas);
-  if (!href) {
-    href = it.canvas.toDataURL('image/png');
-    hrefs.set(it.canvas, href);
-  }
-  return `<image x="${num(it.x)}" y="${num(it.y)}" width="${it.canvas.width}" height="${it.canvas.height}" href="${href}"/>`;
+  return typeOf(it).toSvg(it, hrefs);
 }

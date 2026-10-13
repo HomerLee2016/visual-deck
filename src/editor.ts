@@ -1,6 +1,6 @@
 import {
-  POINTS_NEEDED,
   buildShape,
+  clickSpec,
   dist,
   hitTest,
   itemBounds,
@@ -9,6 +9,7 @@ import {
   translateItem,
   type ClickShapeKind,
 } from './geometry';
+import { typeOf } from './items/registry';
 import { DEFAULT_STYLE, Workspace, mapItems, uid, visibleItemsTopFirst } from './model';
 import { drawScene } from './render';
 import type { DocState, Item, Pt, ShapeKind, Style } from './types';
@@ -17,8 +18,6 @@ import { fitView, toDoc, zoomAround, type Size } from './view';
 export type ToolId = 'select' | ShapeKind;
 
 export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', l: 'line', a: 'arc', c: 'curve', b: 'brush' };
-
-const SHAPE_LABELS: Record<ClickShapeKind, string> = { line: 'Line', arc: 'Arc', curve: 'Curve' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -103,12 +102,9 @@ export class Editor {
     this.style = { ...this.style, ...patch };
     if (applyToSelection) {
       const ids = this.ws.selection;
-      const hasShape = this.ws.selectedItems().some((it) => it.kind !== 'image');
-      if (hasShape) {
-        this.ws.selection = new Set(ids);
-        this.ws.edit('Change style', (s) =>
-          mapItems(s, ids, (it) => (it.kind === 'image' ? it : { ...it, style: { ...this.style } })),
-        );
+      const hasStyled = this.ws.selectedItems().some((it) => typeOf(it).withStyle);
+      if (hasStyled) {
+        this.ws.edit('Change style', (s) => mapItems(s, ids, (it) => typeOf(it).withStyle?.(it, this.style) ?? it));
       }
     }
   }
@@ -278,11 +274,11 @@ export class Editor {
 
   private finishDraftIfComplete(): void {
     const d = this.draft;
-    if (!d || d.pts.length < POINTS_NEEDED[d.kind]) return;
+    if (!d || d.pts.length < clickSpec(d.kind).needed) return;
     const shape = buildShape(d.kind, d.pts, { ...this.style }, uid('item'));
     this.draft = null;
     if (!shape) return;
-    this.ws.addItem(SHAPE_LABELS[d.kind], shape);
+    this.ws.addItem(clickSpec(d.kind).label, shape);
   }
 
   private onPointerMove(e: PointerEvent): void {
@@ -453,8 +449,6 @@ export class Editor {
 }
 
 function hint(d: Draft): string {
-  const n = d.pts.length;
-  if (n < 2) return 'Release (or click) to set the end point';
-  if (d.kind === 'arc') return 'Click a point the arc passes through';
-  return n === 2 ? 'Click control point 1' : 'Click control point 2';
+  if (d.pts.length < 2) return 'Release (or click) to set the end point';
+  return clickSpec(d.kind).hint(d.pts.length);
 }
