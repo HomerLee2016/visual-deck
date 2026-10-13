@@ -103,7 +103,34 @@ export interface EllipseItem {
   transform?: Matrix;
 }
 
-export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem | EllipseItem;
+/** Regular polygon: `sides` vertices on a circle of radius `r`, the first at angle `rot` (radians). */
+export interface PolygonItem {
+  kind: 'polygon';
+  id: string;
+  cx: number;
+  cy: number;
+  r: number;
+  sides: number;
+  rot: number;
+  style: Style;
+  transform?: Matrix;
+}
+
+/** Star with `sides` points: outer vertices at `r`, inner vertices at `r * inner`. */
+export interface StarItem {
+  kind: 'star';
+  id: string;
+  cx: number;
+  cy: number;
+  r: number;
+  sides: number;
+  inner: number;
+  rot: number;
+  style: Style;
+  transform?: Matrix;
+}
+
+export type ShapeItem = LineItem | ArcItem | CurveItem | BrushItem | RectItem | EllipseItem | PolygonItem | StarItem;
 export type Item = ShapeItem | ImageItem;
 export type ShapeKind = ShapeItem['kind'];
 

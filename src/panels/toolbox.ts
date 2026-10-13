@@ -12,6 +12,8 @@ const TOOL_HELP: Record<ToolId, string> = {
   brush: 'Press and drag to paint a freehand stroke. Release to finish. A click leaves a dot.',
   rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
   ellipse: 'Drag or click two opposite corners of the bounding box. Shift for a circle.',
+  polygon: 'Click the centre, then a vertex. Sides set below. Shift snaps the angle.',
+  star: 'Click the centre, then a point. Points and inner radius set below. Shift snaps the angle.',
 };
 
 /** Tool buttons, stroke style and the copy / paste / delete actions. */
@@ -107,6 +109,20 @@ export class ToolboxPanel {
       const r = Math.min(512, Math.max(0, Number(radius.value) || 0));
       radius.value = String(r);
       editor.setParams({ radius: r });
+    };
+    const sides = $<HTMLInputElement>('shape-sides');
+    const inner = $<HTMLInputElement>('shape-inner');
+    sides.value = String(editor.params.sides);
+    inner.value = String(Math.round(editor.params.inner * 100));
+    sides.onchange = () => {
+      const n = Math.min(64, Math.max(3, Math.round(Number(sides.value)) || 6));
+      sides.value = String(n);
+      editor.setParams({ sides: n });
+    };
+    inner.onchange = () => {
+      const pct = Math.min(100, Math.max(5, Math.round(Number(inner.value)) || 50));
+      inner.value = String(pct);
+      editor.setParams({ inner: pct / 100 });
     };
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
