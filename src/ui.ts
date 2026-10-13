@@ -9,6 +9,7 @@ import { LayersPanel } from './panels/layers';
 import { MenuBar } from './panels/menubar';
 import { ArrangePanel } from './panels/arrange';
 import { GridPanel } from './panels/grid';
+import { PalettePanel } from './panels/palette';
 import { GeometryPanel } from './panels/geometry';
 import { ScriptsPanel } from './panels/scripts';
 import { TextInput } from './panels/textinput';
@@ -29,6 +30,7 @@ export class App {
   private geometry = new GeometryPanel(this.editor, () => this.active);
   private arrange = new ArrangePanel(this.editor, () => this.active);
   private grid = new GridPanel(() => this.active);
+  private palette = new PalettePanel(this.editor, () => this.active);
   private menu = new MenuBar(
     () => this.active,
     (f) => void this.openImage(f),
@@ -83,12 +85,14 @@ export class App {
       this.geometry.render();
       this.arrange.render();
       this.grid.render();
+      this.palette.render();
     });
     this.editor.setWorkspace(ws);
     this.tabs.render();
     this.history.render();
     this.layers.render();
     this.grid.render();
+    this.palette.render();
   }
 
   private closeWorkspace(ws: Workspace): void {
@@ -118,7 +122,7 @@ export class App {
       const p = await fileToProject(file);
       const { width, height } = p.history[0].state;
       const ws = this.newWorkspace(p.name, width, height);
-      ws.restore(p.history, p.index, p.activeLayerId, p.view);
+      ws.restore(p.history, p.index, p.activeLayerId, p.view, p.palette);
       this.addWorkspace(ws);
     } catch (e) {
       this.editor.onStatus(`Could not open ${file.name}: ${e instanceof Error ? e.message : 'unknown error'}`);

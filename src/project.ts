@@ -34,6 +34,8 @@ export interface Project {
   index: number;
   activeLayerId: string;
   view: View;
+  /** Saved swatches (CSS colours). */
+  palette: string[];
 }
 
 interface ProjectFile {
@@ -43,6 +45,7 @@ interface ProjectFile {
   index: number;
   activeLayerId: string;
   view: View;
+  palette?: string[];
   /** Distinct bitmaps as data URLs; items refer to them by position so history does not repeat them. */
   images: string[];
   history: { label: string; state: StoredState }[];
@@ -55,6 +58,7 @@ export interface Saveable {
   index: number;
   activeLayerId: string;
   view: View;
+  palette?: readonly string[];
 }
 
 export function serializeProject(ws: Saveable, codec: ImageCodec): string {
@@ -79,6 +83,7 @@ export function serializeProject(ws: Saveable, codec: ImageCodec): string {
     name: ws.name,
     index: ws.index,
     activeLayerId: ws.activeLayerId,
+    palette: [...(ws.palette ?? [])],
     view: ws.view,
     images,
     history: ws.history.map((h) => ({
@@ -129,5 +134,6 @@ export async function parseProject(text: string, codec: ImageCodec): Promise<Pro
     index,
     activeLayerId: file.activeLayerId ?? layers[layers.length - 1].id,
     view: file.view ?? INITIAL_VIEW,
+    palette: Array.isArray(file.palette) ? file.palette.filter((c): c is string => typeof c === 'string') : [],
   };
 }
