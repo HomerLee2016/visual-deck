@@ -75,7 +75,8 @@ export class ToolboxPanel {
       fillNone.checked = false;
       fill.disabled = false;
       editor.setStyle({ fill: fill.value });
-      this.render();
+      // Not render(): it would reset the picker to the selection's old fill before onchange reads it.
+      this.syncVisibility({ ...editor.style, fill: fill.value });
     };
     fill.onchange = () => editor.setStyle({ fill: fill.value }, true);
     fillNone.onchange = () => {
