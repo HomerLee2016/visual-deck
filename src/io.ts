@@ -36,6 +36,21 @@ export async function fileToCanvas(file: File): Promise<HTMLCanvasElement> {
   return c;
 }
 
+/**
+ * Open the browser's file picker for one image. Resolves to the chosen file, or null if the picker is cancelled.
+ * Must be called from a user gesture (a button click), before any `await`.
+ */
+export function pickImageFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,.svg';
+    input.onchange = () => resolve(input.files?.[0] ?? null);
+    input.oncancel = () => resolve(null);
+    input.click();
+  });
+}
+
 /** Export as SVG (vector, `scale` ignored) or PNG at `scale` times the document size. */
 export function exportDocument(s: DocState, format: ExportFormat, scale = 1): Promise<Blob> {
   if (format === 'svg') return Promise.resolve(new Blob([toSvg(s)], { type: 'image/svg+xml' }));
