@@ -115,6 +115,8 @@ export interface Scene {
   params: ShapeParams;
   /** Selection box in document space, while dragging one. */
   marquee: Rect | null;
+  /** Free-range selection loop in document space, while dragging one. */
+  lasso: readonly Pt[] | null;
   /** Brush size preview: the stroke width as a circle around the pointer, in document space. */
   brushCursor: { at: Pt; width: number; square?: boolean } | null;
   /** Brushed area of the Edge tool, drawn over the layer in document space. */
@@ -198,6 +200,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   if (scene.maskOverlay) ctx.drawImage(scene.maskOverlay, 0, 0);
   if (scene.edgeOverlay) ctx.drawImage(scene.edgeOverlay, 0, 0);
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);
+  if (scene.lasso) drawLasso(ctx, scene.lasso, zoom);
   if (scene.brushCursor) drawBrushCursor(ctx, scene.brushCursor, zoom);
   if (scene.handles) drawHandles(ctx, scene.handles, zoom);
   if (scene.penDraft) drawPenDraft(ctx, scene.penDraft, scene.style, zoom);
@@ -425,4 +428,17 @@ function drawMarquee(ctx: CanvasRenderingContext2D, r: Rect, zoom: number): void
   ctx.lineWidth = 1 / zoom;
   ctx.strokeStyle = ACCENT;
   ctx.strokeRect(r.x, r.y, r.w, r.h);
+}
+
+function drawLasso(ctx: CanvasRenderingContext2D, path: readonly Pt[], zoom: number): void {
+  if (path.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(path[0].x, path[0].y);
+  for (const p of path.slice(1)) ctx.lineTo(p.x, p.y);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(77,163,255,0.12)';
+  ctx.fill();
+  ctx.lineWidth = 1 / zoom;
+  ctx.strokeStyle = ACCENT;
+  ctx.stroke();
 }

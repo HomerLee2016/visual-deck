@@ -42,7 +42,7 @@ npm run build      # static site in dist/
 
 | Tool | Key | How |
 | --- | --- | --- |
-| Select | `V` | Click or drag a box. Works across all visible layers. Shift adds. Drag to move. `Delete`, `Ctrl+C`, `Ctrl+V`, `Ctrl+A`. |
+| Select | `V` | Click, drag a box, or drag a freehand loop (Area toggle). Scope toggles Object or Layer. Shift adds. Drag to move. `Delete`, `Ctrl+C`, `Ctrl+V`, `Ctrl+A`. |
 | Line | `L` | Drag start→end, or click twice. |
 | Arc | `A` | Start, end, then a point the arc passes through. |
 | Curve | `C` | Start, end, then two Bézier control points. |

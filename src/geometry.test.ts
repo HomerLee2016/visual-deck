@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildShape, circle3, dist, flatten, hitTest, itemBounds, norm, rectFromPoints, rectsIntersect, transformItem, translateItem } from './geometry';
+import { buildShape, circle3, dist, flatten, hitTest, itemBounds, lassoTouchesRect, norm, rectFromPoints, rectsIntersect, transformItem, translateItem } from './geometry';
 import { apply, translation } from './matrix';
 import type { ArcItem, BrushItem, CurveItem, ImageItem, LineItem } from './types';
 
@@ -200,5 +200,35 @@ describe('transform', () => {
     const once = transformItem(line, translation(5, 0));
     const twice = transformItem(once, translation(0, 7));
     expect(apply(twice.transform!, { x: 0, y: 0 })).toEqual({ x: 5, y: 7 });
+  });
+});
+
+describe('lassoTouchesRect', () => {
+  const box = { x: 10, y: 10, w: 10, h: 10 };
+  const square = (x0: number, y0: number, x1: number, y1: number) => [
+    { x: x0, y: y0 },
+    { x: x1, y: y0 },
+    { x: x1, y: y1 },
+    { x: x0, y: y1 },
+  ];
+
+  it('touches a rectangle the loop encloses', () => {
+    expect(lassoTouchesRect(square(0, 0, 30, 30), box)).toBe(true);
+  });
+
+  it('touches a rectangle only partly inside the loop', () => {
+    expect(lassoTouchesRect(square(15, 15, 40, 40), box)).toBe(true);
+  });
+
+  it('touches a rectangle the loop passes through without enclosing either corner', () => {
+    expect(lassoTouchesRect(square(12, -5, 18, 40), box)).toBe(true);
+  });
+
+  it('misses a rectangle the loop does not reach', () => {
+    expect(lassoTouchesRect(square(0, 0, 5, 5), box)).toBe(false);
+  });
+
+  it('ignores a loop with fewer than two points', () => {
+    expect(lassoTouchesRect([{ x: 15, y: 15 }], box)).toBe(false);
   });
 });
