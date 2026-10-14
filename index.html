@@ -318,6 +318,7 @@
           <h2>Tools</h2>
           <div id="tools" class="tool-grid">
             <button data-tool="select" title="Select (V)">Select<kbd>V</kbd></button>
+            <button data-tool="move" title="Move: drag any object to move it (M)">Move<kbd>M</kbd></button>
             <button data-tool="transform" title="Transform: scale and rotate the selection (X)">Transform<kbd>X</kbd></button>
             <button data-tool="line" title="Straight line (L)">Line<kbd>L</kbd></button>
             <button data-tool="arc" title="Arc: start, end, then a point on the arc (A)">Arc<kbd>A</kbd></button>
@@ -400,6 +401,7 @@
           <label><input type="radio" name="scale" value="4" /> 4x</label>
         </fieldset>
         <label class="check"><input id="export-selection" type="checkbox" name="selection" /> Selection only <span class="hint">cropped to the selected items</span></label>
+        <label class="check"><input id="export-trim" type="checkbox" name="trim" checked /> Trim to content <span class="hint">PNG only, smallest size covering all coloured pixels</span></label>
         <div class="row end">
           <button type="button" id="export-cancel">Cancel</button>
           <button type="submit">Export</button>

@@ -29,7 +29,7 @@ import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 import { defaultControls, eventKeyName, findAction, parseBinding, type ControlSettings } from './controls';
 
-export type ToolId = 'select' | 'transform' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge' | 'eraser';
+export type ToolId = 'select' | 'move' | 'transform' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge' | 'eraser';
 
 /** What the Select tool picks: whole items, or every item on a layer. */
 export type SelectMode = 'object' | 'layer';
@@ -229,7 +229,7 @@ export class Editor {
     this.nodeSel.clear();
     this.cancelInteraction();
     this.tool = t;
-    this.canvas.style.cursor = t === 'select' || t === 'transform' ? 'default' : 'crosshair';
+    this.canvas.style.cursor = t === 'select' || t === 'move' || t === 'transform' ? 'default' : 'crosshair';
     this.onUiChange();
   }
 
@@ -418,8 +418,9 @@ export class Editor {
     // Only the Transform tool shows scale, rotate and gradient handles; Select just selects and moves.
     if (this.tool === 'transform' && (this.gradientHandleDown(p) || this.handleDown(p))) return;
     // New points (shapes and text) snap; freehand brush points and selection do not.
-    if (this.tool !== 'select' && this.tool !== 'transform' && this.tool !== 'brush' && this.tool !== 'eraser' && this.tool !== 'edge') p = this.snapPt(p);
+    if (this.tool !== 'select' && this.tool !== 'move' && this.tool !== 'transform' && this.tool !== 'brush' && this.tool !== 'eraser' && this.tool !== 'edge') p = this.snapPt(p);
     if (this.tool === 'select' || this.tool === 'transform') this.selectDown(p, e.shiftKey);
+    else if (this.tool === 'move') this.moveDown(p, e.shiftKey);
     else if (this.tool === 'brush' || this.tool === 'eraser') this.brushDown(p);
     else if (this.tool === 'edge') this.edgeDown(p);
     else if (this.tool === 'text') this.textDown(p, s);
@@ -526,6 +527,24 @@ export class Editor {
     const screen = this.screenPos(e);
     const hit = this.pick(toDoc(this.ws.view, screen));
     if (hit?.kind === 'text') this.onText({ ws: this.ws, at: { x: hit.x, y: hit.y }, screen, zoom: this.ws.view.zoom, item: hit });
+  }
+
+  /** Move tool press: drags whatever is under the pointer, selecting it first unless it is already selected. */
+  private moveDown(p: Pt, shift: boolean): void {
+    const sel = this.ws.selection;
+    this.ws.pointSelection.clear();
+    const hit = this.pick(p);
+    if (!hit) {
+      if (!shift) sel.clear();
+      this.afterSelectionChange();
+      return;
+    }
+    if (!sel.has(hit.id)) {
+      if (!shift) sel.clear();
+      sel.add(hit.id);
+    }
+    this.drag = { mode: 'move', origin: p, base: this.ws.state, moved: false, box: this.selectionBox() };
+    this.afterSelectionChange();
   }
 
   private selectDown(p: Pt, shift: boolean): void {

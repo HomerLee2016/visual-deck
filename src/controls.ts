@@ -10,6 +10,7 @@ export type ToolAction = `tool:${ToolId}`;
 
 export const TOOL_ACTIONS: { id: ToolAction; label: string; key: string }[] = [
   { id: 'tool:select', label: 'Select', key: 'v' },
+  { id: 'tool:move', label: 'Move', key: 'm' },
   { id: 'tool:transform', label: 'Transform', key: 'x' },
   { id: 'tool:line', label: 'Line', key: 'l' },
   { id: 'tool:arc', label: 'Arc', key: 'a' },
