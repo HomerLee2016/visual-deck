@@ -81,17 +81,51 @@ deck.log('Grid drawn');
   },
 ];
 
+/** Built-in ids the user has been offered. A built-in missing from the saved list is added only if it is not in here. */
+const SEEN_KEY = 'visual-deck.scripts.builtinsSeen.v1';
+
+function readSeen(): Set<string> {
+  try {
+    const list = JSON.parse(localStorage.getItem(SEEN_KEY) ?? 'null');
+    if (Array.isArray(list)) return new Set(list);
+  } catch {
+    /* storage unavailable or corrupt: nothing seen */
+  }
+  return new Set();
+}
+
+function writeSeen(): void {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify(DEFAULT_SCRIPTS.map((s) => s.id)));
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * The saved script list, with built-ins added in later versions appended.
+ * A built-in the user deleted is not brought back, because its id was seen before.
+ */
 export function loadScripts(): ScriptDef[] {
+  let saved: ScriptDef[] | null = null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const list = JSON.parse(raw) as ScriptDef[];
-      if (Array.isArray(list)) return list;
+      if (Array.isArray(list)) saved = list;
     }
   } catch {
     /* storage unavailable or corrupt: fall back to defaults */
   }
-  return DEFAULT_SCRIPTS.map((s) => ({ ...s }));
+  if (!saved) {
+    writeSeen();
+    return DEFAULT_SCRIPTS.map((s) => ({ ...s }));
+  }
+  const seen = readSeen();
+  const present = new Set(saved.map((s) => s.id));
+  const added = DEFAULT_SCRIPTS.filter((s) => !present.has(s.id) && !seen.has(s.id)).map((s) => ({ ...s }));
+  writeSeen();
+  return [...saved, ...added];
 }
 
 export function saveScripts(list: ScriptDef[]): void {
@@ -100,6 +134,7 @@ export function saveScripts(list: ScriptDef[]): void {
   } catch {
     /* ignore */
   }
+  writeSeen();
 }
 
 export const API_HELP = `deck.width, deck.height            document size
