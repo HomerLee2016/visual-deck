@@ -144,17 +144,24 @@ describe('saved settings', () => {
     stubStorage(null);
     const c = defaultControls();
     c.keys = setBinding(c.keys, 'fit', 'f');
-    c.mouse = { middlePan: false, wheel: 'pan', wheelSpeed: 2 };
+    c.mouse = { panButton: 'right', wheel: 'pan', wheelSpeed: 2 };
     saveControls(c);
     expect(loadControls()).toEqual(c);
   });
 
   it('ignores invalid stored values and keeps the rest', () => {
-    stubStorage(JSON.stringify({ keys: { fit: 'f', undo: 5 }, mouse: { wheel: 'sideways', wheelSpeed: 3, middlePan: false } }));
+    stubStorage(JSON.stringify({ keys: { fit: 'f', undo: 5 }, mouse: { wheel: 'sideways', wheelSpeed: 3, panButton: 'left' } }));
     const c = loadControls();
     expect(c.keys.fit).toBe('f');
     expect(c.keys.undo).toBe('Ctrl+Z');
-    expect(c.mouse).toEqual({ middlePan: false, wheel: 'zoom', wheelSpeed: 1 });
+    expect(c.mouse).toEqual({ panButton: 'middle', wheel: 'zoom', wheelSpeed: 1 });
+  });
+
+  it('migrates the old middle-button checkbox', () => {
+    stubStorage(JSON.stringify({ mouse: { middlePan: false } }));
+    expect(loadControls().mouse.panButton).toBe('none');
+    stubStorage(JSON.stringify({ mouse: { middlePan: true } }));
+    expect(loadControls().mouse.panButton).toBe('middle');
   });
 
   it('falls back to defaults on corrupt JSON or blocked storage', () => {

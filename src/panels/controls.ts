@@ -8,6 +8,7 @@ import {
   setBinding,
   type ControlSettings,
   type KeyAction,
+  type PanButton,
   type WheelMode,
   type WheelSpeed,
 } from '../controls';
@@ -44,8 +45,8 @@ export class ControlsPanel {
     $('controls-close').onclick = () => dlg.close();
     dlg.addEventListener('close', () => this.stopCapture());
 
-    $<HTMLInputElement>('mouse-middle-pan').onchange = (e) =>
-      this.setMouse({ middlePan: (e.target as HTMLInputElement).checked });
+    $<HTMLSelectElement>('mouse-pan').onchange = (e) =>
+      this.setMouse({ panButton: (e.target as HTMLSelectElement).value as PanButton });
     $<HTMLSelectElement>('mouse-wheel').onchange = (e) =>
       this.setMouse({ wheel: (e.target as HTMLSelectElement).value as WheelMode });
     $<HTMLSelectElement>('mouse-speed').onchange = (e) =>
@@ -103,7 +104,7 @@ export class ControlsPanel {
   render(): void {
     const c = this.current();
     this.renderKeys(c);
-    $<HTMLInputElement>('mouse-middle-pan').checked = c.mouse.middlePan;
+    $<HTMLSelectElement>('mouse-pan').value = c.mouse.panButton;
     $<HTMLSelectElement>('mouse-wheel').value = c.mouse.wheel;
     $<HTMLSelectElement>('mouse-speed').value = String(c.mouse.wheelSpeed);
   }

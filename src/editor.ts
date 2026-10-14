@@ -162,6 +162,8 @@ export class Editor {
   /** Called when tool/selection state changes so the toolbox can refresh. */
   onUiChange: () => void = () => {};
   onStatus: (msg: string) => void = () => {};
+  /** Called when a mask session is left: asks whether to save or discard the mask first. See `guardMaskEdit`. */
+  onMaskPrompt: (save: () => void, discard: () => void) => void = () => {};
   /** Called when text should be typed in (new block, or re-editing with a double-click). */
   onText: (req: TextRequest) => void = () => {};
   /** Called with a pasted/dropped image file. */
@@ -397,7 +399,8 @@ export class Editor {
       this.requestRender();
       return;
     }
-    if ((e.button === 1 && this.controls.mouse.middlePan) || (e.button === 0 && this.panHeld)) {
+    const panButton = { middle: 1, right: 2, none: -1 }[this.controls.mouse.panButton];
+    if (e.button === panButton || (e.button === 0 && this.panHeld)) {
       this.pan = { sx: s.x, sy: s.y, px: this.ws.view.panX, py: this.ws.view.panY };
       this.canvas.setPointerCapture(e.pointerId);
       return;
@@ -768,6 +771,33 @@ export class Editor {
     this.onUiChange();
   }
 
+  /** Select every pixel (`1`) or none (`0`) in the open mask session. */
+  fillMask(value: 0 | 1): void {
+    const edit = this.maskEdit;
+    if (!edit) return;
+    edit.draft.fill(value);
+    this.drawTint(edit.overlay, edit.draft);
+    this.requestRender();
+  }
+
+  /**
+   * Run `then` once no mask session is open. If one is open, ask first: `onMaskPrompt` offers
+   * to save the mask (then run) or discard it (then run). Keeping the session open runs nothing.
+   */
+  guardMaskEdit(then: () => void): void {
+    if (!this.maskEdit) return then();
+    this.onMaskPrompt(
+      () => {
+        this.confirmMaskEdit();
+        then();
+      },
+      () => {
+        this.cancelMaskEdit();
+        then();
+      },
+    );
+  }
+
   /** Close the Modify mask session and keep the previous mask. */
   cancelMaskEdit(): void {
     if (!this.maskEdit) return;
@@ -1091,10 +1121,10 @@ export class Editor {
       this.panHeld = true;
     } else if (action === 'undo') {
       e.preventDefault();
-      this.ws.undo();
+      this.guardMaskEdit(() => this.ws.undo());
     } else if (action === 'redo') {
       e.preventDefault();
-      this.ws.redo();
+      this.guardMaskEdit(() => this.ws.redo());
     } else if (action === 'selectAll') {
       e.preventDefault();
       this.ws.selection = new Set(visibleItemsTopFirst(this.ws.state).map((it) => it.id));
