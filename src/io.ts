@@ -1,5 +1,6 @@
 import { PROJECT_EXT, parseProject, serializeProject, type ImageCodec, type Project, type Saveable } from './project';
 import { renderToCanvas } from './render';
+import { contentBounds } from './trim';
 import { toSvg } from './svg';
 import type { DocState } from './types';
 
@@ -51,11 +52,28 @@ export function pickImageFile(): Promise<File | null> {
   });
 }
 
-/** Export as SVG (vector, `scale` ignored) or PNG at `scale` times the document size. */
-export function exportDocument(s: DocState, format: ExportFormat, scale = 1): Promise<Blob> {
+/** Crop a canvas to its coloured pixels; an empty canvas is returned unchanged. */
+function trimCanvas(c: HTMLCanvasElement): HTMLCanvasElement {
+  const ctx = c.getContext('2d', { willReadFrequently: true })!;
+  const box = contentBounds(ctx.getImageData(0, 0, c.width, c.height).data, c.width, c.height);
+  if (!box || (box.w === c.width && box.h === c.height)) return c;
+  const out = document.createElement('canvas');
+  out.width = box.w;
+  out.height = box.h;
+  out.getContext('2d')!.drawImage(c, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
+  return out;
+}
+
+/**
+ * Export as SVG (vector; `scale` and `trim` ignored) or PNG at `scale` times the document size.
+ * With `trim`, the PNG is cropped to the smallest rectangle covering every coloured pixel.
+ */
+export function exportDocument(s: DocState, format: ExportFormat, scale = 1, trim = false): Promise<Blob> {
   if (format === 'svg') return Promise.resolve(new Blob([toSvg(s)], { type: 'image/svg+xml' }));
+  let canvas = renderToCanvas(s, undefined, scale);
+  if (trim) canvas = trimCanvas(canvas);
   return new Promise((resolve, reject) =>
-    renderToCanvas(s, undefined, scale).toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png'),
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('PNG encoding failed'))), 'image/png'),
   );
 }
 

@@ -63,6 +63,12 @@ export class MenuBar {
       dlg.showModal();
     };
     $('export-cancel').onclick = () => dlg.close();
+    const formEl = $<HTMLFormElement>('export-form');
+    const syncTrim = () => {
+      $<HTMLInputElement>('export-trim').disabled = new FormData(formEl).get('format') === 'svg';
+    };
+    formEl.addEventListener('change', syncTrim);
+    $('menu-export').addEventListener('click', syncTrim);
     const sizeDlg = $<HTMLDialogElement>('size-dialog');
     $('menu-size').onclick = () => {
       closeMenu();
@@ -81,7 +87,7 @@ export class MenuBar {
     $<HTMLFormElement>('export-form').onsubmit = () => {
       const data = new FormData($<HTMLFormElement>('export-form'));
       const scale = Number(data.get('scale') ?? 1) || 1;
-      this.export((data.get('format') as ExportFormat | null) ?? 'png', scale, data.get('selection') === 'on');
+      this.export((data.get('format') as ExportFormat | null) ?? 'png', scale, data.get('selection') === 'on', data.get('trim') === 'on');
     };
   }
 
@@ -92,12 +98,12 @@ export class MenuBar {
     else this.status(`${file.name} is not an image or project`);
   }
 
-  private export(format: ExportFormat, scale = 1, selectionOnly = false): void {
+  private export(format: ExportFormat, scale = 1, selectionOnly = false, trim = false): void {
     const ws = this.active();
     const ids = new Set(ws.selectedItems(true).map((it) => it.id));
     const state = selectionOnly && ids.size > 0 ? cropToItems(ws.state, ids) : ws.state;
     const name = selectionOnly && ids.size > 0 ? `${ws.name} selection` : ws.name;
-    exportDocument(state, format, scale)
+    exportDocument(state, format, scale, trim)
       .then((blob) => download(blob, `${name}.${format}`))
       .catch(() => this.status(`Could not export ${name}`));
   }
