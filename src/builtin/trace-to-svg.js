@@ -13,6 +13,8 @@ const CFG = {
   simplifyEpsilon: 1.0,
   curveTension: 0.1666,
   majorityKernelSize: 5,
+  // Each colour region grows this many document pixels under its neighbours, so no gap shows at shared edges.
+  regionGrow: 2,
   silhouetteUnderlay: true,
 };
 
@@ -181,6 +183,29 @@ function majorityFilter(labels, n, W, H, size) {
   }
   for (let p = 0; p < W * H; p++) if (labels[p] < 0) best[p] = -1;
   return best;
+}
+
+// Grow a binary mask by r pixels (square window), keeping only pixels inside clip.
+function growMask(mask, clip, W, H, r) {
+  const I = new Int32Array((W + 1) * (H + 1));
+  for (let y = 0; y < H; y++) {
+    let row = 0;
+    for (let x = 0; x < W; x++) {
+      row += mask[y * W + x];
+      I[(y + 1) * (W + 1) + x + 1] = I[y * (W + 1) + x + 1] + row;
+    }
+  }
+  const out = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(H, y + r + 1);
+    for (let x = 0; x < W; x++) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(W, x + r + 1);
+      const count = I[y1 * (W + 1) + x1] - I[y0 * (W + 1) + x1] - I[y1 * (W + 1) + x0] + I[y0 * (W + 1) + x0];
+      const p = y * W + x;
+      out[p] = count > 0 && clip[p] ? 1 : 0;
+    }
+  }
+  return out;
 }
 
 // Boundary of a binary mask as closed loops of pixel-corner vertices. Outer
@@ -353,7 +378,9 @@ if (!opaque.some((v) => v)) {
 
   const layers = [];
   for (let k = 0; k < palette.length; k++) {
-    const { subs, area } = tracePath(smoothed.map((l) => (l === k ? 1 : 0)), W, H);
+    const mask = smoothed.map((l) => (l === k ? 1 : 0));
+    const grown = growMask(mask, opaque, W, H, Math.round(CFG.regionGrow * CFG.upscale));
+    const { subs, area } = tracePath(grown, W, H);
     if (subs.length) layers.push({ area, colour: palette[k], subs });
   }
   layers.sort((a, b) => b.area - a.area);
