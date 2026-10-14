@@ -259,6 +259,10 @@
           <div data-opt="nodes" class="row">
             <button id="node-smooth" title="Make the selected nodes smooth">Smooth</button>
             <button id="node-corner" title="Make the selected nodes corners">Corner</button>
+            <div class="seg" role="group" aria-label="Node area">
+              <button type="button" data-node-area="box" aria-pressed="true" title="Drag a box on empty space to select nodes inside it">Box</button>
+              <button type="button" data-node-area="lasso" aria-pressed="false" title="Drag a free-hand lasso on empty space to select the nodes inside it">Lasso</button>
+            </div>
           </div>
           <div data-opt="eraser">
             <label class="field"><input id="eraser-transparent" type="checkbox" checked /> Transparent</label>

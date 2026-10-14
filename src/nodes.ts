@@ -1,3 +1,4 @@
+import type { Rect } from './math';
 import type { PathItem, PathNode, Pt, SubPath } from './types';
 
 /** A node is addressed as "subpath.node". */
@@ -139,6 +140,41 @@ export function nearestNodeHit(it: PathItem, p: Pt, tol: number): { s: number; n
   );
   const best = hits.filter((h) => h.d <= tol).sort((a, b) => a.d - b.d)[0];
   return best ? { s: best.s, n: best.n, which: best.which } : null;
+}
+
+/** Keys of the nodes of `it` inside the box `r`. */
+export function nodesInRect(it: PathItem, r: Rect): Set<string> {
+  const keys = new Set<string>();
+  it.subs.forEach((sub, s) =>
+    sub.nodes.forEach((node, n) => {
+      const { x, y } = node.p;
+      if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) keys.add(nodeKey(s, n));
+    }),
+  );
+  return keys;
+}
+
+/** Keys of the nodes of `it` inside the free-hand area `poly` (closed by its last-to-first edge). */
+export function nodesInLasso(it: PathItem, poly: Pt[]): Set<string> {
+  const keys = new Set<string>();
+  if (poly.length < 3) return keys;
+  it.subs.forEach((sub, s) =>
+    sub.nodes.forEach((node, n) => {
+      if (pointInPolygon(node.p, poly)) keys.add(nodeKey(s, n));
+    }),
+  );
+  return keys;
+}
+
+/** Even-odd ray cast: whether `p` lies inside `poly`. */
+function pointInPolygon(p: Pt, poly: Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i];
+    const b = poly[j];
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
 }
 
 /** The segment of `it` nearest to `p`: subpath, the segment's start node, and the parameter along it. */
