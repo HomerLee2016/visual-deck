@@ -104,7 +104,7 @@ export function defineShape<T extends ShapeItem>(def: ShapeDef<T>): ShapeType<T>
       const { width, cap = 'round', join = 'round', miterLimit } = it.style;
       ctx.save();
       ctx.globalAlpha = opacityOf(it.style);
-      ctx.globalCompositeOperation = compositeOf(it.style.blend);
+      ctx.globalCompositeOperation = it.style.erase ? 'destination-out' : compositeOf(it.style.blend);
       ctx.filter = canvasFilter(it.style);
       const fill = fillPaint(ctx, it.style);
       if (fill) {

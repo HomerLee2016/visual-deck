@@ -21,6 +21,7 @@ const TOOL_HELP: Record<ToolId, string> = {
   pen: 'Click to place corner nodes; drag to make a smooth node. Click the first node or press Enter to finish; Esc finishes an open path.',
   text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
   star: 'Click the centre, then a point. Points and inner radius are in Options. Shift snaps the angle.',
+  eraser: 'Press and drag to erase. Transparent erases to nothing; pick a background colour in Options to paint over instead.',
   edge: 'Paint over a cut-out edge with a light fringe. Only painted pixels near transparency change. Apply (Enter) rasterizes the layer; Cancel (Esc) discards.',
 };
 
@@ -142,6 +143,20 @@ export class ToolboxPanel {
     edgeBg.onchange = () => {
       const { r, g, b } = parseRgb(edgeBg.value);
       editor.setEdgeOptions({ background: [r, g, b] });
+    };
+    const eraserBg = $<HTMLInputElement>('eraser-bg');
+    const eraserClear = $<HTMLInputElement>('eraser-transparent');
+    // Transparent is the default; a colour paints the eraser's background instead of erasing.
+    const setEraser = () => {
+      eraserBg.disabled = eraserClear.checked;
+      editor.setEraserBackground(eraserClear.checked ? null : eraserBg.value);
+    };
+    eraserClear.onchange = setEraser;
+    const eraserSquare = $<HTMLInputElement>('eraser-square');
+    eraserSquare.onchange = () => editor.setEraserSquare(eraserSquare.checked);
+    eraserBg.oninput = () => {
+      eraserClear.checked = false;
+      setEraser();
     };
     edgeBand.onchange = () => editor.setEdgeOptions({ band: edgeInt(edgeBand, 1, 32, 2) });
     edgeLight.onchange = () => editor.setEdgeOptions({ lightness: edgeInt(edgeLight, 0, 255, 200) });

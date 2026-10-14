@@ -17,6 +17,7 @@ export type OptionGroup =
   | 'text'
   | 'nodes'
   | 'edge'
+  | 'eraser'
   | 'mask';
 
 /** What the pop-out needs to know to show only the useful controls. */
@@ -57,6 +58,8 @@ export function optionGroups(tool: ToolId, ctx: OptionContext): OptionGroup[] {
       return LINE;
     case 'brush':
       return ['size', 'color', 'lineStyle'];
+    case 'eraser':
+      return ['size', 'eraser'];
     case 'pen':
       return [...SHAPE, 'marker'];
     case 'ellipse':

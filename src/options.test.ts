@@ -10,6 +10,10 @@ describe('optionGroups', () => {
     expect(optionGroups('brush', idle).sort()).toEqual(['color', 'lineStyle', 'size']);
   });
 
+  it('shows size and the eraser background for the eraser', () => {
+    expect(optionGroups('eraser', idle).sort()).toEqual(['eraser', 'size']);
+  });
+
   it('gives mask brush and brush the same size control', () => {
     expect(optionGroups('brush', idle)).toContain('size');
     expect(optionGroups('brush', { ...idle, maskEditing: true })).toEqual(['size', 'mask']);
