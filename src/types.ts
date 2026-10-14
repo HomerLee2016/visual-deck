@@ -97,6 +97,8 @@ export interface Style {
   miterLimit?: number;
   /** Dash lengths in document units, e.g. [6, 4]. Missing or empty means solid. */
   dash?: number[];
+  /** Removes what is beneath the item instead of painting over it. Set by the transparent eraser. */
+  erase?: boolean;
 }
 
 export interface LineItem {

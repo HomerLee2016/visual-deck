@@ -27,12 +27,12 @@ import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHand
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
 
-export type ToolId = 'select' | 'transform' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge';
+export type ToolId = 'select' | 'transform' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge' | 'eraser';
 
 /** What the Select tool picks: whole items, every item on a layer, or brush-stroke points. */
 export type SelectMode = 'object' | 'layer' | 'points';
 
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', x: 'transform', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node', f: 'edge' };
+export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', x: 'transform', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node', f: 'edge', k: 'eraser' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -52,7 +52,7 @@ type Drag =
   | { mode: 'scale'; handle: HandleId; box: Rect; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
-  | { mode: 'brush'; pts: Pt[] }
+  | { mode: 'brush'; pts: Pt[]; style: Style; label: string }
   | { mode: 'edge'; last: Pt }
   | { mode: 'mask'; last: Pt };
 
@@ -133,6 +133,10 @@ export class Editor {
   private edgeOpts: EdgeOptions = { ...DEFAULT_EDGE_OPTIONS };
   /** Edge tool brush radius, in document pixels. */
   private edgeRadius = 6;
+  /** Eraser background colour; null is transparent, which erases what is beneath. */
+  private eraserColor: string | null = null;
+  /** Eraser tip: square (square caps and corners) or round. */
+  private eraserSquare = false;
   /** The Modify mask session, if one is open. */
   private maskEdit: MaskEdit | null = null;
   /** Mask brush: add to or remove from the selection, radius in document pixels. */
@@ -381,9 +385,9 @@ export class Editor {
     // Only the Transform tool shows scale, rotate and gradient handles; Select just selects and moves.
     if (this.tool === 'transform' && (this.gradientHandleDown(p) || this.handleDown(p))) return;
     // New points (shapes and text) snap; freehand brush points and selection do not.
-    if (this.tool !== 'select' && this.tool !== 'transform' && this.tool !== 'brush' && this.tool !== 'edge') p = this.snapPt(p);
+    if (this.tool !== 'select' && this.tool !== 'transform' && this.tool !== 'brush' && this.tool !== 'eraser' && this.tool !== 'edge') p = this.snapPt(p);
     if (this.tool === 'select' || this.tool === 'transform') this.selectDown(p, e.shiftKey);
-    else if (this.tool === 'brush') this.brushDown(p);
+    else if (this.tool === 'brush' || this.tool === 'eraser') this.brushDown(p);
     else if (this.tool === 'edge') this.edgeDown(p);
     else if (this.tool === 'text') this.textDown(p, s);
     else if (this.tool === 'pen') this.penDown(p, s);
@@ -660,15 +664,46 @@ export class Editor {
 
   private brushDown(p: Pt): void {
     if (!this.activeLayerVisible()) return;
-    this.drag = { mode: 'brush', pts: [p] };
+    const eraser = this.tool === 'eraser';
+    this.drag = { mode: 'brush', pts: [p], style: this.brushStyle(), label: eraser ? 'Eraser' : 'Brush' };
     this.requestRender();
   }
 
+  /** The style a stroke is recorded with. The eraser keeps only width and line ends; transparent erases. */
+  private brushStyle(): Style {
+    if (this.tool !== 'eraser') return { ...this.style };
+    const { width, miterLimit } = this.style;
+    const cap = this.eraserSquare ? 'square' : 'round';
+    const join = this.eraserSquare ? 'miter' : 'round';
+    const bg = this.eraserColor;
+    return bg === null ? { color: '#000000', width, cap, join, miterLimit, erase: true } : { color: bg, width, cap, join, miterLimit };
+  }
+
+  /** Set the eraser's background colour, or null for transparent. Applies to the next stroke. */
+  setEraserBackground(color: string | null): void {
+    this.eraserColor = color;
+  }
+
+  /** Square or round eraser tip. Applies to the next stroke and the preview. */
+  setEraserSquare(square: boolean): void {
+    this.eraserSquare = square;
+    this.requestRender();
+  }
+
+  get eraserIsSquare(): boolean {
+    return this.eraserSquare;
+  }
+
+  /** The eraser's background colour, or null when it erases to transparent. */
+  get eraserBackground(): string | null {
+    return this.eraserColor;
+  }
+
   /** The stroke is recorded as one item when the pointer is released. */
-  private commitBrush(pts: Pt[]): void {
+  private commitBrush(pts: Pt[], style: Style, label: string): void {
     // A click with no movement becomes a dot: a zero-length segment with round caps.
     const stroke = pts.length === 1 ? [pts[0], pts[0]] : pts;
-    this.ws.addItem('Brush', { kind: 'brush', id: uid('item'), pts: stroke, style: { ...this.style } });
+    this.ws.addItem(label, { kind: 'brush', id: uid('item'), pts: stroke, style });
   }
 
   // ---- script mask ----------------------------------------------------------
@@ -1005,7 +1040,7 @@ export class Editor {
     const drag = this.drag;
     this.drag = null;
     if (drag?.mode === 'guide') this.addGuide(drag.axis, drag.pos);
-    if (drag?.mode === 'brush') this.commitBrush(drag.pts);
+    if (drag?.mode === 'brush') this.commitBrush(drag.pts, drag.style, drag.label);
     else if (drag && 'moved' in drag && drag.moved) this.ws.commit(COMMIT_LABELS[drag.mode]);
     if (drag) this.afterSelectionChange();
     this.showDraftHint();
@@ -1169,12 +1204,12 @@ export class Editor {
       selectedPoints: ws.selectedPoints(),
       draft: this.draft,
       stroke: this.drag?.mode === 'brush' ? this.drag.pts : null,
-      style: this.style,
+      style: this.drag?.mode === 'brush' ? this.drag.style : this.style,
       params: this.params,
       handles: box && this.tool === 'transform' ? handlesFor(box, ws.view.zoom) : null,
       marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
-      brushCursor: this.hover && (this.maskEditing || this.tool === 'brush' || this.tool === 'edge')
-        ? { at: this.hover, width: this.maskEditing ? this.maskRadius * 2 : this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width }
+      brushCursor: this.hover && (this.maskEditing || this.tool === 'brush' || this.tool === 'eraser' || this.tool === 'edge')
+        ? { at: this.hover, width: this.maskEditing ? this.maskRadius * 2 : this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width, square: this.tool === 'eraser' && this.eraserSquare }
         : null,
       edgeOverlay: this.edge?.overlay ?? null,
       maskOverlay: this.maskOverlayCanvas(),

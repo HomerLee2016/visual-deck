@@ -66,6 +66,10 @@ export class OptionsPanel {
     if (e.tool === 'edge') {
       return { label: 'Brush size', min: 1, max: 256, value: e.edgeSettings.radius * 2, set: (v) => e.setEdgeRadius(v / 2) };
     }
+    if (e.tool === 'eraser') {
+      // The eraser's size is its brush size: the preview ring at the pointer shows it, and it never edits the selection.
+      return { label: 'Brush size', min: 1, max: 64, value: e.style.width, set: (v) => e.setStyle({ width: v }) };
+    }
     return {
       label: 'Width',
       min: 1,

@@ -116,7 +116,7 @@ export interface Scene {
   /** Selection box in document space, while dragging one. */
   marquee: Rect | null;
   /** Brush size preview: the stroke width as a circle around the pointer, in document space. */
-  brushCursor: { at: Pt; width: number } | null;
+  brushCursor: { at: Pt; width: number; square?: boolean } | null;
   /** Brushed area of the Edge tool, drawn over the layer in document space. */
   edgeOverlay: HTMLCanvasElement | null;
   /** The script mask highlight (yellow), in document space. */
@@ -390,9 +390,10 @@ function drawHandles(ctx: CanvasRenderingContext2D, handles: Handle[], zoom: num
 }
 
 /** Brush outline: a dark ring under a white one, so it shows on both light and dark content. */
-function drawBrushCursor(ctx: CanvasRenderingContext2D, c: { at: Pt; width: number }, zoom: number): void {
+function drawBrushCursor(ctx: CanvasRenderingContext2D, c: { at: Pt; width: number; square?: boolean }, zoom: number): void {
   ctx.beginPath();
-  ctx.arc(c.at.x, c.at.y, c.width / 2, 0, Math.PI * 2);
+  if (c.square) ctx.rect(c.at.x - c.width / 2, c.at.y - c.width / 2, c.width, c.width);
+  else ctx.arc(c.at.x, c.at.y, c.width / 2, 0, Math.PI * 2);
   ctx.lineWidth = 3 / zoom;
   ctx.strokeStyle = 'rgba(0,0,0,0.6)';
   ctx.stroke();

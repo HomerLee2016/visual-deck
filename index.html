@@ -247,6 +247,11 @@
             <button id="node-smooth" title="Make the selected nodes smooth">Smooth</button>
             <button id="node-corner" title="Make the selected nodes corners">Corner</button>
           </div>
+          <div data-opt="eraser">
+            <label class="field"><input id="eraser-transparent" type="checkbox" checked /> Transparent</label>
+            <label class="field">Background colour <input id="eraser-bg" type="color" value="#ffffff" disabled title="The colour the eraser paints instead of erasing" /></label>
+            <label class="field"><input id="eraser-square" type="checkbox" /> Square tip</label>
+          </div>
           <div data-opt="edge">
             <label class="field">Background colour <input id="edge-bg" type="color" value="#ffffff" title="The colour the removed background had" /></label>
             <label class="field">Band (px) <input id="edge-band" type="number" min="1" max="32" value="2" title="How far from transparency a pixel may be and still change" /></label>
@@ -301,6 +306,7 @@
             <button data-tool="pen" title="Pen: click for corners, drag for smooth nodes, Enter to finish (P)">Pen<kbd>P</kbd></button>
             <button data-tool="node" title="Node: edit a path's nodes and handles (N)">Node<kbd>N</kbd></button>
             <button data-tool="edge" title="Edge: paint over a cut-out edge to remove its light fringe (F)">Edge<kbd>F</kbd></button>
+            <button data-tool="eraser" title="Eraser: paint with the background colour; transparent erases (K)">Eraser<kbd>K</kbd></button>
           </div>
           <div id="tool-help" class="hint"></div>
         </section>
