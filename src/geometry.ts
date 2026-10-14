@@ -26,6 +26,40 @@ export function rectsIntersect(a: Rect, b: Rect): boolean {
   return a.x <= b.x + b.w && b.x <= a.x + a.w && a.y <= b.y + b.h && b.y <= a.y + a.h;
 }
 
+/** Whether a free-form loop (closed back to its first point) touches a rectangle. */
+export function lassoTouchesRect(path: readonly Pt[], r: Rect): boolean {
+  if (path.length < 2) return false;
+  const corners = [
+    { x: r.x, y: r.y },
+    { x: r.x + r.w, y: r.y },
+    { x: r.x + r.w, y: r.y + r.h },
+    { x: r.x, y: r.y + r.h },
+  ];
+  if (path.some((p) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h)) return true;
+  if (corners.some((c) => pointInLoop(c, path))) return true;
+  return path.some((a, i) => {
+    const b = path[(i + 1) % path.length];
+    return corners.some((c, j) => crosses(a, b, c, corners[(j + 1) % 4]));
+  });
+}
+
+/** Ray-casting test against the closed loop `path`. */
+function pointInLoop(p: Pt, path: readonly Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = path.length - 1; i < path.length; j = i++) {
+    const a = path[i];
+    const b = path[j];
+    if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
+/** Whether segment a-b properly crosses segment c-d. */
+function crosses(a: Pt, b: Pt, c: Pt, d: Pt): boolean {
+  const side = (p: Pt, q: Pt, r: Pt) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  return side(a, b, c) * side(a, b, d) < 0 && side(c, d, a) * side(c, d, b) < 0;
+}
+
 /** `tol` is in document units (callers pass a screen-pixel tolerance divided by zoom). */
 export function hitTest(it: Item, p: Pt, tol: number): boolean {
   if (!it.transform) return typeOf(it).hitTest(it, p, tol);

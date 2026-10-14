@@ -4,6 +4,7 @@ import {
   dist,
   hitTest,
   itemBounds,
+  lassoTouchesRect,
   rectFromPoints,
   rectsIntersect,
   transformItem,
@@ -30,8 +31,11 @@ import { defaultControls, eventKeyName, findAction, parseBinding, type ControlSe
 
 export type ToolId = 'select' | 'transform' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge' | 'eraser';
 
-/** What the Select tool picks: whole items, every item on a layer, or brush-stroke points. */
-export type SelectMode = 'object' | 'layer' | 'points';
+/** What the Select tool picks: whole items, or every item on a layer. */
+export type SelectMode = 'object' | 'layer';
+
+/** The shape of the Select tool's drag: a box, or a freehand loop. */
+export type SelectArea = 'rect' | 'free';
 
 interface Draft {
   kind: ClickShapeKind;
@@ -50,7 +54,7 @@ type Drag =
   | { mode: 'handle'; id: string; s: number; n: number; which: 'in' | 'out'; base: DocState; moved: boolean }
   | { mode: 'scale'; handle: HandleId; box: Rect; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
-  | { mode: 'marquee'; origin: Pt; cur: Pt; additive: boolean; baseSel: Set<string> }
+  | { mode: 'marquee'; area: SelectArea; origin: Pt; cur: Pt; path: Pt[]; additive: boolean; baseSel: Set<string> }
   | { mode: 'brush'; pts: Pt[]; style: Style; label: string }
   | { mode: 'edge'; last: Pt }
   | { mode: 'mask'; last: Pt };
@@ -125,6 +129,7 @@ function restyle(it: Item, fn: (style: Style) => Style): Item {
 export class Editor {
   tool: ToolId = 'select';
   selectMode: SelectMode = 'object';
+  selectArea: SelectArea = 'rect';
   style: Style = { ...DEFAULT_STYLE };
   /** Creation-time settings for click-placed shapes (corner radius, polygon sides, star depth). */
   params: ShapeParams = { ...DEFAULT_SHAPE_PARAMS };
@@ -226,6 +231,12 @@ export class Editor {
   setSelectMode(mode: SelectMode): void {
     this.cancelInteraction();
     this.selectMode = mode;
+    this.onUiChange();
+  }
+
+  setSelectArea(area: SelectArea): void {
+    this.cancelInteraction();
+    this.selectArea = area;
     this.onUiChange();
   }
 
@@ -512,27 +523,13 @@ export class Editor {
   }
 
   private selectDown(p: Pt, shift: boolean): void {
-    if (this.selectMode === 'points') this.selectPointsDown(p, shift);
-    else if (this.selectMode === 'layer') this.selectLayerDown(p, shift);
+    if (this.selectMode === 'layer') this.selectLayerDown(p, shift);
     else this.selectObjectDown(p, shift);
   }
 
-  /** Points mode: click picks one point on any visible brush stroke. Empty space clears the selection. */
-  private selectPointsDown(p: Pt, shift: boolean): void {
-    const tol = PICK_TOLERANCE_PX / this.ws.view.zoom;
-    for (const it of visibleItemsTopFirst(this.ws.state)) {
-      if (it.kind !== 'brush') continue;
-      const index = it.pts.findIndex((q) => dist(p, q) <= tol);
-      if (index >= 0) {
-        this.selectPoint(it.id, index, shift);
-        return;
-      }
-    }
-    if (!shift) {
-      this.ws.selection.clear();
-      this.ws.pointSelection.clear();
-    }
-    this.afterSelectionChange();
+  /** Empty-space press: start a box or lasso selection, keeping the current selection when `shift`. */
+  private startMarquee(p: Pt, shift: boolean, sel: Set<string>): void {
+    this.drag = { mode: 'marquee', area: this.selectArea, origin: p, cur: p, path: [p], additive: shift, baseSel: new Set(sel) };
   }
 
   /** Layer mode: click selects every item on the clicked item's layer and makes that layer active. */
@@ -554,7 +551,7 @@ export class Editor {
       }
     } else {
       if (!shift) sel.clear();
-      this.drag = { mode: 'marquee', origin: p, cur: p, additive: shift, baseSel: new Set(sel) };
+      this.startMarquee(p, shift, sel);
     }
     this.afterSelectionChange();
   }
@@ -581,7 +578,7 @@ export class Editor {
       this.drag = { mode: 'move', origin: p, base: this.ws.state, moved: false, box: this.selectionBox() };
     } else {
       if (!shift) sel.clear();
-      this.drag = { mode: 'marquee', origin: p, cur: p, additive: shift, baseSel: new Set(sel) };
+      this.startMarquee(p, shift, sel);
     }
     this.afterSelectionChange();
   }
@@ -1029,9 +1026,11 @@ export class Editor {
     } else if (this.drag?.mode === 'marquee') {
       const d = this.drag;
       d.cur = p;
+      if (d.area === 'free') d.path.push(p);
       const r = rectFromPoints(d.origin, p);
       const next = new Set(d.baseSel);
-      const hits = visibleItemsTopFirst(this.ws.state).filter((it) => rectsIntersect(itemBounds(it), r)).map((it) => it.id);
+      const touches = (it: Item) => (d.area === 'free' ? lassoTouchesRect(d.path, itemBounds(it)) : rectsIntersect(itemBounds(it), r));
+      const hits = visibleItemsTopFirst(this.ws.state).filter(touches).map((it) => it.id);
       // Layer mode: a box that touches an item selects that item's whole layer.
       const picked = this.selectMode === 'layer' ? sameLayerItemIds(this.ws.state, hits) : hits;
       for (const id of picked) next.add(id);
@@ -1234,7 +1233,8 @@ export class Editor {
       style: this.drag?.mode === 'brush' ? this.drag.style : this.style,
       params: this.params,
       handles: box && this.tool === 'transform' ? handlesFor(box, ws.view.zoom) : null,
-      marquee: this.drag?.mode === 'marquee' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
+      marquee: this.drag?.mode === 'marquee' && this.drag.area === 'rect' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
+      lasso: this.drag?.mode === 'marquee' && this.drag.area === 'free' ? this.drag.path : null,
       brushCursor: this.hover && (this.maskEditing || this.tool === 'brush' || this.tool === 'eraser' || this.tool === 'edge')
         ? { at: this.hover, width: this.maskEditing ? this.maskRadius * 2 : this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width, square: this.tool === 'eraser' && this.eraserSquare }
         : null,

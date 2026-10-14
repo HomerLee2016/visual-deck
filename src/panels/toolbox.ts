@@ -1,4 +1,4 @@
-import type { Editor, SelectMode, ToolId } from '../editor';
+import type { Editor, SelectArea, SelectMode, ToolId } from '../editor';
 import { parseColor, withAlpha } from '../color';
 import type { ShapeItem, Style } from '../types';
 import { typeOf } from '../items/registry';
@@ -25,11 +25,12 @@ const TOOL_HELP: Record<ToolId, string> = {
   edge: 'Paint over a cut-out edge with a light fringe. Only painted pixels near transparency change. Apply (Enter) rasterizes the layer; Cancel (Esc) discards.',
 };
 
-const SELECT_HELP: Record<SelectMode, string> = {
-  object: 'Click or drag a box to select items across visible layers. Shift adds. Drag to move. Click a point on a selected brush stroke to pick it. Ctrl+C / Ctrl+V.',
-  layer: 'Click an item to select its whole layer and make it the active layer. A box selects every layer it touches. Shift adds.',
-  points: 'Click a point on a brush stroke to select it. Shift adds points. Delete removes the selected points.',
-};
+/** Select help for the current area and scope. */
+function selectHelp(mode: SelectMode, area: SelectArea): string {
+  const pick = mode === 'layer' ? 'Click an item to select its whole layer and make it the active layer.' : 'Click an item to select it. Click a point on a selected brush stroke to pick it.';
+  const draw = area === 'rect' ? 'Drag a box' : 'Drag a freehand loop';
+  return `${pick} ${draw} to select everything it touches. Shift adds. Drag to move. Ctrl+C / Ctrl+V.`;
+}
 
 /** `#rrggbb` from a colour input into 0-255 channels. */
 function parseRgb(hex: string): { r: number; g: number; b: number } {
@@ -248,8 +249,12 @@ export class ToolboxPanel {
     shadow.onchange = () => editor.setStyle({ shadow: shadow.checked ? { dx: 4, dy: 4, blur: 6, color: '#000000' } : undefined }, true);
     $('node-smooth').onclick = () => editor.setNodesSmooth(true);
     $('node-corner').onclick = () => editor.setNodesSmooth(false);
-    const selectMode = $<HTMLSelectElement>('select-mode');
-    selectMode.onchange = () => editor.setSelectMode(selectMode.value as SelectMode);
+    document.querySelectorAll<HTMLButtonElement>('#options [data-area]').forEach((b) => {
+      b.onclick = () => editor.setSelectArea(b.dataset.area as SelectArea);
+    });
+    document.querySelectorAll<HTMLButtonElement>('#options [data-scope]').forEach((b) => {
+      b.onclick = () => editor.setSelectMode(b.dataset.scope as SelectMode);
+    });
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
     $('act-delete').onclick = () => editor.deleteSelection();
@@ -292,8 +297,13 @@ export class ToolboxPanel {
     });
     this.syncPickers();
     $<HTMLSelectElement>('fill-paint').value = this.editor.style.fillGradient?.type ?? 'solid';
-    $<HTMLSelectElement>('select-mode').value = this.editor.selectMode;
-    $('tool-help').textContent = this.editor.tool === 'select' ? SELECT_HELP[this.editor.selectMode] : TOOL_HELP[this.editor.tool];
+    document.querySelectorAll<HTMLButtonElement>('#options [data-area]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.area === this.editor.selectArea));
+    });
+    document.querySelectorAll<HTMLButtonElement>('#options [data-scope]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.scope === this.editor.selectMode));
+    });
+    $('tool-help').textContent = this.editor.tool === 'select' ? selectHelp(this.editor.selectMode, this.editor.selectArea) : TOOL_HELP[this.editor.tool];
     $<HTMLButtonElement>('edge-apply').disabled = !this.editor.edgePending;
     $<HTMLButtonElement>('edge-cancel').disabled = !this.editor.edgePending;
     const has = this.active().selection.size > 0;

@@ -236,6 +236,11 @@ body.dropping #stage::after { display: flex; }
 .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; }
 .tool-grid button { display: flex; justify-content: space-between; align-items: center; }
 .tool-grid button.active { border-color: var(--accent); background: #29405c; }
+.seg { display: flex; flex: 1; }
+.seg button { flex: 1; }
+.seg button:first-child { border-radius: 4px 0 0 4px; }
+.seg button:last-child { border-radius: 0 4px 4px 0; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); background: #29405c; }
 kbd { color: var(--muted); font-size: 10px; }
 #tool-help { padding: 0 10px 8px; }
 

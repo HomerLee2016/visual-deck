@@ -63,13 +63,20 @@
         <div id="options" role="group" aria-labelledby="options-title" hidden>
           <h3 id="options-title">Options</h3>
           <div data-opt="selectMode">
-            <label class="field">Select mode
-              <select id="select-mode" aria-label="Select mode">
-                <option value="object">Object</option>
-                <option value="layer">Layer</option>
-                <option value="points">Points</option>
-              </select>
-            </label>
+            <div class="row">
+              <span>Area</span>
+              <div class="seg" role="group" aria-label="Select area">
+                <button type="button" data-area="rect" aria-pressed="true">Rectangle</button>
+                <button type="button" data-area="free" aria-pressed="false">Free range</button>
+              </div>
+            </div>
+            <div class="row">
+              <span>Scope</span>
+              <div class="seg" role="group" aria-label="Select scope">
+                <button type="button" data-scope="object" aria-pressed="true">Object</button>
+                <button type="button" data-scope="layer" aria-pressed="false">Layer</button>
+              </div>
+            </div>
           </div>
           <div data-opt="selection">
             <h4>Selection</h4>
