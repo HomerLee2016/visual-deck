@@ -23,6 +23,12 @@
             <button id="menu-code">SVG code…</button>
           </div>
         </div>
+        <div class="menu" data-menu="settings">
+          <button class="menu-title">Settings</button>
+          <div class="menu-items" hidden>
+            <button id="menu-controls">Controls…</button>
+          </div>
+        </div>
         <input id="file-input" type="file" accept="image/*,.svg" multiple hidden />
         <input id="svg-input" type="file" accept=".svg,image/svg+xml" hidden />
         <input id="project-input" type="file" accept=".vdeck" hidden />
@@ -398,6 +404,38 @@
       </form>
     </dialog>
 
+    <dialog id="controls-dialog" aria-labelledby="controls-title">
+      <h3 id="controls-title">Controls</h3>
+      <div class="tabs" role="tablist">
+        <button role="tab" id="tab-keys" aria-selected="true" aria-controls="panel-keys">Keyboard</button>
+        <button role="tab" id="tab-mouse" aria-selected="false" aria-controls="panel-mouse">Mouse</button>
+      </div>
+      <section id="panel-keys" role="tabpanel" aria-labelledby="tab-keys">
+        <table id="key-table" class="key-table"></table>
+        <p class="hint">Click a key, then press the new one. A key already used by another action moves to this one. Esc cancels; Backspace clears.</p>
+      </section>
+      <section id="panel-mouse" role="tabpanel" aria-labelledby="tab-mouse" hidden>
+        <label class="field check"><input id="mouse-middle-pan" type="checkbox" /> Middle-button drag pans the canvas</label>
+        <label class="field">Scroll wheel
+          <select id="mouse-wheel">
+            <option value="zoom">Zooms the canvas</option>
+            <option value="pan">Pans the canvas</option>
+          </select>
+        </label>
+        <label class="field">Zoom speed
+          <select id="mouse-speed">
+            <option value="0.5">Slow</option>
+            <option value="1">Normal</option>
+            <option value="2">Fast</option>
+          </select>
+        </label>
+        <p class="hint">Hold the pan key (Space by default) and drag with the left button to pan. Ctrl+scroll always zooms.</p>
+      </section>
+      <div class="row dialog-actions">
+        <button id="controls-reset" type="button">Reset to defaults</button>
+        <button id="controls-close" type="button">Close</button>
+      </div>
+    </dialog>
     <dialog id="size-dialog">
       <form method="dialog" id="size-form">
         <h3>Document size</h3>

@@ -26,13 +26,12 @@ import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearest
 import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
+import { defaultControls, eventKeyName, findAction, parseBinding, type ControlSettings } from './controls';
 
 export type ToolId = 'select' | 'transform' | Exclude<ShapeKind, 'path'> | 'text' | 'pen' | 'node' | 'edge' | 'eraser';
 
 /** What the Select tool picks: whole items, every item on a layer, or brush-stroke points. */
 export type SelectMode = 'object' | 'layer' | 'points';
-
-export const TOOL_KEYS: Record<string, ToolId> = { v: 'select', x: 'transform', l: 'line', a: 'arc', c: 'curve', b: 'brush', r: 'rect', e: 'ellipse', g: 'polygon', s: 'star', t: 'text', p: 'pen', n: 'node', f: 'edge', k: 'eraser' };
 
 interface Draft {
   kind: ClickShapeKind;
@@ -169,7 +168,10 @@ export class Editor {
   /** Last document point under the pointer; null when it has left the canvas. */
   private hover: Pt | null = null;
   private pan: { sx: number; sy: number; px: number; py: number } | null = null;
-  private spaceDown = false;
+  /** Settings for keys and mouse. The UI replaces this when the user changes them. */
+  controls: ControlSettings = defaultControls();
+  /** True while the pan key (Space by default) is held, so a left drag pans. */
+  private panHeld = false;
   private pasteCount = 0;
   private raf = 0;
   private dpr = 1;
@@ -192,9 +194,7 @@ export class Editor {
     canvas.addEventListener('dblclick', (e) => this.onDoubleClick(e));
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     window.addEventListener('keydown', (e) => this.onKeyDown(e));
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'Space') this.spaceDown = false;
-    });
+    window.addEventListener('keyup', (e) => this.onKeyUp(e));
     document.addEventListener('paste', (e) => this.onPaste(e));
   }
 
@@ -355,7 +355,14 @@ export class Editor {
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
-    this.zoomTo(this.ws.view.zoom * Math.pow(1.0015, -e.deltaY), this.screenPos(e));
+    const { wheel, wheelSpeed } = this.controls.mouse;
+    if (wheel === 'pan' && !e.ctrlKey && !e.metaKey) {
+      const v = this.ws.view;
+      this.ws.view = { ...v, panX: v.panX - e.deltaX, panY: v.panY - e.deltaY };
+      this.requestRender();
+      return;
+    }
+    this.zoomTo(this.ws.view.zoom * Math.pow(1.0015 * wheelSpeed, -e.deltaY), this.screenPos(e));
   }
 
   // ---- pointer input ------------------------------------------------------
@@ -372,14 +379,14 @@ export class Editor {
     e.preventDefault();
     (document.activeElement as HTMLElement | null)?.blur();
     // Rulers start a guide drag. The top ruler makes a horizontal guide, the left one a vertical guide.
-    if (e.button === 0 && !this.spaceDown && this.ws && (s.y < RULER_PX) !== (s.x < RULER_PX)) {
+    if (e.button === 0 && !this.panHeld && this.ws && (s.y < RULER_PX) !== (s.x < RULER_PX)) {
       this.canvas.setPointerCapture(e.pointerId);
       const axis = s.y < RULER_PX ? 'y' : 'x';
       this.drag = { mode: 'guide', axis, pos: toDoc(this.ws.view, s)[axis] };
       this.requestRender();
       return;
     }
-    if (e.button === 1 || (e.button === 0 && this.spaceDown)) {
+    if ((e.button === 1 && this.controls.mouse.middlePan) || (e.button === 0 && this.panHeld)) {
       this.pan = { sx: s.x, sy: s.y, px: this.ws.view.panX, py: this.ws.view.panY };
       this.canvas.setPointerCapture(e.pointerId);
       return;
@@ -1077,33 +1084,34 @@ export class Editor {
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (document.querySelector('dialog[open]')) return;
+    const action = findAction(this.controls.keys, e);
     const mod = e.ctrlKey || e.metaKey;
-    const key = e.key.toLowerCase();
 
-    if (e.code === 'Space') {
-      this.spaceDown = true;
+    if (action === 'panHold') {
       e.preventDefault();
-    } else if (mod && key === 'z') {
+      this.panHeld = true;
+    } else if (action === 'undo') {
       e.preventDefault();
-      if (e.shiftKey) this.ws.redo();
-      else this.ws.undo();
-    } else if (mod && key === 'y') {
+      this.ws.undo();
+    } else if (action === 'redo') {
       e.preventDefault();
       this.ws.redo();
-    } else if (mod && key === 'a') {
+    } else if (action === 'selectAll') {
       e.preventDefault();
       this.ws.selection = new Set(visibleItemsTopFirst(this.ws.state).map((it) => it.id));
       this.ws.pointSelection.clear();
       this.afterSelectionChange();
-    } else if (mod && key === 'g') {
+    } else if (action === 'group') {
       e.preventDefault();
-      if (e.shiftKey) this.ungroupSelection();
-      else this.groupSelection();
-    } else if (mod && (key === 'c' || key === 'x')) {
+      this.groupSelection();
+    } else if (action === 'ungroup') {
+      e.preventDefault();
+      this.ungroupSelection();
+    } else if (action === 'copy' || action === 'cut') {
       e.preventDefault();
       this.copy();
-      if (key === 'x') this.deleteSelection();
-    } else if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) {
+      if (action === 'cut') this.deleteSelection();
+    } else if (action === 'delete' || (!mod && e.key === 'Backspace')) {
       e.preventDefault();
       if (this.tool === 'node' && this.nodeSel.size) this.deleteNodeSelection();
       else this.deleteSelection();
@@ -1126,17 +1134,23 @@ export class Editor {
         this.ws.pointSelection.clear();
       }
       this.afterSelectionChange();
-    } else if (!mod && key === '0') {
+    } else if (action === 'fit') {
       this.fit();
-    } else if (!mod && key === '1') {
+    } else if (action === 'zoom100') {
       this.zoomTo(1);
-    } else if (!mod && (key === '+' || key === '=')) {
+    } else if (action === 'zoomIn') {
       this.zoomBy(ZOOM_STEP);
-    } else if (!mod && key === '-') {
+    } else if (action === 'zoomOut') {
       this.zoomBy(1 / ZOOM_STEP);
-    } else if (!mod && TOOL_KEYS[key]) {
-      this.setTool(TOOL_KEYS[key]);
+    } else if (action?.startsWith('tool:')) {
+      this.setTool(action.slice('tool:'.length) as ToolId);
     }
+  }
+
+  /** Releasing the pan key stops left-drag panning. */
+  private onKeyUp(e: KeyboardEvent): void {
+    const pan = parseBinding(this.controls.keys.panHold.split(' ')[0]);
+    if (pan && eventKeyName(e) === pan.key) this.panHeld = false;
   }
 
   /** Group the selected items (Ctrl+G). The group becomes the new selection. */
