@@ -14,7 +14,7 @@ const CFG = {
   curveTension: 0.1666,
   majorityKernelSize: 5,
   // Each colour region grows this many document pixels under its neighbours, so no gap shows at shared edges.
-  regionGrow: 2,
+  regionGrow: 1,
   silhouetteUnderlay: true,
 };
 
