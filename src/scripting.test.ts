@@ -192,6 +192,22 @@ describe('script storage', () => {
     expect(loadScripts()).toEqual(list);
   });
 
+  it('adds built-ins that are new since the list was saved, after the custom scripts', () => {
+    const custom = { id: 'x', name: 'X', code: '1' };
+    const oldBuiltins = DEFAULT_SCRIPTS.filter((s) => s.id !== 'builtin-split-colour');
+    stubStorage({ 'visual-deck.scripts.v1': JSON.stringify([custom, ...oldBuiltins]) });
+    const ids = loadScripts().map((s) => s.id);
+    expect(ids).toEqual([custom.id, ...oldBuiltins.map((s) => s.id), 'builtin-split-colour']);
+  });
+
+  it('does not bring back a built-in the user deleted', () => {
+    stubStorage({});
+    const kept = DEFAULT_SCRIPTS.filter((s) => s.id !== 'builtin-grid');
+    saveScripts(kept);
+    expect(loadScripts().map((s) => s.id)).toEqual(kept.map((s) => s.id));
+    expect(loadScripts().map((s) => s.id)).not.toContain('builtin-grid');
+  });
+
   it('does not throw when storage is unavailable', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => { throw new Error('denied'); },
