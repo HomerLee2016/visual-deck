@@ -1,9 +1,11 @@
 import { buildShape, clickSpec, type ClickShapeKind } from './geometry';
 import { DEFAULT_STYLE, imageItem, uid, type Workspace } from './model';
 import { renderToCanvas } from './render';
+import { fileToCanvas, pickImageFile } from './io';
 import { compositeMasked } from './mask';
 import type { Item, PathItem, Style } from './types';
 import traceToSvgCode from './builtin/trace-to-svg.js?raw';
+import splitByColourCode from './builtin/split-by-colour.js?raw';
 
 export interface ScriptDef {
   id: string;
@@ -72,6 +74,11 @@ deck.log('Grid drawn');
     name: 'Trace to SVG',
     code: traceToSvgCode,
   },
+  {
+    id: 'builtin-split-colour',
+    name: 'Split by colour',
+    code: splitByColourCode,
+  },
 ];
 
 export function loadScripts(): ScriptDef[] {
@@ -109,6 +116,8 @@ deck.addArc(x1,y1,x2,y2, mx,my, style?, layerId?)        arc through (mx,my)
 deck.addCurve(x1,y1,x2,y2, c1x,c1y,c2x,c2y, style?, layerId?)
 deck.addPath(subs, style?, layerId?)   one editable path; subs = [{ nodes: [{ x, y, in?, out? }], closed }]
 deck.selection                    [{ id, kind }] of the current selection
+deck.pickImage()                   -> ImageData of a picked image file, or null if cancelled
+                                      (call it first in the script: needs the click)
 deck.clearLayer(layerId?)          remove everything on a layer
 deck.log(...args)                  show a message in the status bar
 style = { color: '#rrggbb' or 'rgba(r, g, b, a)', width: 2, fill?: '#rrggbb', opacity?: 0..1,
@@ -137,11 +146,24 @@ export interface Deck {
     style?: Partial<Style>, layerId?: string,
   ): void;
   addPath(subs: PathSub[], style?: Partial<Style>, layerId?: string): void;
+  pickImage(): Promise<ImageData | null>;
   clearLayer(layerId?: string): void;
   log(...args: unknown[]): void;
 }
 
-export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
+/** Open a file picker and decode the chosen image. */
+async function pickImageData(): Promise<ImageData | null> {
+  const file = await pickImageFile();
+  if (!file) return null;
+  const c = await fileToCanvas(file);
+  return c.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, c.width, c.height);
+}
+
+export function createDeck(
+  ws: Workspace,
+  log: (msg: string) => void,
+  pick: () => Promise<ImageData | null> = pickImageData,
+): Deck {
   const style = (s?: Partial<Style>): Style => ({ ...DEFAULT_STYLE, ...s });
   const shape = (kind: ClickShapeKind, pts: { x: number; y: number }[], s: Partial<Style> | undefined, layerId?: string) => {
     const needed = clickSpec(kind).needed;
@@ -201,6 +223,7 @@ export function createDeck(ws: Workspace, log: (msg: string) => void): Deck {
       };
       ws.addItem(null, item, layerId ?? ws.activeLayerId);
     },
+    pickImage: pick,
     clearLayer: (layerId = ws.activeLayerId) => ws.replaceLayerItems(null, layerId, []),
     log: (...args) => log(args.map(String).join(' ')),
   };
