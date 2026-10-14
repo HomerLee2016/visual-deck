@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, setSmooth } from './nodes';
+import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodesInLasso, nodesInRect, setSmooth } from './nodes';
 import type { PathItem } from './types';
 
 const style = { color: '#fff', width: 1 };
@@ -82,5 +82,24 @@ describe('node editing', () => {
     const far: PathItem = { ...open([0, 0]), subs: [{ closed: false, nodes: [{ p: { x: 0, y: 0 }, out: { x: 30, y: 0 } }] }] };
     expect(nearestNodeHit(far, { x: 30, y: 0 }, 6)).toEqual({ s: 0, n: 0, which: 'out' });
     expect(nearestNodeHit(it, { x: 50, y: 50 }, 6)).toBeNull();
+  });
+
+  it('selects the nodes inside a box, edges included', () => {
+    const it = open([0, 0], [10, 0], [10, 10], [40, 40]);
+    expect([...nodesInRect(it, { x: -1, y: -1, w: 12, h: 12 })].sort()).toEqual(['0.0', '0.1', '0.2']);
+    expect(nodesInRect(it, { x: 100, y: 100, w: 5, h: 5 }).size).toBe(0);
+  });
+
+  it('selects the nodes inside a lasso, and ignores a lasso of fewer than three points', () => {
+    const it = open([0, 0], [10, 0], [5, 8], [40, 40]);
+    const square = [{ x: -5, y: -5 }, { x: 20, y: -5 }, { x: 20, y: 20 }, { x: -5, y: 20 }];
+    expect([...nodesInLasso(it, square)].sort()).toEqual(['0.0', '0.1', '0.2']);
+    expect(nodesInLasso(it, [{ x: -5, y: -5 }, { x: 20, y: 20 }]).size).toBe(0);
+  });
+
+  it('leaves out nodes in the notch of a concave lasso', () => {
+    // A cup opening upwards: its notch is the region above (10, 5).
+    const cup = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 10, y: 5 }, { x: 0, y: 20 }];
+    expect([...nodesInLasso(open([10, 2], [10, 15]), cup)]).toEqual(['0.0']);
   });
 });

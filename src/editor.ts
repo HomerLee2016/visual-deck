@@ -23,7 +23,7 @@ import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, imageItem, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
 import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeItem, ShapeKind, Style, TextItem } from './types';
-import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodeKey, setSmooth } from './nodes';
+import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodeKey, nodesInLasso, nodesInRect, setSmooth } from './nodes';
 import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
@@ -55,6 +55,7 @@ type Drag =
   | { mode: 'scale'; handle: HandleId; box: Rect; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'rotate'; center: Pt; start: number; ids: Set<string>; base: DocState; moved: boolean }
   | { mode: 'marquee'; area: SelectArea; origin: Pt; cur: Pt; path: Pt[]; additive: boolean; baseSel: Set<string> }
+  | { mode: 'nodeArea'; id: string; origin: Pt; cur: Pt; trail: Pt[]; baseSel: Set<string> }
   | { mode: 'brush'; pts: Pt[]; style: Style; label: string }
   | { mode: 'edge'; last: Pt }
   | { mode: 'mask'; last: Pt };
@@ -154,6 +155,8 @@ export class Editor {
   private wholeMask: Mask | null = null;
   /** Nodes selected in the node tool, as "subpath.node" keys of the path in `nodeItemId`. */
   private nodeSel = new Set<string>();
+  /** Shape of the area that selects nodes in the node tool: a box, or a free-hand lasso. */
+  private nodeArea: 'box' | 'lasso' = 'box';
   private nodeItemId: string | null = null;
   /** Font settings for new text and the text tool's defaults. */
   textStyle: TextStyle = { ...DEFAULT_TEXT_STYLE };
@@ -619,8 +622,15 @@ export class Editor {
       this.requestRender();
       return;
     }
+    // Empty space starts an area selection; a press without a drag just clears the selection.
     if (!shift) this.nodeSel.clear();
+    this.drag = { mode: 'nodeArea', id: item.id, origin: p, cur: p, trail: [p], baseSel: new Set(this.nodeSel) };
     this.requestRender();
+  }
+
+  /** Switch the node tool's area selection between a box and a free-hand lasso. */
+  setNodeArea(area: 'box' | 'lasso'): void {
+    this.nodeArea = area;
   }
 
   /** Smooth or corner the selected nodes (node tool). */
@@ -1023,6 +1033,15 @@ export class Editor {
       d.moved = true;
       const m = rotateMatrix(d.center, angleAt(d.center, p) - d.start);
       this.ws.state = mapItems(d.base, d.ids, (it) => transformItem(it, m));
+    } else if (this.drag?.mode === 'nodeArea') {
+      const d = this.drag;
+      d.cur = p;
+      if (this.nodeArea === 'lasso') d.trail.push(p);
+      const item = this.nodeTarget();
+      if (item) {
+        const inside = this.nodeArea === 'lasso' ? nodesInLasso(item, d.trail) : nodesInRect(item, rectFromPoints(d.origin, p));
+        this.nodeSel = new Set([...d.baseSel, ...inside]);
+      }
     } else if (this.drag?.mode === 'marquee') {
       const d = this.drag;
       d.cur = p;
@@ -1233,8 +1252,8 @@ export class Editor {
       style: this.drag?.mode === 'brush' ? this.drag.style : this.style,
       params: this.params,
       handles: box && this.tool === 'transform' ? handlesFor(box, ws.view.zoom) : null,
-      marquee: this.drag?.mode === 'marquee' && this.drag.area === 'rect' ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
-      lasso: this.drag?.mode === 'marquee' && this.drag.area === 'free' ? this.drag.path : null,
+      marquee: (this.drag?.mode === 'marquee' && this.drag.area === 'rect') || (this.drag?.mode === 'nodeArea' && this.nodeArea === 'box') ? rectFromPoints(this.drag.origin, this.drag.cur) : null,
+      lasso: this.drag?.mode === 'marquee' && this.drag.area === 'free' ? this.drag.path : this.drag?.mode === 'nodeArea' && this.nodeArea === 'lasso' ? this.drag.trail : null,
       brushCursor: this.hover && (this.maskEditing || this.tool === 'brush' || this.tool === 'eraser' || this.tool === 'edge')
         ? { at: this.hover, width: this.maskEditing ? this.maskRadius * 2 : this.tool === 'edge' ? this.edgeRadius * 2 : this.style.width, square: this.tool === 'eraser' && this.eraserSquare }
         : null,

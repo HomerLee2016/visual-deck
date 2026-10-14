@@ -17,7 +17,7 @@ const TOOL_HELP: Record<ToolId, string> = {
   rect: 'Drag or click two opposite corners. Shift for a square. Corner radius applies to new rectangles.',
   ellipse: 'Drag or click two opposite corners of the bounding box. Shift for a circle.',
   polygon: 'Click the centre, then a vertex. Sides are in Options. Shift snaps the angle.',
-  node: 'Click a node or handle to select it; drag to move it. Double-click a segment to add a node. Delete removes selected nodes.',
+  node: 'Click a node or handle to select it; drag to move it. Drag on empty space to select nodes in a box or lasso (Options). Shift adds to the selection. Double-click a segment to add a node. Delete removes selected nodes.',
   pen: 'Click to place corner nodes; drag to make a smooth node. Click the first node or press Enter to finish; Esc finishes an open path.',
   text: 'Click where the text goes and type. Ctrl+Enter or click away places it; Esc cancels. Double-click text to edit.',
   star: 'Click the centre, then a point. Points and inner radius are in Options. Shift snaps the angle.',
@@ -254,6 +254,12 @@ export class ToolboxPanel {
     });
     document.querySelectorAll<HTMLButtonElement>('#options [data-scope]').forEach((b) => {
       b.onclick = () => editor.setSelectMode(b.dataset.scope as SelectMode);
+    });
+    document.querySelectorAll<HTMLButtonElement>('#options [data-node-area]').forEach((b) => {
+      b.onclick = () => {
+        editor.setNodeArea(b.dataset.nodeArea as 'box' | 'lasso');
+        document.querySelectorAll<HTMLButtonElement>('#options [data-node-area]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+      };
     });
     $('act-copy').onclick = () => editor.copy();
     $('act-paste').onclick = () => editor.pasteClipboard();
