@@ -50,6 +50,8 @@ export function optionGroups(tool: ToolId, ctx: OptionContext): OptionGroup[] {
   switch (tool) {
     case 'select':
       return selectGroups(ctx);
+    case 'move':
+      return [];
     case 'transform':
       return transformGroups(ctx);
     case 'line':
