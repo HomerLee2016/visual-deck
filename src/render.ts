@@ -160,6 +160,46 @@ function checkerPattern(ctx: CanvasRenderingContext2D): CanvasPattern {
   return pattern;
 }
 
+/** Scratch canvases the document is drawn on, one per editor canvas. */
+const documentLayers = new WeakMap<CanvasRenderingContext2D, HTMLCanvasElement>();
+
+/**
+ * The document drawn on its own transparent layer, the size of the editor canvas. Erasing cuts into this layer,
+ * so an erased area shows the checkerboard behind it rather than the page behind the canvas.
+ */
+function drawDocumentLayer(ctx: CanvasRenderingContext2D, scene: Scene): void {
+  const { state, view, dpr } = scene;
+  const { zoom, panX, panY } = view;
+  let layer = documentLayers.get(ctx);
+  if (!layer) {
+    layer = document.createElement('canvas');
+    documentLayers.set(ctx, layer);
+  }
+  if (layer.width !== ctx.canvas.width || layer.height !== ctx.canvas.height) {
+    layer.width = ctx.canvas.width;
+    layer.height = ctx.canvas.height;
+  }
+  const g = layer.getContext('2d')!;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'source-over';
+  g.clearRect(0, 0, layer.width, layer.height);
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.translate(panX, panY);
+  g.scale(zoom, zoom);
+  g.imageSmoothingEnabled = zoom < 2;
+  drawState(g, state);
+  if (scene.stroke) {
+    // An erase preview is drawn in full so the area it will clear is clear; a paint preview is faded.
+    g.globalAlpha = scene.style.erase ? 1 : 0.8;
+    drawItem(g, { kind: 'brush', id: 'preview', pts: scene.stroke, style: scene.style });
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(layer, 0, 0);
+  ctx.restore();
+}
+
 /** One frame of the editor canvas: backdrop, document, selection and in-progress interaction. */
 export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   const { state, view, size, dpr } = scene;
@@ -178,11 +218,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   ctx.fillRect(panX, panY, width * zoom, height * zoom);
   ctx.restore();
 
+  drawDocumentLayer(ctx, scene);
+
   ctx.save();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.translate(panX, panY);
   ctx.scale(zoom, zoom);
   ctx.imageSmoothingEnabled = zoom < 2;
-  drawState(ctx, state);
 
   ctx.lineWidth = 1 / zoom;
   ctx.strokeStyle = DOC_BORDER;
@@ -192,11 +234,6 @@ export function drawScene(ctx: CanvasRenderingContext2D, scene: Scene): void {
   drawGuides(ctx, scene.aids.guides, scene.guideDraft, width, height, zoom);
   drawSelection(ctx, scene.selected, zoom, scene.selectedPoints);
   if (scene.draft) drawDraft(ctx, scene.draft, scene.style, scene.params, zoom);
-  if (scene.stroke) {
-    ctx.globalAlpha = 0.8;
-    drawItem(ctx, { kind: 'brush', id: 'preview', pts: scene.stroke, style: scene.style });
-    ctx.globalAlpha = 1;
-  }
   if (scene.maskOverlay) ctx.drawImage(scene.maskOverlay, 0, 0);
   if (scene.edgeOverlay) ctx.drawImage(scene.edgeOverlay, 0, 0);
   if (scene.marquee) drawMarquee(ctx, scene.marquee, zoom);

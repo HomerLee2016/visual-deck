@@ -50,9 +50,12 @@ export type KeyMap = Record<KeyAction, string>;
 export type WheelMode = 'zoom' | 'pan';
 export type WheelSpeed = 0.5 | 1 | 2;
 
+/** The mouse button that drags the canvas to pan, or none. Left is taken by the tools. */
+export type PanButton = 'middle' | 'right' | 'none';
+
 export interface MouseSettings {
-  /** Middle-button drag pans the canvas. */
-  middlePan: boolean;
+  /** Which button drag pans the canvas. */
+  panButton: PanButton;
   /** What the scroll wheel does on the canvas. Ctrl+wheel always zooms. */
   wheel: WheelMode;
   /** Zoom per wheel notch: 0.5 slow, 1 normal, 2 fast. */
@@ -64,7 +67,7 @@ export interface ControlSettings {
   mouse: MouseSettings;
 }
 
-export const DEFAULT_MOUSE: MouseSettings = { middlePan: true, wheel: 'zoom', wheelSpeed: 1 };
+export const DEFAULT_MOUSE: MouseSettings = { panButton: 'middle', wheel: 'zoom', wheelSpeed: 1 };
 
 export function defaultKeys(): KeyMap {
   return Object.fromEntries(KEY_ACTIONS.map((a) => [a.id, a.key])) as KeyMap;
@@ -175,8 +178,10 @@ export function loadControls(): ControlSettings {
       const v = raw.keys?.[a.id];
       if (typeof v === 'string') base.keys[a.id] = v;
     }
-    const m = raw.mouse ?? {};
-    if (typeof m.middlePan === 'boolean') base.mouse.middlePan = m.middlePan;
+    const m = (raw.mouse ?? {}) as Partial<MouseSettings> & { middlePan?: boolean };
+    if (m.panButton === 'middle' || m.panButton === 'right' || m.panButton === 'none') base.mouse.panButton = m.panButton;
+    // Settings saved before the pan button could be chosen stored a middle-button checkbox.
+    else if (typeof m.middlePan === 'boolean') base.mouse.panButton = m.middlePan ? 'middle' : 'none';
     if (m.wheel === 'zoom' || m.wheel === 'pan') base.mouse.wheel = m.wheel;
     if (m.wheelSpeed === 0.5 || m.wheelSpeed === 1 || m.wheelSpeed === 2) base.mouse.wheelSpeed = m.wheelSpeed;
   } catch {

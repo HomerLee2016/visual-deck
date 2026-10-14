@@ -18,6 +18,7 @@ import { GridPanel } from './panels/grid';
 import { PalettePanel } from './panels/palette';
 import { SymbolsPanel } from './panels/symbols';
 import { GeometryPanel } from './panels/geometry';
+import { MaskPrompt } from './panels/mask-prompt';
 import { ScriptsPanel } from './panels/scripts';
 import { TextInput } from './panels/textinput';
 import { TabBar } from './panels/tabbar';
@@ -49,25 +50,28 @@ export class App {
   private grid = new GridPanel(() => this.active);
   private palette = new PalettePanel(this.editor, () => this.active);
   private symbols = new SymbolsPanel(() => this.active);
+  private maskPrompt = new MaskPrompt();
+  // File actions, resizing and tab changes wait for an open mask session to be saved or discarded.
   private menu = new MenuBar(
     () => this.active,
-    (f) => void this.openImage(f),
-    (f) => void this.openProject(f),
-    () => this.saveProject(),
+    (f) => this.editor.guardMaskEdit(() => void this.openImage(f)),
+    (f) => this.editor.guardMaskEdit(() => void this.openProject(f)),
+    () => this.editor.guardMaskEdit(() => this.saveProject()),
     (m) => this.editor.onStatus(m),
-    (w, h, ax, ay) => this.resizeDocument(w, h, ax, ay),
-    (f) => void this.openSvgShapes(f),
+    (w, h, ax, ay) => this.editor.guardMaskEdit(() => this.resizeDocument(w, h, ax, ay)),
+    (f) => this.editor.guardMaskEdit(() => void this.openSvgShapes(f)),
   );
   private tabs = new TabBar({
     workspaces: () => this.workspaces,
     active: () => this.active,
-    activate: (ws) => this.activate(ws),
-    close: (ws) => this.closeWorkspace(ws),
-    create: (name, w, h) => this.addWorkspace(this.newWorkspace(name, w, h)),
+    activate: (ws) => this.editor.guardMaskEdit(() => this.activate(ws)),
+    close: (ws) => this.editor.guardMaskEdit(() => this.closeWorkspace(ws)),
+    create: (name, w, h) => this.editor.guardMaskEdit(() => this.addWorkspace(this.newWorkspace(name, w, h))),
   });
 
   constructor() {
     this.editor.onStatus = (m) => ($('status').textContent = m);
+    this.editor.onMaskPrompt = (save, discard) => this.maskPrompt.ask(save, discard);
     this.editor.controls = loadControls();
     new ControlsPanel(
       () => this.editor.controls,

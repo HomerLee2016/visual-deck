@@ -68,8 +68,13 @@ export class ScriptsPanel {
     }
   }
 
+  /** Runs a script once any open mask session is saved or discarded. */
+  private run(def: ScriptDef): void {
+    this.editor.guardMaskEdit(() => void this.runNow(def));
+  }
+
   /** Shows the loading overlay, lets it paint, then runs the script. */
-  private async run(def: ScriptDef): Promise<void> {
+  private async runNow(def: ScriptDef): Promise<void> {
     const overlay = $('loading');
     $('loading-text').textContent = `Running ${def.name}…`;
     overlay.hidden = false;

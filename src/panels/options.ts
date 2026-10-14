@@ -54,6 +54,8 @@ export class OptionsPanel {
       editor.setMaskBrush({ op: editor.maskOp === 'add' ? 'remove' : 'add' });
       this.render();
     };
+    $('mask-add-all').onclick = () => editor.fillMask(1);
+    $('mask-remove-all').onclick = () => editor.fillMask(0);
     $('mask-confirm').onclick = () => editor.confirmMaskEdit();
     $('mask-cancel').onclick = () => editor.cancelMaskEdit();
   }

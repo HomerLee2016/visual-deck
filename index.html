@@ -291,6 +291,10 @@
               </button>
             </div>
             <div class="row">
+              <button id="mask-add-all" title="Select the whole canvas">Add All</button>
+              <button id="mask-remove-all" title="Clear the selection">Remove All</button>
+            </div>
+            <div class="row">
               <button id="mask-confirm" title="Keep this selection as the mask (Enter)">Confirm</button>
               <button id="mask-cancel" title="Discard changes to the mask (Esc)">Cancel</button>
             </div>
@@ -415,6 +419,16 @@
       </form>
     </dialog>
 
+    <dialog id="mask-dialog" aria-labelledby="mask-dialog-title">
+      <h3 id="mask-dialog-title">Save the mask?</h3>
+      <p>You are still modifying the mask. Save it before continuing, discard the changes, or keep editing.</p>
+      <div class="row dialog-actions">
+        <button id="mask-dialog-keep" type="button">Keep editing</button>
+        <button id="mask-dialog-discard" type="button">Discard</button>
+        <button id="mask-dialog-save" type="button">Save mask</button>
+      </div>
+    </dialog>
+
     <dialog id="controls-dialog" aria-labelledby="controls-title">
       <h3 id="controls-title">Controls</h3>
       <div class="tabs" role="tablist">
@@ -426,7 +440,13 @@
         <p class="hint">Click a key, then press the new one. A key already used by another action moves to this one. Esc cancels; Backspace clears.</p>
       </section>
       <section id="panel-mouse" role="tabpanel" aria-labelledby="tab-mouse" hidden>
-        <label class="field check"><input id="mouse-middle-pan" type="checkbox" /> Middle-button drag pans the canvas</label>
+        <label class="field">Drag to pan with
+          <select id="mouse-pan">
+            <option value="middle">Middle button</option>
+            <option value="right">Right button</option>
+            <option value="none">Off</option>
+          </select>
+        </label>
         <label class="field">Scroll wheel
           <select id="mouse-wheel">
             <option value="zoom">Zooms the canvas</option>
