@@ -1,5 +1,5 @@
 import './style.css';
-import { Editor, type TextRequest } from './editor';
+import { Editor, ZOOM_STEP, type TextRequest } from './editor';
 import { fileToCanvas, fileToProject, download, domCodec, projectToBlob } from './io';
 import { AUTOSAVE_KEY, parseSession, serializeSession } from './autosave';
 import { resizeDocument } from './arrange';
@@ -66,6 +66,8 @@ export class App {
 
   constructor() {
     this.editor.onStatus = (m) => ($('status').textContent = m);
+    $('zoom-in').addEventListener('click', () => this.editor.zoomBy(ZOOM_STEP));
+    $('zoom-out').addEventListener('click', () => this.editor.zoomBy(1 / ZOOM_STEP));
     this.editor.onUiChange = () => {
       this.toolbox.render();
       this.options.render();

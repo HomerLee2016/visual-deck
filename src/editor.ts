@@ -59,6 +59,9 @@ type Drag =
 /** History label for each drag that edits the document in place and commits when released. */
 const COMMIT_LABELS = { move: 'Move', nodes: 'Move nodes', gradient: 'Move gradient', handle: 'Move handle', scale: 'Scale', rotate: 'Rotate' } as const;
 
+/** Zoom factor for one press of + or -. */
+export const ZOOM_STEP = 1.25;
+
 const PICK_TOLERANCE_PX = 6;
 /** How close (screen pixels) the pointer must be to a selection handle to grab it. */
 const HANDLE_TOLERANCE_PX = 6;
@@ -337,6 +340,12 @@ export class Editor {
     const { w, h } = this.canvasSize();
     this.ws.view = zoomAround(this.ws.view, zoom, around ?? { x: w / 2, y: h / 2 });
     this.requestRender();
+  }
+
+  /** Zoom in or out by one step, keeping the centre of the canvas fixed. */
+  zoomBy(factor: number): void {
+    if (!this.ws) return;
+    this.zoomTo(this.ws.view.zoom * factor);
   }
 
   private screenPos(e: { clientX: number; clientY: number }): Pt {
@@ -1121,6 +1130,10 @@ export class Editor {
       this.fit();
     } else if (!mod && key === '1') {
       this.zoomTo(1);
+    } else if (!mod && (key === '+' || key === '=')) {
+      this.zoomBy(ZOOM_STEP);
+    } else if (!mod && key === '-') {
+      this.zoomBy(1 / ZOOM_STEP);
     } else if (!mod && TOOL_KEYS[key]) {
       this.setTool(TOOL_KEYS[key]);
     }
