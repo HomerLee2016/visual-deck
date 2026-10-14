@@ -185,7 +185,8 @@ function majorityFilter(labels, n, W, H, size) {
   return best;
 }
 
-// Grow a binary mask by r pixels (square window), keeping only pixels inside clip.
+// Grow a binary mask by r pixels (round disc), keeping only pixels inside clip.
+// The disc is one row-span per dy, so each row is a rectangle query on the integral image.
 function growMask(mask, clip, W, H, r) {
   const I = new Int32Array((W + 1) * (H + 1));
   for (let y = 0; y < H; y++) {
@@ -195,14 +196,22 @@ function growMask(mask, clip, W, H, r) {
       I[(y + 1) * (W + 1) + x + 1] = I[y * (W + 1) + x + 1] + row;
     }
   }
+  const spans = [];
+  for (let dy = -r; dy <= r; dy++) spans.push([dy, Math.floor(Math.sqrt(r * r - dy * dy))]);
   const out = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) {
-    const y0 = Math.max(0, y - r), y1 = Math.min(H, y + r + 1);
     for (let x = 0; x < W; x++) {
-      const x0 = Math.max(0, x - r), x1 = Math.min(W, x + r + 1);
-      const count = I[y1 * (W + 1) + x1] - I[y0 * (W + 1) + x1] - I[y1 * (W + 1) + x0] + I[y0 * (W + 1) + x0];
       const p = y * W + x;
-      out[p] = count > 0 && clip[p] ? 1 : 0;
+      if (!clip[p]) continue;
+      let hit = 0;
+      for (const [dy, half] of spans) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= H) continue;
+        const x0 = Math.max(0, x - half), x1 = Math.min(W, x + half + 1);
+        hit += I[(yy + 1) * (W + 1) + x1] - I[yy * (W + 1) + x1] - I[(yy + 1) * (W + 1) + x0] + I[yy * (W + 1) + x0];
+        if (hit > 0) break;
+      }
+      out[p] = hit > 0 ? 1 : 0;
     }
   }
   return out;
