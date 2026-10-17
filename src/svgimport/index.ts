@@ -1,16 +1,48 @@
 import { typeOf } from '../items/registry';
-import { uid } from '../model';
-import type { Matrix } from '../matrix';
-import type { GradientStop, Gradient, Item, Pt, Style, SubPath, TextItem, PathItem, LineItem, RectItem, EllipseItem, GroupItem } from '../types';
+import { newLayer, uid } from '../model';
+import { multiply, type Matrix } from '../matrix';
+import type { GradientStop, Gradient, Item, Layer, Pt, Style, SubPath, TextItem, PathItem, LineItem, RectItem, EllipseItem, GroupItem } from '../types';
 import { parseColor, parseDash, parseLength, parseTransform } from './attrs';
 import { parsePathData } from './pathdata';
 
 export interface SvgImport {
   width: number;
   height: number;
-  items: Item[];
+  layers: Layer[];
   /** Features that were skipped or approximated, for the status line. */
   warnings: string[];
+}
+
+/** One top-level element's items. `path` marks a `<path>` element, which gets a layer of its own. */
+export interface LayerPart {
+  path: boolean;
+  /** The element's id, if any. */
+  name: string;
+  items: Item[];
+}
+
+/**
+ * Layers in paint order: each path part is a layer of its own, and runs of other parts share one "Imported" layer.
+ * Paths without an id are named "Path 1", "Path 2", …
+ */
+export function layersOf(parts: LayerPart[]): Layer[] {
+  const layers: Layer[] = [];
+  let shared: Item[] = [];
+  let paths = 0;
+  const flush = () => {
+    if (shared.length) layers.push(newLayer('Imported', shared));
+    shared = [];
+  };
+  for (const part of parts) {
+    if (!part.path) {
+      shared.push(...part.items);
+    } else if (part.items.length) {
+      flush();
+      layers.push(newLayer(part.name || `Path ${++paths}`, part.items));
+    }
+  }
+  flush();
+  return layers.length ? layers : [newLayer('Imported')];
 }
 
 /** Paint and stroke settings that children inherit from their groups. */
@@ -155,8 +187,8 @@ export function importSvg(text: string): SvgImport {
     return transform ? ({ ...out, transform } as Item) : out;
   };
 
-  const walk = (el: Element, inh: Inherited): Item[] => {
-    const out: Item[] = [];
+  const walk = (el: Element, inh: Inherited): LayerPart[] => {
+    const out: LayerPart[] = [];
     for (const child of Array.from(el.children)) {
       const tag = child.localName;
       if (['defs', 'linearGradient', 'radialGradient', 'style', 'title', 'desc', 'metadata', 'script'].includes(tag)) continue;
@@ -165,11 +197,11 @@ export function importSvg(text: string): SvgImport {
       let item: Item | null = null;
       const num = (name: string) => parseLength(child.getAttribute(name), 0);
       if (tag === 'g' || tag === 'svg') {
-        const kids = walk(child, style);
+        const kids = walk(child, style).flatMap((p) => p.items);
         if (kids.length === 0) continue;
         const group: GroupItem = { kind: 'group', id, items: kids };
         const t = parseTransform(declared(child).transform);
-        out.push(t ? { ...group, transform: t } : group);
+        out.push({ path: false, name: '', items: [t ? { ...group, transform: t } : group] });
         continue;
       }
       if (tag === 'path') {
@@ -223,13 +255,15 @@ export function importSvg(text: string): SvgImport {
         warnings.push(`<${tag}> is not supported and was skipped`);
         continue;
       }
-      if (item) out.push(item);
+      if (item) out.push({ path: tag === 'path', name: child.getAttribute('id') ?? '', items: [item] });
     }
     return out;
   };
 
-  const items = walk(root, styleFor(root, { ...DEFAULTS }));
-  const top: Item[] = rootMatrix && items.length ? [{ kind: 'group', id: uid('item'), items, transform: rootMatrix } as GroupItem] : items;
-  return { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)), items: top, warnings: [...new Set(warnings)] };
+  // The viewBox matrix is folded into each top-level item, so a path layer holds the path itself.
+  const placed = (parts: LayerPart[]): LayerPart[] =>
+    rootMatrix ? parts.map((p) => ({ ...p, items: p.items.map((it) => ({ ...it, transform: it.transform ? multiply(rootMatrix, it.transform) : rootMatrix }) as Item) })) : parts;
+  const layers = layersOf(placed(walk(root, styleFor(root, { ...DEFAULTS }))));
+  return { width: Math.max(1, Math.round(width)), height: Math.max(1, Math.round(height)), layers, warnings: [...new Set(warnings)] };
 }
 
