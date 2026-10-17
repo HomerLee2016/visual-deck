@@ -23,7 +23,7 @@ import { snapBox } from './snap';
 import { DEFAULT_SHAPE_PARAMS, type ShapeParams } from './items/types';
 import { DEFAULT_STYLE, Workspace, imageItem, layerOfItem, mapItems, removeItems, sameLayerItemIds, uid, visibleItemsTopFirst } from './model';
 import type { DocState, GradientStop, Item, PathItem, PathNode, Pt, ShapeItem, ShapeKind, Style, TextItem } from './types';
-import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodeKey, nodesInLasso, nodesInRect, setSmooth } from './nodes';
+import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodeDeltaToLocal, nodeKey, nodeScale, nodesInLasso, nodeToLocal, setSmooth } from './nodes';
 import { defaultGradient, gradientHandles, moveGradientHandle, type GradientHandle } from './gradient';
 import { IDENTITY, apply as applyM, invert as invertM } from './matrix';
 import { fitView, toDoc, zoomAround, type Size } from './view';
@@ -517,8 +517,8 @@ export class Editor {
       // Double-clicking a segment of the edited path adds a node on it.
       const item = this.nodeTarget();
       const p = toDoc(this.ws.view, this.screenPos(e));
-      const near = item ? nearestSegment(item, p) : null;
-      if (item && near && near.dist * this.ws.view.zoom <= PICK_TOLERANCE_PX) {
+      const near = item ? nearestSegment(item, nodeToLocal(item, p)) : null;
+      if (item && near && near.dist <= this.nodeTol(item)) {
         this.ws.edit('Add node', (s) => mapItems(s, new Set([item.id]), (it) => insertNode(it as PathItem, near.s, near.seg, near.t)));
       }
       return;
@@ -623,8 +623,7 @@ export class Editor {
     }
     if (this.nodeItemId !== item.id) this.nodeSel.clear();
     this.nodeItemId = item.id;
-    const tol = PICK_TOLERANCE_PX / this.ws.view.zoom;
-    const hit = nearestNodeHit(item, p, tol);
+    const hit = nearestNodeHit(item, nodeToLocal(item, p), this.nodeTol(item));
     if (hit) {
       const { s, n, which } = hit;
       const key = nodeKey(s, n);
@@ -648,6 +647,11 @@ export class Editor {
     if (!shift) this.nodeSel.clear();
     this.drag = { mode: 'nodeArea', id: item.id, origin: p, cur: p, trail: [p], baseSel: new Set(this.nodeSel) };
     this.requestRender();
+  }
+
+  /** The node pick tolerance, in the edited path's own units. */
+  private nodeTol(item: PathItem): number {
+    return PICK_TOLERANCE_PX / (this.ws.view.zoom * nodeScale(item));
   }
 
   /** Switch the node tool's area selection between a box and a free-hand lasso. */
@@ -1067,11 +1071,14 @@ export class Editor {
       const keys = new Set(this.nodeSel);
       const dx = p.x - d.origin.x;
       const dy = p.y - d.origin.y;
-      this.ws.state = mapItems(d.base, new Set([d.id]), (it) => moveNodes(it as PathItem, keys, dx, dy));
+      this.ws.state = mapItems(d.base, new Set([d.id]), (it) => {
+        const local = nodeDeltaToLocal(it as PathItem, dx, dy);
+        return moveNodes(it as PathItem, keys, local.x, local.y);
+      });
     } else if (this.drag?.mode === 'handle') {
       const d = this.drag;
       d.moved = true;
-      this.ws.state = mapItems(d.base, new Set([d.id]), (it) => moveHandle(it as PathItem, d.s, d.n, d.which, p));
+      this.ws.state = mapItems(d.base, new Set([d.id]), (it) => moveHandle(it as PathItem, d.s, d.n, d.which, nodeToLocal(it as PathItem, p)));
     } else if (this.drag?.mode === 'scale') {
       const d = this.drag;
       d.moved = true;
@@ -1088,7 +1095,10 @@ export class Editor {
       if (this.nodeArea === 'lasso') d.trail.push(p);
       const item = this.nodeTarget();
       if (item) {
-        const inside = this.nodeArea === 'lasso' ? nodesInLasso(item, d.trail) : nodesInRect(item, rectFromPoints(d.origin, p));
+        // The area is a polygon on the document (a box's four corners, or the lasso trail), tested in the path's own units.
+        const r = rectFromPoints(d.origin, p);
+        const area = this.nodeArea === 'lasso' ? d.trail : [{ x: r.x, y: r.y }, { x: r.x + r.w, y: r.y }, { x: r.x + r.w, y: r.y + r.h }, { x: r.x, y: r.y + r.h }];
+        const inside = nodesInLasso(item, area.map((q) => nodeToLocal(item, q)));
         this.nodeSel = new Set([...d.baseSel, ...inside]);
       }
     } else if (this.drag?.mode === 'marquee') {

@@ -2,6 +2,7 @@ import { buildShape, itemBounds, type ClickShapeKind, type Rect } from './geomet
 import { drawItem, typeOf } from './items/registry';
 import { resolveDefs, resolveSymbols } from './shared';
 import { apply } from './matrix';
+import { nodeToDoc } from './nodes';
 import type { ShapeParams } from './items/types';
 import type { Handle } from './handles';
 import type { ViewAids } from './model';
@@ -77,7 +78,6 @@ export function drawSelection(
     for (const local of typeOf(it).handles(it)) {
       drawHandle(ctx, it.transform ? apply(it.transform, local) : local, h, false);
     }
-    for (const p of typeOf(it).handles(it)) drawHandle(ctx, p, h, false);
   }
   ctx.restore();
 }
@@ -360,7 +360,7 @@ function drawGradientLines(ctx: CanvasRenderingContext2D, lines: { a: Pt; b: Pt 
   ctx.restore();
 }
 
-/** Nodes as squares (filled when selected) with their handles as stalks and dots. */
+/** Nodes as squares (filled when selected) with their handles as stalks and dots, placed through the path's transform. */
 function drawNodeEdit(ctx: CanvasRenderingContext2D, it: PathItem, sel: Set<string>, zoom: number): void {
   const h = 3.5 / zoom;
   ctx.save();
@@ -368,22 +368,24 @@ function drawNodeEdit(ctx: CanvasRenderingContext2D, it: PathItem, sel: Set<stri
   ctx.strokeStyle = ACCENT;
   it.subs.forEach((sub, s) => {
     sub.nodes.forEach((n, i) => {
+      const at = nodeToDoc(it, n.p);
       for (const hp of [n.in, n.out]) {
         if (!hp) continue;
+        const handle = nodeToDoc(it, hp);
         ctx.beginPath();
-        ctx.moveTo(n.p.x, n.p.y);
-        ctx.lineTo(hp.x, hp.y);
+        ctx.moveTo(at.x, at.y);
+        ctx.lineTo(handle.x, handle.y);
         ctx.stroke();
         ctx.fillStyle = '#fff';
         ctx.beginPath();
-        ctx.arc(hp.x, hp.y, h * 0.8, 0, Math.PI * 2);
+        ctx.arc(handle.x, handle.y, h * 0.8, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
       }
       const on = sel.has(`${s}.${i}`);
       ctx.fillStyle = on ? ACCENT : '#fff';
-      ctx.fillRect(n.p.x - h, n.p.y - h, h * 2, h * 2);
-      ctx.strokeRect(n.p.x - h, n.p.y - h, h * 2, h * 2);
+      ctx.fillRect(at.x - h, at.y - h, h * 2, h * 2);
+      ctx.strokeRect(at.x - h, at.y - h, h * 2, h * 2);
     });
   });
   ctx.restore();
