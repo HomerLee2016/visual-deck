@@ -54,7 +54,7 @@ export class CodePanel {
     try {
       const r = importSvg(this.text.value);
       const first = ws.state.layers[0];
-      ws.edit('Edit SVG code', (s) => ({ ...s, width: r.width, height: r.height, layers: [{ ...first, items: r.items }] }));
+      ws.edit('Edit SVG code', (s) => ({ ...s, width: r.width, height: r.height, layers: [{ ...first, items: r.layers.flatMap((l) => l.items) }] }));
       ws.view = { ...ws.view, fitted: false };
       this.note.textContent = r.warnings.length ? `Applied. Not imported: ${r.warnings.join('; ')}` : 'Applied.';
     } catch (e) {

@@ -217,8 +217,7 @@ export class App {
   private async openSvgShapes(file: File): Promise<void> {
     try {
       const r = importSvg(await file.text());
-      const layer = newLayer('Imported', r.items);
-      this.addWorkspace(this.newWorkspace(file.name.replace(/\.[^.]+$/, ''), r.width, r.height, [layer]));
+      this.addWorkspace(this.newWorkspace(file.name.replace(/\.[^.]+$/, ''), r.width, r.height, r.layers));
       const note = r.warnings.length ? ` – ${r.warnings.length} not imported: ${r.warnings.slice(0, 3).join('; ')}` : '';
       this.editor.onStatus(`Opened ${file.name} as shapes${note}`);
     } catch (e) {
