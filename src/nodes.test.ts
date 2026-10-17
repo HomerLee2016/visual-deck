@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodesInLasso, nodesInRect, setSmooth } from './nodes';
+import { deleteNodes, insertNode, moveHandle, moveNodes, nearestNodeHit, nearestSegment, nodeDeltaToLocal, nodeScale, nodeToDoc, nodeToLocal, nodesInLasso, nodesInRect, setSmooth } from './nodes';
 import type { PathItem } from './types';
 
 const style = { color: '#fff', width: 1 };
@@ -101,5 +101,26 @@ describe('node editing', () => {
     // A cup opening upwards: its notch is the region above (10, 5).
     const cup = [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }, { x: 10, y: 5 }, { x: 0, y: 20 }];
     expect([...nodesInLasso(open([10, 2], [10, 15]), cup)]).toEqual(['0.0']);
+  });
+});
+
+describe('nodes under a transform', () => {
+  // A path drawn at (100, 50) in its own units, as SVG import gives translated paths.
+  const moved: PathItem = { ...open([0, 0], [10, 0]), transform: [1, 0, 0, 1, 100, 50] };
+
+  it('maps document points into the path and back', () => {
+    expect(nodeToLocal(moved, { x: 105, y: 52 })).toEqual({ x: 5, y: 2 });
+    expect(nodeToDoc(moved, { x: 10, y: 0 })).toEqual({ x: 110, y: 50 });
+  });
+
+  it('finds the node under a document pointer', () => {
+    expect(nearestNodeHit(moved, nodeToLocal(moved, { x: 110, y: 50 }), 1)).toEqual({ s: 0, n: 1, which: null });
+  });
+
+  it('converts document moves and tolerances to the path units', () => {
+    const scaled: PathItem = { ...open([0, 0]), transform: [2, 0, 0, 2, 0, 0] };
+    expect(nodeDeltaToLocal(scaled, 4, 6)).toEqual({ x: 2, y: 3 });
+    expect(nodeScale(scaled)).toBe(2);
+    expect(nodeScale(open([0, 0]))).toBe(1);
   });
 });

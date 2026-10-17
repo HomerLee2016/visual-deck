@@ -1,3 +1,4 @@
+import { IDENTITY, apply, applyLinear, invert, scaleOf } from './matrix';
 import type { Rect } from './math';
 import type { PathItem, PathNode, Pt, SubPath } from './types';
 
@@ -7,6 +8,33 @@ export const parseKey = (k: string): [number, number] => {
   const [s, n] = k.split('.').map(Number);
   return [s, n];
 };
+
+/*
+ * Nodes are stored in the path's own coordinates, and its transform places them on the document.
+ * The node tool works in those coordinates: pointers and drags are mapped in, and the overlay is mapped out.
+ */
+
+/** A document point in the path's own coordinates. */
+export function nodeToLocal(it: PathItem, p: Pt): Pt {
+  const inv = it.transform ? invert(it.transform) : IDENTITY;
+  return inv ? apply(inv, p) : p;
+}
+
+/** A document-space move (dx, dy) in the path's own coordinates. */
+export function nodeDeltaToLocal(it: PathItem, dx: number, dy: number): Pt {
+  const inv = it.transform ? invert(it.transform) : IDENTITY;
+  return inv ? applyLinear(inv, dx, dy) : { x: dx, y: dy };
+}
+
+/** A node's own coordinates on the document. */
+export function nodeToDoc(it: PathItem, p: Pt): Pt {
+  return it.transform ? apply(it.transform, p) : p;
+}
+
+/** How many document units one of the path's own units spans, so a screen tolerance can be converted. */
+export function nodeScale(it: PathItem): number {
+  return (it.transform ? scaleOf(it.transform) : 1) || 1;
+}
 
 const lerp = (a: Pt, b: Pt, t: number): Pt => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 
